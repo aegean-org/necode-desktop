@@ -1,13 +1,13 @@
 {
-  "name": "@opencode-ai/desktop",
+  "name": "@necode-ai/desktop",
   "private": true,
   "version": "1.17.7",
   "type": "module",
   "license": "MIT",
-  "homepage": "https://opencode.ai",
+  "homepage": "https://necode.ai",
   "author": {
-    "name": "OpenCode",
-    "email": "hello@opencode.ai"
+    "name": "NeCode",
+    "email": "hello@necode.ai"
   },
   "scripts": {
     "typecheck": "tsgo -b",
