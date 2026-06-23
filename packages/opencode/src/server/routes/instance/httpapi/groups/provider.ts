@@ -16,6 +16,7 @@ const ProviderAuthErrorName = Schema.Union([
   Schema.Literal("ProviderAuthOauthMissing"),
   Schema.Literal("ProviderAuthOauthCodeMissing"),
   Schema.Literal("ProviderAuthOauthCallbackFailed"),
+  Schema.Literal("ProviderAuthApiAuthorizationFailed"),
   Schema.Literal("ProviderAuthValidationFailed"),
 ])
 export class ProviderAuthApiError extends Schema.ErrorClass<ProviderAuthApiError>("ProviderAuthError")(

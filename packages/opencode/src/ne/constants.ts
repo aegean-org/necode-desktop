@@ -1,0 +1,15 @@
+export const NE_PROVIDER_ID = "ne"
+export const NE_PROVIDER_NAME = "NE"
+export const NE_UC_BASE_URL = "http://uc.inoteexpress.com"
+export const NE_PUBLIC_KEY_PATH = "/user/dict"
+export const NE_LOGIN_PATH = "/user/passwordlogin"
+export const NE_PUBLIC_KEY_URL = `${NE_UC_BASE_URL}${NE_PUBLIC_KEY_PATH}`
+export const NE_LOGIN_URL = `${NE_UC_BASE_URL}${NE_LOGIN_PATH}`
+export const NE_GATEWAY_BASE_URL = "https://gateway.inoteexpress.com/v1"
+export const NE_MODELS_PATH = "/models"
+export const NE_MODELS_URL = `${NE_GATEWAY_BASE_URL}${NE_MODELS_PATH}`
+export const NE_GATEWAY_APP_SOURCE = "necli"
+export const NE_LOGIN_EXPIRE_SECONDS = 2592000
+export const NE_CHAT_MODEL_DEFAULT_CONTEXT = 128000
+export const NE_CHAT_MODEL_DEFAULT_OUTPUT = 16384
+export const NE_DEFAULT_EMBEDDING_MODEL = "bge-m3"

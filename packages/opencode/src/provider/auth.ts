@@ -78,12 +78,25 @@ export class OauthCallbackFailed extends Schema.TaggedErrorClass<OauthCallbackFa
   {},
 ) {}
 
+export class ApiAuthorizationFailed extends Schema.TaggedErrorClass<ApiAuthorizationFailed>()(
+  "ProviderAuthApiAuthorizationFailed",
+  {
+    providerID: ProviderV2.ID,
+  },
+) {}
+
 export class ValidationFailed extends Schema.TaggedErrorClass<ValidationFailed>()("ProviderAuthValidationFailed", {
   field: Schema.String,
   message: Schema.String,
 }) {}
 
-export type Error = Auth.AuthError | OauthMissing | OauthCodeMissing | OauthCallbackFailed | ValidationFailed
+export type Error =
+  | Auth.AuthError
+  | OauthMissing
+  | OauthCodeMissing
+  | OauthCallbackFailed
+  | ApiAuthorizationFailed
+  | ValidationFailed
 
 type Hook = NonNullable<Hooks["auth"]>
 
@@ -165,15 +178,20 @@ export const layer: Layer.Layer<Service, never, Auth.Service | Plugin.Service> =
     ) {
       const { hooks, pending } = yield* InstanceState.get(state)
       const method = hooks[input.providerID].methods[input.method]
-      if (method.type !== "oauth") return
+      yield* validatePrompts(method, input.inputs)
 
-      if (method.prompts && input.inputs) {
-        for (const prompt of method.prompts) {
-          if (prompt.type === "text" && prompt.validate && input.inputs[prompt.key] !== undefined) {
-            const error = prompt.validate(input.inputs[prompt.key])
-            if (error) return yield* new ValidationFailed({ field: prompt.key, message: error })
-          }
+      if (method.type === "api") {
+        if (!method.authorize) return
+        const result = yield* Effect.promise(() => method.authorize!(input.inputs))
+        if (!result || result.type !== "success") {
+          return yield* new ApiAuthorizationFailed({ providerID: input.providerID })
         }
+        yield* auth.set(input.providerID, {
+          type: "api",
+          key: result.key,
+          ...(result.metadata ? { metadata: result.metadata } : {}),
+        })
+        return
       }
 
       const result = yield* Effect.promise(() => method.authorize(input.inputs))
@@ -223,6 +241,18 @@ export const layer: Layer.Layer<Service, never, Auth.Service | Plugin.Service> =
     return Service.of({ methods, authorize, callback })
   }),
 )
+
+const validatePrompts = Effect.fnUntraced(function* (
+  method: Hook["methods"][number],
+  inputs: Record<string, string> | undefined,
+) {
+  if (!method.prompts || !inputs) return
+  for (const prompt of method.prompts) {
+    if (prompt.type !== "text" || !prompt.validate || inputs[prompt.key] === undefined) continue
+    const error = prompt.validate(inputs[prompt.key])
+    if (error) return yield* new ValidationFailed({ field: prompt.key, message: error })
+  }
+})
 
 export const defaultLayer = Layer.suspend(() =>
   layer.pipe(Layer.provide(Auth.defaultLayer), Layer.provide(Plugin.defaultLayer)),

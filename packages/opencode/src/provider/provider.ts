@@ -31,6 +31,8 @@ import { ModelV2 } from "@opencode-ai/core/model"
 import { ModelStatus } from "./model-status"
 import { RuntimeFlags } from "@/effect/runtime-flags"
 import { ProviderError } from "./error"
+import { NE_GATEWAY_BASE_URL, NE_PROVIDER_ID, NE_PROVIDER_NAME } from "@/ne/constants"
+import { buildNeGatewayBearerValue } from "@/ne/gateway-auth"
 
 const OPENAI_HEADER_TIMEOUT_DEFAULT = 10_000
 
@@ -197,6 +199,19 @@ function custom(dep: CustomDep): Record<string, CustomLoader> {
       return {
         autoload: Object.keys(input.models).length > 0,
         options: ok ? {} : { apiKey: "public" },
+      }
+    }),
+    ne: Effect.fnUntraced(function* (provider: Info) {
+      const auth = yield* dep.auth(NE_PROVIDER_ID)
+      const configured = typeof provider.options.apiKey === "string" ? provider.options.apiKey.trim() : ""
+      const token = auth?.type === "api" ? auth.key : configured
+      if (!token) return { autoload: false }
+      return {
+        autoload: true,
+        options: {
+          baseURL: NE_GATEWAY_BASE_URL,
+          apiKey: buildNeGatewayBearerValue(token),
+        },
       }
     }),
     openai: () =>
@@ -1253,6 +1268,17 @@ export function fromModelsDevProvider(provider: ModelsDev.Provider): Info {
   }
 }
 
+function fromPluginProvider(providerID: ProviderV2.ID, name: string): Info {
+  return {
+    id: providerID,
+    source: "custom",
+    name: providerID === NE_PROVIDER_ID ? NE_PROVIDER_NAME : name,
+    env: [],
+    options: {},
+    models: {},
+  }
+}
+
 function modelSuggestions(provider: Info | undefined, modelID: ModelV2.ID, enableExperimentalModels: boolean) {
   const available = provider
     ? Object.keys(provider.models).filter((id) => {
@@ -1355,8 +1381,7 @@ export const layer = Layer.effect(
           const providerID = ProviderV2.ID.make(p.id)
           if (disabled.has(providerID)) continue
 
-          const provider = database[providerID]
-          if (!provider) continue
+          const provider = database[providerID] ?? fromPluginProvider(providerID, p.id)
           const pluginAuth = yield* auth.get(providerID).pipe(Effect.orDie)
 
           provider.models = yield* Effect.promise(async () => {
@@ -1372,6 +1397,7 @@ export const layer = Layer.effect(
               ]),
             )
           })
+          database[providerID] = provider
         }
 
         // extend database from config
