@@ -299,6 +299,7 @@ export const dict = {
   "mcp.status.connected": "已連線",
   "mcp.status.failed": "失敗",
   "mcp.status.needs_auth": "需要授權",
+  "mcp.status.needs_client_registration": "需要用戶端註冊",
   "mcp.auth.clickToAuthenticate": "點擊以進行授權",
   "mcp.status.disabled": "已停用",
 
@@ -762,7 +763,14 @@ export const dict = {
   "settings.commands.title": "命令",
   "settings.commands.description": "命令設定將在此處可設定。",
   "settings.mcp.title": "MCP",
+  "settings.mcp.noProject": "開啟專案後查看 MCP 服務",
   "settings.mcp.description": "MCP 設定將在此處可設定。",
+  "settings.skills.title": "Skills",
+  "settings.skills.empty": "沒有已註冊的 Skill",
+  "settings.skills.noProject": "開啟專案後查看 Skill",
+  "settings.skills.location": "位置",
+  "settings.skills.search.placeholder": "搜尋 Skill",
+  "settings.skills.tag.slash": "Slash",
 
   "settings.permissions.title": "權限",
   "settings.permissions.description": "控制伺服器預設可以使用哪些工具。",
@@ -772,6 +780,8 @@ export const dict = {
   "settings.permissions.action.allow": "允許",
   "settings.permissions.action.ask": "詢問",
   "settings.permissions.action.deny": "拒絕",
+  "settings.permissions.action.custom": "自訂規則",
+  "settings.permissions.action.unset": "未設定",
 
   "settings.permissions.tool.read.title": "讀取",
   "settings.permissions.tool.read.description": "讀取檔案（符合檔案路徑）",

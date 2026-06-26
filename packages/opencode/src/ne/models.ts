@@ -16,20 +16,40 @@ const ZERO_COST = { input: 0, output: 0, cache: { read: 0, write: 0 } }
 const MODEL_ID_KEYS = ["id", "model", "model_id", "modelId"]
 const MODEL_NAME_KEYS = ["name", "display_name", "displayName", "label"]
 const MODEL_TYPE_KEYS = ["type", "model_type", "modelType", "api", "mode", "category", "task"]
+const MODEL_SEARCH_KEYS = [...MODEL_ID_KEYS, ...MODEL_NAME_KEYS, ...MODEL_TYPE_KEYS]
 const EMBEDDING_PATTERN = /(^|[-_/\s])embeddings?($|[-_/\s])/u
+const ASR_PATTERN = /(^|[-_/\s])asr($|[-_/\s])/u
+const HTTP_UNAUTHORIZED = 401
 
+/**
+ * Signals that the stored NE token is no longer accepted by the gateway.
+ */
+export class NeAuthExpiredError extends Error {
+  constructor(statusText: string) {
+    super(`NE model dictionary authorization expired: ${statusText || HTTP_UNAUTHORIZED}`)
+    this.name = "NeAuthExpiredError"
+  }
+}
+
+/**
+ * Fetches the NE model dictionary and returns chat-capable models only.
+ */
 export async function fetchNeModels(token: string, fetcher: Fetcher = fetch) {
   const response = await fetcher(NE_MODELS_URL, {
     method: "GET",
     headers: { accept: "application/json", Authorization: buildNeGatewayAuthorization(token) },
   })
+  if (response.status === HTTP_UNAUTHORIZED) throw new NeAuthExpiredError(response.statusText)
   if (!response.ok) throw new Error(`NE model dictionary request failed: ${response.status} ${response.statusText}`)
   return createNeModels(await response.json())
 }
 
+/**
+ * Converts the NE model dictionary into OpenCode models and excludes non-chat entries.
+ */
 export function createNeModels(value: unknown): Record<string, Model> {
   assertSuccessfulDictionaryResponse(value)
-  const entries = extractModelEntries(value).filter((entry) => !isEmbeddingModelEntry(entry))
+  const entries = extractModelEntries(value).filter((entry) => !isNonChatModelEntry(entry))
   if (entries.length === 0) throw new Error("NE model dictionary did not include any chat models.")
   return Object.fromEntries(entries.map((entry, index) => toModelEntry(entry, index)))
 }
@@ -100,12 +120,14 @@ function inputCapabilities(record: JsonRecord) {
   }
 }
 
-function isEmbeddingModelEntry(entry: unknown) {
+function isNonChatModelEntry(entry: unknown) {
   const id = typeof entry === "string" ? entry : isRecord(entry) ? getStringField(entry, MODEL_ID_KEYS) : undefined
   if (id?.trim().toLowerCase() === NE_DEFAULT_EMBEDDING_MODEL) return true
+  if (id && ASR_PATTERN.test(id.trim().toLowerCase())) return true
   if (!isRecord(entry)) return false
   const type = getStringField(entry, MODEL_TYPE_KEYS)
-  return type ? EMBEDDING_PATTERN.test(type.trim().toLowerCase()) : false
+  if (type && EMBEDDING_PATTERN.test(type.trim().toLowerCase())) return true
+  return getStringFields(entry, MODEL_SEARCH_KEYS).some((value) => ASR_PATTERN.test(value.trim().toLowerCase()))
 }
 
 function requireModelRecord(entry: unknown, index: number) {
@@ -124,6 +146,13 @@ function getStringField(record: JsonRecord, keys: string[]) {
     const value = record[key]
     if (typeof value === "string" && value.trim() !== "") return value
   }
+}
+
+function getStringFields(record: JsonRecord, keys: string[]) {
+  return keys.flatMap((key) => {
+    const value = record[key]
+    return typeof value === "string" && value.trim() !== "" ? [value] : []
+  })
 }
 
 function booleanField(record: JsonRecord, keys: string[]) {

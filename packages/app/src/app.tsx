@@ -48,6 +48,7 @@ import { SDKProvider, useSDK } from "@/context/sdk"
 import { WslServersProvider } from "@/wsl/context"
 import DirectoryLayout, { DirectoryDataProvider } from "@/pages/directory-layout"
 import Layout from "@/pages/layout"
+import { NeLoginGate } from "@/components/ne-login-gate"
 import { ErrorPage } from "./pages/error"
 import { useCheckServerHealth } from "./utils/server-health"
 
@@ -90,7 +91,9 @@ function SelectedServerLayout(props: ParentProps) {
     <ServerKey>
       <ServerSDKProvider>
         <ServerSyncProvider>
-          <ServerScopedShell>{props.children}</ServerScopedShell>
+          <NeLoginGate>
+            <ServerScopedShell>{props.children}</ServerScopedShell>
+          </NeLoginGate>
         </ServerSyncProvider>
       </ServerSDKProvider>
     </ServerKey>
@@ -115,7 +118,9 @@ function DraftServerLayout(props: ParentProps) {
   return (
     <ServerSDKProvider server={conn}>
       <ServerSyncProvider server={conn}>
-        <ServerScopedShell>{props.children}</ServerScopedShell>
+        <NeLoginGate>
+          <ServerScopedShell>{props.children}</ServerScopedShell>
+        </NeLoginGate>
       </ServerSyncProvider>
     </ServerSDKProvider>
   )

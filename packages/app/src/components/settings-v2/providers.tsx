@@ -11,6 +11,7 @@ import { useServerSync } from "@/context/server-sync"
 import { DialogConnectProvider } from "../dialog-connect-provider"
 import { DialogSelectProvider } from "../dialog-select-provider"
 import { DialogCustomProvider } from "../dialog-custom-provider"
+import { providerAccountDescription, providerDisconnectLabel } from "../provider-account"
 import { SettingsListV2 } from "./parts/list"
 import "./settings-v2.css"
 
@@ -161,6 +162,9 @@ export const SettingsProvidersV2: Component = () => {
                         <span class="settings-v2-provider-name truncate">{item.name}</span>
                         <Tag>{type(item)}</Tag>
                       </div>
+                      <Show when={providerAccountDescription(item, language.t)}>
+                        {(text) => <p class="settings-v2-provider-description">{text()}</p>}
+                      </Show>
                     </div>
                     <Show
                       when={canDisconnect(item)}
@@ -171,7 +175,7 @@ export const SettingsProvidersV2: Component = () => {
                       }
                     >
                       <ButtonV2 size="normal" variant="ghost-muted" onClick={() => void disconnect(item.id, item.name)}>
-                        {language.t("common.disconnect")}
+                        {providerDisconnectLabel(item.id, language.t)}
                       </ButtonV2>
                     </Show>
                   </div>

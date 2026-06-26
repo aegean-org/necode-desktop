@@ -10,6 +10,9 @@ import { SettingsProvidersV2 } from "./providers"
 import { SettingsModelsV2 } from "./models"
 import "./settings-v2.css"
 import { SettingsServersV2 } from "./servers"
+import { SettingsMcpV2 } from "./mcp"
+import { SettingsSkillsV2 } from "./skills"
+import { SettingsPermissionsV2 } from "./permissions"
 
 export const DialogSettings: Component = () => {
   const language = useLanguage()
@@ -51,6 +54,18 @@ export const DialogSettings: Component = () => {
                       <Icon name="models" />
                       {language.t("settings.models.title")}
                     </TabsV2.Trigger>
+                    <TabsV2.Trigger value="mcp">
+                      <Icon name="mcp" />
+                      {language.t("settings.mcp.title")}
+                    </TabsV2.Trigger>
+                    <TabsV2.Trigger value="skills">
+                      <Icon name="brain" />
+                      {language.t("settings.skills.title")}
+                    </TabsV2.Trigger>
+                    <TabsV2.Trigger value="permissions">
+                      <Icon name="shield" />
+                      {language.t("settings.permissions.title")}
+                    </TabsV2.Trigger>
                   </div>
                 </div>
               </div>
@@ -75,6 +90,15 @@ export const DialogSettings: Component = () => {
         </TabsV2.Content>
         <TabsV2.Content value="models" class="settings-v2-panel">
           <SettingsModelsV2 />
+        </TabsV2.Content>
+        <TabsV2.Content value="mcp" class="settings-v2-panel">
+          <SettingsMcpV2 />
+        </TabsV2.Content>
+        <TabsV2.Content value="skills" class="settings-v2-panel">
+          <SettingsSkillsV2 />
+        </TabsV2.Content>
+        <TabsV2.Content value="permissions" class="settings-v2-panel">
+          <SettingsPermissionsV2 />
         </TabsV2.Content>
       </TabsV2>
     </Dialog>

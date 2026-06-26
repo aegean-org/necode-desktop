@@ -2136,6 +2136,10 @@ export type Provider = {
   source: "env" | "config" | "custom" | "api"
   env: Array<string>
   key?: string
+  account?: {
+    id?: string
+    label: string
+  }
   options: {
     [key: string]: unknown
   }
@@ -2558,6 +2562,7 @@ export type ProviderAuthError1 = {
     | "ProviderAuthOauthMissing"
     | "ProviderAuthOauthCodeMissing"
     | "ProviderAuthOauthCallbackFailed"
+    | "ProviderAuthApiAuthorizationFailed"
     | "ProviderAuthValidationFailed"
   data: {
     providerID?: string

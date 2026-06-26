@@ -319,6 +319,7 @@ export const dict = {
   "mcp.status.connected": "已连接",
   "mcp.status.failed": "失败",
   "mcp.status.needs_auth": "需要授权",
+  "mcp.status.needs_client_registration": "需要客户端注册",
   "mcp.auth.clickToAuthenticate": "点击进行授权",
   "mcp.status.disabled": "已禁用",
 
@@ -778,7 +779,14 @@ export const dict = {
   "settings.commands.description": "命令设置将在此处可配置。",
 
   "settings.mcp.title": "MCP",
+  "settings.mcp.noProject": "打开项目后查看 MCP 服务",
   "settings.mcp.description": "MCP 设置将在此处可配置。",
+  "settings.skills.title": "Skills",
+  "settings.skills.empty": "没有已注册的 Skill",
+  "settings.skills.noProject": "打开项目后查看 Skill",
+  "settings.skills.location": "位置",
+  "settings.skills.search.placeholder": "搜索 Skill",
+  "settings.skills.tag.slash": "Slash",
 
   "settings.permissions.title": "权限",
   "settings.permissions.description": "控制服务器默认可以使用哪些工具。",
@@ -787,6 +795,8 @@ export const dict = {
   "settings.permissions.action.allow": "允许",
   "settings.permissions.action.ask": "询问",
   "settings.permissions.action.deny": "拒绝",
+  "settings.permissions.action.custom": "自定义规则",
+  "settings.permissions.action.unset": "未配置",
   "settings.permissions.tool.read.title": "读取",
   "settings.permissions.tool.read.description": "读取文件（匹配文件路径）",
   "settings.permissions.tool.edit.title": "编辑",

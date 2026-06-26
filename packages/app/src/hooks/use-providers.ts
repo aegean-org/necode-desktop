@@ -3,18 +3,9 @@ import { decode64 } from "@/utils/base64"
 import { useParams } from "@solidjs/router"
 import { Iterable, pipe } from "effect"
 import { createMemo } from "solid-js"
+import { sortPopularProviders } from "./provider-order"
 
-export const popularProviders = [
-  "opencode",
-  "opencode-go",
-  "anthropic",
-  "github-copilot",
-  "openai",
-  "google",
-  "openrouter",
-  "vercel",
-]
-const popularProviderSet = new Set(popularProviders)
+export { popularProviders } from "./provider-order"
 
 export function useProviders() {
   const serverSync = useServerSync()
@@ -30,13 +21,7 @@ export function useProviders() {
   return {
     all: () => providers().all,
     default: () => providers().default,
-    popular: () =>
-      pipe(
-        providers().all,
-        Iterable.map(([, p]) => p),
-        Iterable.filter((p) => popularProviderSet.has(p.id)),
-        (v) => Array.from(v),
-      ),
+    popular: () => sortPopularProviders(Iterable.map(providers().all, ([, provider]) => provider)),
     connected: () => {
       const connected = new Set(providers().connected)
       return pipe(

@@ -16,6 +16,7 @@ import { useServerSDK } from "@/context/server-sdk"
 import { useServerSync } from "@/context/server-sync"
 import { useLanguage } from "@/context/language"
 import { useProviders } from "@/hooks/use-providers"
+import { ProviderApiAuthForm } from "./provider-api-auth-form"
 
 export function DialogConnectProvider(props: { provider: string }) {
   const dialog = useDialog()
@@ -120,7 +121,7 @@ export function DialogConnectProvider(props: { provider: string }) {
 
   const methodLabel = (value?: { type?: string; label?: string }) => {
     if (!value) return ""
-    if (value.type === "api") return language.t("provider.connect.method.apiKey")
+    if (value.type === "api") return value.label ?? language.t("provider.connect.method.apiKey")
     return value.label ?? ""
   }
 
@@ -150,6 +151,32 @@ export function DialogConnectProvider(props: { provider: string }) {
 
     const method = methods()[index]
     dispatch({ type: "method.select", index })
+
+    if (method.type === "api" && method.prompts?.length) {
+      if (!inputs) {
+        dispatch({ type: "auth.prompt" })
+        return
+      }
+      dispatch({ type: "auth.pending" })
+      await serverSDK()
+        .client.provider.oauth.authorize(
+          {
+            providerID: props.provider,
+            method: index,
+            inputs,
+          },
+          { throwOnError: true },
+        )
+        .then(async () => {
+          if (!alive.value) return
+          await complete()
+        })
+        .catch((e) => {
+          if (!alive.value) return
+          dispatch({ type: "auth.error", error: formatError(e, language.t("common.requestFailed")) })
+        })
+      return
+    }
 
     if (method.type === "oauth") {
       if (method.prompts?.length && !inputs) {
@@ -390,6 +417,21 @@ export function DialogConnectProvider(props: { provider: string }) {
     )
   }
 
+  function ApiPromptsView() {
+    return (
+      <div class="flex flex-col gap-6">
+        <div class="text-14-regular text-text-base">
+          {language.t("provider.connect.apiPrompts.description", { provider: provider().name })}
+        </div>
+        <ProviderApiAuthForm
+          method={method()}
+          submitLabel={language.t("common.continue")}
+          onSubmit={(inputs) => selectMethod(store.methodIndex!, inputs)}
+        />
+      </div>
+    )
+  }
+
   function ApiAuthView() {
     const [formStore, setFormStore] = createStore({
       value: "",
@@ -621,7 +663,10 @@ export function DialogConnectProvider(props: { provider: string }) {
                   </div>
                 </div>
               </Match>
-              <Match when={store.state === "prompt"}>
+              <Match when={store.state === "prompt" && method()?.type === "api"}>
+                <ApiPromptsView />
+              </Match>
+              <Match when={store.state === "prompt" && method()?.type === "oauth"}>
                 <OAuthPromptsView />
               </Match>
               <Match when={store.state === "error"}>

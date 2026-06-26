@@ -135,6 +135,7 @@ export const dict = {
   "provider.connect.apiKey.label": "{{provider}} API key",
   "provider.connect.apiKey.placeholder": "API key",
   "provider.connect.apiKey.required": "API key is required",
+  "provider.connect.apiPrompts.description": "Sign in with your {{provider}} account to enable provider models.",
   "provider.connect.opencodeZen.line1":
     "NeCode Zen gives you access to a curated set of reliable optimized models for coding agents.",
   "provider.connect.opencodeZen.line2":
@@ -157,6 +158,12 @@ export const dict = {
   "provider.connect.oauth.auto.confirmationCode": "Confirmation code",
   "provider.connect.toast.connected.title": "{{provider}} connected",
   "provider.connect.toast.connected.description": "{{provider}} models are now available to use.",
+
+  "ne.login.title": "Sign in to NE",
+  "ne.login.description": "Use your NE account before entering NeCode.",
+  "ne.login.loading": "Loading NE authentication...",
+  "ne.login.submit": "Sign in",
+  "ne.login.unavailable": "NE authentication is not available. Click to retry.",
 
   "provider.custom.title": "Custom provider",
   "provider.custom.description.prefix": "Configure an OpenAI-compatible provider. See the ",
@@ -306,6 +313,7 @@ export const dict = {
   "mcp.status.connected": "connected",
   "mcp.status.failed": "failed",
   "mcp.status.needs_auth": "needs auth",
+  "mcp.status.needs_client_registration": "needs client registration",
   "mcp.status.disabled": "disabled",
   "mcp.auth.clickToAuthenticate": "Click to authenticate",
 
@@ -960,6 +968,8 @@ export const dict = {
   "settings.providers.section.connected": "Connected providers",
   "settings.providers.connected.empty": "No connected providers",
   "settings.providers.connected.environmentDescription": "Connected from your environment variables",
+  "settings.providers.connected.neAccount": "Signed in as {{account}}",
+  "settings.providers.action.switchAccount": "Switch account",
   "settings.providers.section.popular": "Popular providers",
   "settings.providers.custom.description": "Add an OpenAI-compatible provider by base URL.",
   "settings.providers.tag.environment": "Environment",
@@ -973,7 +983,14 @@ export const dict = {
   "settings.commands.title": "Commands",
   "settings.commands.description": "Command settings will be configurable here.",
   "settings.mcp.title": "MCP",
+  "settings.mcp.noProject": "Open a project to view MCP servers",
   "settings.mcp.description": "MCP settings will be configurable here.",
+  "settings.skills.title": "Skills",
+  "settings.skills.empty": "No skills registered",
+  "settings.skills.noProject": "Open a project to view skills",
+  "settings.skills.location": "Location",
+  "settings.skills.search.placeholder": "Search skills",
+  "settings.skills.tag.slash": "Slash",
 
   "settings.permissions.title": "Permissions",
   "settings.permissions.description": "Control what tools the server can use by default.",
@@ -983,6 +1000,8 @@ export const dict = {
   "settings.permissions.action.allow": "Allow",
   "settings.permissions.action.ask": "Ask",
   "settings.permissions.action.deny": "Deny",
+  "settings.permissions.action.custom": "Custom rules",
+  "settings.permissions.action.unset": "Not configured",
 
   "settings.permissions.tool.read.title": "Read",
   "settings.permissions.tool.read.description": "Reading a file (matches the file path)",

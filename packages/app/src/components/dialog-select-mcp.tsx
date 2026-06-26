@@ -5,23 +5,18 @@ import { List } from "@opencode-ai/ui/list"
 import { Switch } from "@opencode-ai/ui/switch"
 import { useLanguage } from "@/context/language"
 import { useMcpToggle } from "@/context/mcp"
-
-const statusLabels = {
-  connected: "mcp.status.connected",
-  failed: "mcp.status.failed",
-  needs_auth: "mcp.status.needs_auth",
-  needs_client_registration: "mcp.status.needs_client_registration",
-  disabled: "mcp.status.disabled",
-} as const
+import { mcpDisplayName, sortMcpNames, statusLabelKey } from "./ne-mcp"
 
 export const DialogSelectMcp: Component = () => {
   const sync = useSync()
   const language = useLanguage()
 
   const items = createMemo(() =>
-    Object.entries(sync().data.mcp ?? {})
-      .map(([name, status]) => ({ name, status: status.status }))
-      .sort((a, b) => a.name.localeCompare(b.name)),
+    sortMcpNames(Object.keys(sync().data.mcp ?? {})).map((name) => ({
+      name,
+      displayName: mcpDisplayName(name),
+      status: sync().data.mcp[name].status,
+    })),
   )
 
   const toggle = useMcpToggle()
@@ -40,8 +35,7 @@ export const DialogSelectMcp: Component = () => {
         emptyMessage={language.t("dialog.mcp.empty")}
         key={(x) => x?.name ?? ""}
         items={items}
-        filterKeys={["name", "status"]}
-        sortBy={(a, b) => a.name.localeCompare(b.name)}
+        filterKeys={["displayName", "name", "status"]}
         onSelect={(x) => {
           if (!x || toggle.isPending) return
           toggle.mutate(x.name)
@@ -51,7 +45,7 @@ export const DialogSelectMcp: Component = () => {
           const mcpStatus = () => sync().data.mcp[i.name]
           const status = () => mcpStatus()?.status
           const statusLabel = () => {
-            const key = status() ? statusLabels[status() as keyof typeof statusLabels] : undefined
+            const key = statusLabelKey(status())
             if (!key) return
             return language.t(key)
           }
@@ -64,7 +58,7 @@ export const DialogSelectMcp: Component = () => {
             <div class="w-full flex items-center justify-between gap-x-3">
               <div class="flex flex-col gap-0.5 min-w-0">
                 <div class="flex items-center gap-2">
-                  <span class="truncate">{i.name}</span>
+                  <span class="truncate">{i.displayName}</span>
                   <Show when={statusLabel()}>
                     <span class="text-11-regular text-text-weaker">{statusLabel()}</span>
                   </Show>

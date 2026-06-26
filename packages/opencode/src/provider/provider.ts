@@ -33,6 +33,7 @@ import { RuntimeFlags } from "@/effect/runtime-flags"
 import { ProviderError } from "./error"
 import { NE_GATEWAY_BASE_URL, NE_PROVIDER_ID, NE_PROVIDER_NAME } from "@/ne/constants"
 import { buildNeGatewayBearerValue } from "@/ne/gateway-auth"
+import { NeAuthExpiredError } from "@/ne/models"
 
 const OPENAI_HEADER_TIMEOUT_DEFAULT = 10_000
 
@@ -1053,6 +1054,12 @@ export const Info = Schema.Struct({
   source: Schema.Literals(["env", "config", "custom", "api"]),
   env: Schema.Array(Schema.String),
   key: optionalOmitUndefined(Schema.String),
+  account: optionalOmitUndefined(
+    Schema.Struct({
+      id: optionalOmitUndefined(Schema.String),
+      label: Schema.String,
+    }),
+  ),
   options: Schema.Record(Schema.String, Schema.Any),
   models: Schema.Record(Schema.String, Model),
 }).annotate({ identifier: "Provider" })
@@ -1081,6 +1088,16 @@ export function toPublicInfo(provider: Info): Info {
       return value
     }),
   )
+}
+
+function providerAccount(auth: Auth.Info) {
+  if (auth.type !== "api") return
+  const label = auth.metadata?.displayName ?? auth.metadata?.accountId
+  if (!label) return
+  return {
+    ...(auth.metadata?.accountId ? { id: auth.metadata.accountId } : {}),
+    label,
+  }
 }
 
 export function defaultModelIDs<T extends { models: Record<string, { id: string }> }>(providers: Record<string, T>) {
@@ -1384,19 +1401,31 @@ export const layer = Layer.effect(
           const provider = database[providerID] ?? fromPluginProvider(providerID, p.id)
           const pluginAuth = yield* auth.get(providerID).pipe(Effect.orDie)
 
-          provider.models = yield* Effect.promise(async () => {
-            const next = await models(toPublicInfo(provider), { auth: pluginAuth })
-            return Object.fromEntries(
-              Object.entries(next).map(([id, model]) => [
-                id,
-                {
-                  ...model,
-                  id: ModelV2.ID.make(id),
-                  providerID,
-                },
-              ]),
-            )
+          const loaded = yield* Effect.promise(async () => {
+            try {
+              return { type: "success" as const, value: await models(toPublicInfo(provider), { auth: pluginAuth }) }
+            } catch (cause) {
+              return { type: "error" as const, cause }
+            }
           })
+          if (loaded.type === "error") {
+            if (providerID === NE_PROVIDER_ID && loaded.cause instanceof NeAuthExpiredError) {
+              yield* auth.remove(providerID).pipe(Effect.orDie)
+              continue
+            }
+            throw loaded.cause
+          }
+
+          provider.models = Object.fromEntries(
+            Object.entries(loaded.value).map(([id, model]) => [
+              id,
+              {
+                ...model,
+                id: ModelV2.ID.make(id),
+                providerID,
+              },
+            ]),
+          )
           database[providerID] = provider
         }
 
@@ -1516,6 +1545,7 @@ export const layer = Layer.effect(
             mergeProvider(providerID, {
               source: "api",
               key: provider.key,
+              account: providerAccount(provider),
             })
           }
         }
@@ -1925,6 +1955,12 @@ export const layer = Layer.effect(
       if (cfg.model) return parseModel(cfg.model)
 
       const s = yield* InstanceState.get(state)
+      const neProvider = s.providers[ProviderV2.ID.make(NE_PROVIDER_ID)]
+      if (neProvider) {
+        const [model] = sort(Object.values(neProvider.models))
+        if (model) return { providerID: neProvider.id, modelID: model.id }
+      }
+
       const recent = yield* fs.readJson(path.join(Global.Path.state, "model.json")).pipe(
         Effect.map((x): { providerID: ProviderV2.ID; modelID: ModelV2.ID }[] => {
           if (!isRecord(x) || !Array.isArray(x.recent)) return []

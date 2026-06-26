@@ -16,6 +16,7 @@ import { type ServerHealth } from "@/utils/server-health"
 import { useGlobal } from "@/context/global"
 import { useSettings } from "@/context/settings"
 import { useMcpToggle } from "@/context/mcp"
+import { mcpDisplayName, sortMcpNames, statusLabelKey } from "./ne-mcp"
 
 const pluginEmptyMessage = (value: string, file: string): JSXElement => {
   const parts = value.split(file)
@@ -279,7 +280,7 @@ export function StatusPopoverBody(props: { shown: Accessor<boolean> }) {
   const sortedServers = createMemo(() => listServersByHealth(global.servers.list(), server.key, global.servers.health))
   const toggleMcp = useMcpToggle()
   const defaultServer = useDefaultServerKey(platform.getDefaultServer)
-  const mcpNames = createMemo(() => Object.keys(sync().data.mcp ?? {}).sort((a, b) => a.localeCompare(b)))
+  const mcpNames = createMemo(() => sortMcpNames(Object.keys(sync().data.mcp ?? {})))
   const mcpStatus = (name: string) => sync().data.mcp?.[name]?.status
   const mcpConnected = createMemo(() => mcpNames().filter((name) => mcpStatus(name) === "connected").length)
   const lspItems = createMemo(() => sync().data.lsp ?? [])
@@ -401,6 +402,15 @@ export function StatusPopoverBody(props: { shown: Accessor<boolean> }) {
                   {(name) => {
                     const status = () => mcpStatus(name)
                     const enabled = () => status() === "connected"
+                    const statusLabel = () => {
+                      const key = statusLabelKey(status())
+                      if (!key) return
+                      return language.t(key)
+                    }
+                    const error = () => {
+                      const item = sync().data.mcp?.[name]
+                      if (item?.status === "failed" || item?.status === "needs_client_registration") return item.error
+                    }
                     return (
                       <button
                         type="button"
@@ -423,12 +433,18 @@ export function StatusPopoverBody(props: { shown: Accessor<boolean> }) {
                         />
                         <span class="flex flex-col min-w-0 flex-1">
                           <span class="flex items-center gap-2 min-w-0">
-                            <span class="text-14-regular text-text-base truncate">{name}</span>
+                            <span class="text-14-regular text-text-base truncate">{mcpDisplayName(name)}</span>
+                            <Show when={statusLabel()}>
+                              {(label) => <span class="text-11-regular text-text-weaker shrink-0">{label()}</span>}
+                            </Show>
                           </span>
                           <Show when={status() === "needs_auth"}>
                             <span class="text-11-regular text-text-weaker truncate">
                               {language.t("mcp.auth.clickToAuthenticate")}
                             </span>
+                          </Show>
+                          <Show when={error()}>
+                            {(message) => <span class="text-11-regular text-text-weaker truncate">{message()}</span>}
                           </Show>
                         </span>
                         <div onClick={(event) => event.stopPropagation()}>

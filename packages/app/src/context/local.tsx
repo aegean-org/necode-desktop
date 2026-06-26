@@ -11,6 +11,7 @@ import { useSDK } from "./sdk"
 import { useSync } from "./sync"
 import { useServerSDK } from "./server-sdk"
 import { ScopedKey, type ServerScope } from "@/utils/server-scope"
+import { selectFallbackModel } from "./local-model"
 
 export type ModelKey = { providerID: string; modelID: string; variant?: string }
 
@@ -151,29 +152,16 @@ export const { use: useLocal, provider: LocalProvider } = createSimpleContext({
       if (validModel(model)) return model
     }
 
-    const recentModel = () => {
-      for (const item of models.recent.list()) {
-        if (validModel(item)) return item
-      }
-    }
-
-    const defaultModel = () => {
-      const defaults = providers.default()
-      for (const provider of providers.connected()) {
-        const configured = defaults[provider.id]
-        if (configured) {
-          const model = { providerID: provider.id, modelID: configured }
-          if (validModel(model)) return model
-        }
-
-        const first = Object.values(provider.models)[0]
-        if (!first) continue
-        const model = { providerID: provider.id, modelID: first.id }
-        if (validModel(model)) return model
-      }
-    }
-
-    const fallback = createMemo<ModelKey | undefined>(() => configuredModel() ?? recentModel() ?? defaultModel())
+    const fallback = createMemo<ModelKey | undefined>(() =>
+      selectFallbackModel({
+        configured: configuredModel(),
+        recent: models.recent.list(),
+        defaults: providers.default(),
+        connected: providers.connected(),
+        primaryProviderID: "ne",
+        valid: validModel,
+      }),
+    )
 
     const agent = {
       list,

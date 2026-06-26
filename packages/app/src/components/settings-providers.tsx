@@ -13,6 +13,7 @@ import { DialogSelectProvider } from "./dialog-select-provider"
 import { DialogCustomProvider } from "./dialog-custom-provider"
 import { SettingsList } from "./settings-list"
 import { SettingsServerPicker, SettingsServerScope } from "./settings-server-picker"
+import { providerAccountDescription, providerDisconnectLabel } from "./provider-account"
 
 type ProviderSource = "env" | "api" | "config" | "custom"
 type ProviderItem = ReturnType<ReturnType<typeof useProviders>["connected"]>[number]
@@ -163,8 +164,15 @@ const SettingsProvidersContent: Component = () => {
                   <div class="group flex flex-wrap items-center justify-between gap-4 min-h-16 py-3 border-b border-border-weak-base last:border-none">
                     <div class="flex items-center gap-3 min-w-0">
                       <ProviderIcon id={item.id} class="size-5 shrink-0 icon-strong-base" />
-                      <span class="text-14-medium text-text-strong truncate">{item.name}</span>
-                      <Tag>{type(item)}</Tag>
+                      <div class="flex flex-col min-w-0">
+                        <div class="flex items-center gap-3 min-w-0">
+                          <span class="text-14-medium text-text-strong truncate">{item.name}</span>
+                          <Tag>{type(item)}</Tag>
+                        </div>
+                        <Show when={providerAccountDescription(item, language.t)}>
+                          {(text) => <span class="text-12-regular text-text-weak truncate">{text()}</span>}
+                        </Show>
+                      </div>
                     </div>
                     <Show
                       when={canDisconnect(item)}
@@ -175,7 +183,7 @@ const SettingsProvidersContent: Component = () => {
                       }
                     >
                       <Button size="large" variant="ghost" onClick={() => void disconnect(item.id, item.name)}>
-                        {language.t("common.disconnect")}
+                        {providerDisconnectLabel(item.id, language.t)}
                       </Button>
                     </Show>
                   </div>
