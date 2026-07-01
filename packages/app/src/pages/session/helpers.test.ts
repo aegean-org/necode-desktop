@@ -12,6 +12,8 @@ import {
   shouldShowFileTree,
 } from "./helpers"
 
+const SOURCE_FUNCTION_LINE_LIMIT = 50
+
 describe("session page initialization", () => {
   test("initializes interaction store before workflow memos read it", async () => {
     const source = await Bun.file(new URL("../session.tsx", import.meta.url)).text()
@@ -36,7 +38,42 @@ describe("session page initialization", () => {
     expect(source).toContain("WorkflowEntityRow")
     expect(source).not.toContain("WORKFLOW_ENTITY_ROW")
   })
+
+  test("gates review panel chrome through side panel mode", async () => {
+    const source = await Bun.file(new URL("../session.tsx", import.meta.url)).text()
+
+    expect(source).toContain("const reviewPanel = (workflow: boolean) =>")
+    expect(source).toContain('"bg-[var(--workflow-panel-base)]": workflow')
+    expect(source).toContain('"bg-background-stronger": !workflow')
+    expect(source).toContain("reviewPanel={() => reviewPanel(embedded)}")
+  })
+
+  test("keeps session panel source section under the local line limit", async () => {
+    const source = await Bun.file(new URL("../session.tsx", import.meta.url)).text()
+
+    expect(sourceSectionNonblankLineCount(source, "const sessionPanel = (workflow: boolean)", "const sidePanel =")).toBeLessThanOrEqual(
+      SOURCE_FUNCTION_LINE_LIMIT,
+    )
+  })
+
+  test("does not keep workflow-only width gate in legacy session sizing", async () => {
+    const source = await Bun.file(new URL("../session.tsx", import.meta.url)).text()
+
+    expect(source).not.toContain("workflowSessionNavigatorOpen")
+    expect(source).not.toContain("isWorkflowPanelWidth")
+  })
 })
+
+function sourceSectionNonblankLineCount(source: string, start: string, end: string) {
+  const startIndex = source.indexOf(start)
+  const endIndex = source.indexOf(end, startIndex)
+  expect(startIndex).toBeGreaterThanOrEqual(0)
+  expect(endIndex).toBeGreaterThan(startIndex)
+  return source
+    .slice(startIndex, endIndex)
+    .split(/\r?\n/)
+    .filter((line) => line.trim()).length
+}
 
 describe("shouldCenterSessionContent", () => {
   test("keeps workflow layout from centering desktop session content", () => {

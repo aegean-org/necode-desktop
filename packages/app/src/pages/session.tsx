@@ -12,6 +12,7 @@ import {
   createComputed,
   on,
   onMount,
+  type JSX,
   untrack,
 } from "solid-js"
 import { makeEventListener } from "@solid-primitives/event-listener"
@@ -183,7 +184,6 @@ export default function Page() {
   )
 
   const isDesktop = createMediaQuery("(min-width: 768px)")
-  const isWorkflowPanelWidth = createMediaQuery("(min-width: 1024px)")
   const size = createSizing()
   const desktopReviewOpen = createMemo(() => isDesktop() && view().reviewPanel.opened())
   const desktopFileTreeOpen = createMemo(
@@ -195,9 +195,7 @@ export default function Page() {
       }),
   )
   const desktopSidePanelOpen = createMemo(() => desktopReviewOpen() || desktopFileTreeOpen())
-  const workflowSessionNavigatorOpen = createMemo(() => settings.general.newLayoutDesigns() && isWorkflowPanelWidth())
   const sessionPanelWidth = createMemo(() => {
-    if (workflowSessionNavigatorOpen()) return undefined
     if (!desktopSidePanelOpen()) return "100%"
     if (desktopReviewOpen()) return `${layout.session.width()}px`
     return `calc(100% - ${layout.fileTree.width()}px)`
@@ -947,8 +945,14 @@ export default function Page() {
     </Show>
   )
 
-  const reviewPanel = () => (
-    <div class="flex flex-col h-full overflow-hidden bg-[var(--workflow-panel-base)] contain-strict">
+  const reviewPanel = (workflow: boolean) => (
+    <div
+      class="flex flex-col h-full overflow-hidden contain-strict"
+      classList={{
+        "bg-[var(--workflow-panel-base)]": workflow,
+        "bg-background-stronger": !workflow,
+      }}
+    >
       <div class="relative pt-2 flex-1 min-h-0 overflow-hidden">
         {reviewContent({
           diffStyle: layout.review.diffStyle(),
@@ -1680,116 +1684,128 @@ export default function Page() {
     </Show>
   )
 
+  const mobileReviewPanel = () => (
+    <div class="relative h-full overflow-hidden">
+      {reviewContent({
+        diffStyle: "unified",
+        classes: {
+          root: "pb-8",
+          header: "px-4",
+          container: "px-4",
+        },
+        loadingClass: "px-4 py-4 text-text-weak",
+        emptyClass: "h-full pb-64 -mt-4 flex flex-col items-center justify-center text-center gap-6",
+      })}
+    </div>
+  )
+
+  const sessionTimeline = () => (
+    <Show when={messagesReady() ? params.id : undefined} keyed>
+      {(_id) => (
+        <MessageTimeline
+          actions={actions}
+          scroll={ui.scroll}
+          onResumeScroll={resumeScroll}
+          setScrollRef={setScrollRef}
+          onScheduleScrollState={scheduleScrollState}
+          onAutoScrollHandleScroll={autoScroll.handleScroll}
+          onMarkScrollGesture={markScrollGesture}
+          hasScrollGesture={hasScrollGesture}
+          onUserScroll={markUserScroll}
+          onHistoryScroll={onHistoryScroll}
+          onAutoScrollInteraction={autoScroll.handleInteraction}
+          shouldAnchorBottom={() => !location.hash && !store.messageId && !ui.pendingMessage && !autoScroll.userScrolled()}
+          centered={centered()}
+          setContentRef={(el) => {
+            content = el
+            autoScroll.contentRef(el)
+
+            const root = scroller
+            if (root) scheduleScrollState(root)
+          }}
+          userMessages={visibleUserMessages()}
+          setHistoryAnchor={(handlers) => {
+            captureHistoryAnchor = handlers.capture
+            restoreHistoryAnchor = handlers.restore
+          }}
+          anchor={anchor}
+          setRevealMessage={(fn) => {
+            revealMessage = fn
+          }}
+          setScrollToEnd={(fn) => {
+            scrollToEnd = fn
+          }}
+        />
+      )}
+    </Show>
+  )
+
+  const sessionPanelBody = () => (
+    <div class="flex-1 min-h-0 overflow-hidden">
+      <Switch>
+        <Match when={params.id && mobileChanges()}>{mobileReviewPanel()}</Match>
+        <Match when={params.id}>{sessionTimeline()}</Match>
+        <Match when={true}>
+          <NewSessionView worktree={newSessionWorktree()} />
+        </Match>
+      </Switch>
+    </div>
+  )
+
+  const sessionPanelResizeHandle = (workflow: boolean) => (
+    <Show when={!workflow && desktopReviewOpen()}>
+      <div onPointerDown={() => size.start()}>
+        <ResizeHandle
+          classList={{
+            "-right-1": settings.general.newLayoutDesigns(),
+          }}
+          direction="horizontal"
+          size={layout.session.width()}
+          min={450}
+          max={typeof window === "undefined" ? 1000 : window.innerWidth * 0.45}
+          onResize={(width) => {
+            size.touch()
+            layout.session.resize(width)
+          }}
+        />
+      </div>
+    </Show>
+  )
+
+  const sessionPanelFrame = (workflow: boolean, children: JSX.Element) => (
+    <div
+      classList={{
+        "@container relative flex h-full min-h-0 min-w-0 flex-col": true,
+        "flex-1": workflow,
+        "shrink-0 transition-[width]": !workflow,
+        "flex-1 md:flex-none": !workflow,
+        "duration-[240ms] ease-[cubic-bezier(0.22,1,0.36,1)] will-change-[width] motion-reduce:transition-none":
+          !workflow && !size.active() && !ui.reviewSnap,
+      }}
+      style={{
+        width: workflow ? undefined : sessionPanelWidth(),
+      }}
+    >
+      <div
+        classList={{
+          "flex-1 min-h-0 flex flex-col overflow-hidden": true,
+          "bg-[var(--workflow-panel-content)]": workflow,
+          "bg-background-stronger": !workflow,
+          "rounded-[10px] overflow-hidden": !workflow && settings.general.newLayoutDesigns(),
+          "shadow-[var(--v2-elevation-raised)]": !workflow && settings.general.newLayoutDesigns() && !!params.id,
+        }}
+      >
+        {children}
+        <Show when={params.id || !newSessionDesign()}>{composerRegion("dock")}</Show>
+      </div>
+      {sessionPanelResizeHandle(workflow)}
+    </div>
+  )
+
   const sessionPanel = (workflow: boolean) => (
     <>
       {mobileTabs()}
-      <div
-        classList={{
-          "@container relative flex h-full min-h-0 min-w-0 flex-col": true,
-          "flex-1": workflow,
-          "shrink-0 transition-[width]": !workflow,
-          "flex-1 md:flex-none": !workflow,
-          "duration-[240ms] ease-[cubic-bezier(0.22,1,0.36,1)] will-change-[width] motion-reduce:transition-none":
-            !workflow && !size.active() && !ui.reviewSnap,
-        }}
-        style={{
-          width: workflow ? undefined : sessionPanelWidth(),
-        }}
-      >
-        <div
-          classList={{
-            "flex-1 min-h-0 flex flex-col overflow-hidden": true,
-            "bg-[var(--workflow-panel-content)]": workflow,
-            "bg-background-stronger": !workflow,
-            "rounded-[10px] overflow-hidden": !workflow && settings.general.newLayoutDesigns(),
-            "shadow-[var(--v2-elevation-raised)]": !workflow && settings.general.newLayoutDesigns() && !!params.id,
-          }}
-        >
-            <div class="flex-1 min-h-0 overflow-hidden">
-              <Switch>
-                <Match when={params.id && mobileChanges()}>
-                  <div class="relative h-full overflow-hidden">
-                    {reviewContent({
-                      diffStyle: "unified",
-                      classes: {
-                        root: "pb-8",
-                        header: "px-4",
-                        container: "px-4",
-                      },
-                      loadingClass: "px-4 py-4 text-text-weak",
-                      emptyClass: "h-full pb-64 -mt-4 flex flex-col items-center justify-center text-center gap-6",
-                    })}
-                  </div>
-                </Match>
-                <Match when={params.id}>
-                  <Show when={messagesReady() ? params.id : undefined} keyed>
-                    {(_id) => (
-                      <MessageTimeline
-                        actions={actions}
-                        scroll={ui.scroll}
-                        onResumeScroll={resumeScroll}
-                        setScrollRef={setScrollRef}
-                        onScheduleScrollState={scheduleScrollState}
-                        onAutoScrollHandleScroll={autoScroll.handleScroll}
-                        onMarkScrollGesture={markScrollGesture}
-                        hasScrollGesture={hasScrollGesture}
-                        onUserScroll={markUserScroll}
-                        onHistoryScroll={onHistoryScroll}
-                        onAutoScrollInteraction={autoScroll.handleInteraction}
-                        shouldAnchorBottom={() =>
-                          !location.hash && !store.messageId && !ui.pendingMessage && !autoScroll.userScrolled()
-                        }
-                        centered={centered()}
-                        setContentRef={(el) => {
-                          content = el
-                          autoScroll.contentRef(el)
-
-                          const root = scroller
-                          if (root) scheduleScrollState(root)
-                        }}
-                        userMessages={visibleUserMessages()}
-                        setHistoryAnchor={(handlers) => {
-                          captureHistoryAnchor = handlers.capture
-                          restoreHistoryAnchor = handlers.restore
-                        }}
-                        anchor={anchor}
-                        setRevealMessage={(fn) => {
-                          revealMessage = fn
-                        }}
-                        setScrollToEnd={(fn) => {
-                          scrollToEnd = fn
-                        }}
-                      />
-                    )}
-                  </Show>
-                </Match>
-                <Match when={true}>
-                  <NewSessionView worktree={newSessionWorktree()} />
-                </Match>
-              </Switch>
-            </div>
-
-            <Show when={params.id || !newSessionDesign()}>{composerRegion("dock")}</Show>
-          </div>
-
-        <Show when={!workflow && desktopReviewOpen()}>
-          <div onPointerDown={() => size.start()}>
-            <ResizeHandle
-              classList={{
-                "-right-1": settings.general.newLayoutDesigns(),
-              }}
-              direction="horizontal"
-              size={layout.session.width()}
-              min={450}
-              max={typeof window === "undefined" ? 1000 : window.innerWidth * 0.45}
-              onResize={(width) => {
-                size.touch()
-                layout.session.resize(width)
-              }}
-            />
-          </div>
-        </Show>
-      </div>
+      {sessionPanelFrame(workflow, sessionPanelBody())}
     </>
   )
 
@@ -1801,7 +1817,7 @@ export default function Page() {
       empty={reviewEmptyText}
       hasReview={hasReview}
       reviewCount={reviewCount}
-      reviewPanel={reviewPanel}
+      reviewPanel={() => reviewPanel(embedded)}
       activeDiff={tree.activeDiff}
       focusReviewDiff={focusReviewDiff}
       reviewSnap={ui.reviewSnap}
