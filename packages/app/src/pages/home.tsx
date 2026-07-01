@@ -1111,21 +1111,7 @@ function HomeWorkflowTaskRow(props: {
   openSession: (session: Session) => void
 }) {
   const language = useLanguage()
-  const title = createMemo(() => sessionTitle(props.task.title) || props.task.id)
   const metadata = createMemo(() => workflowTaskMeta(props.task))
-  const status = createMemo(() => metadata().find((meta) => meta.id === "status"))
-  const updated = createMemo(() => metadata().find((meta) => meta.id === "updated"))
-  const subtitle = createMemo(() =>
-    [
-      props.task.projectName,
-      ...metadata().flatMap((meta) => {
-        if (meta.id === "status" || meta.id === "updated") return []
-        return meta.id === "todo" ? language.t(meta.i18nKey, meta.values) : language.t(meta.i18nKey)
-      }),
-    ]
-      .filter(Boolean)
-      .join(" / "),
-  )
 
   return (
     <div
@@ -1138,36 +1124,11 @@ function HomeWorkflowTaskRow(props: {
       <WorkflowEntityRow
         rowID={props.task.id}
         selected={props.selected}
-        title={
-          <span class="flex min-w-0 items-center gap-2">
-            <span class="min-w-0 overflow-hidden text-ellipsis whitespace-nowrap">
-              {title()}
-            </span>
-            <span class={`size-1.5 shrink-0 rounded-full ${HOME_TASK_STATUS_DOT_CLASS[props.task.status]}`} />
-          </span>
-        }
-        subtitle={subtitle()}
-        icon={
-          <HomeSessionLeading
-            project={props.task.project}
-            session={props.task.session}
-            server={props.server}
-            activeServer={props.activeServer}
-          />
-        }
-        badge={
-          <Show when={status()}>
-            {(meta) => (
-              <span class="inline-flex items-center gap-1.5 text-v2-text-text-base">
-                <span class={`size-1.5 rounded-full ${HOME_TASK_STATUS_DOT_CLASS[meta().status]}`} />
-                {language.t(workflowStatusTitleKey(meta().status))}
-              </span>
-            )}
-          </Show>
-        }
-        trailing={
-          <Show when={updated()}>{(meta) => DateTime.fromMillis(meta().updatedAt).toRelative()}</Show>
-        }
+        title={<HomeWorkflowTaskTitle task={props.task} />}
+        subtitle={<HomeWorkflowTaskSubtitle projectName={props.task.projectName} metadata={metadata()} />}
+        icon={<HomeWorkflowTaskIcon task={props.task} server={props.server} activeServer={props.activeServer} />}
+        badge={<HomeWorkflowTaskBadge task={props.task} />}
+        trailing={<HomeWorkflowTaskTrailing task={props.task} />}
         actions={
           <ButtonV2 variant="ghost-muted" size="normal" icon="edit" onClick={() => props.openSession(props.task.session)}>
             {language.t("home.tasks.detail.open")}
@@ -1178,6 +1139,67 @@ function HomeWorkflowTaskRow(props: {
       />
     </div>
   )
+}
+
+type HomeWorkflowTaskMetadata = ReturnType<typeof workflowTaskMeta>
+
+function HomeWorkflowTaskTitle(props: { task: WorkflowTask }) {
+  const title = createMemo(() => sessionTitle(props.task.title) || props.task.id)
+
+  return (
+    <span class="flex min-w-0 items-center gap-2">
+      <span class="min-w-0 overflow-hidden text-ellipsis whitespace-nowrap">{title()}</span>
+      <HomeWorkflowTaskStatusDot status={props.task.status} />
+    </span>
+  )
+}
+
+function HomeWorkflowTaskSubtitle(props: { projectName: string; metadata: HomeWorkflowTaskMetadata }) {
+  const language = useLanguage()
+
+  return [
+    props.projectName,
+    ...props.metadata.flatMap((meta) => {
+      if (meta.id === "status" || meta.id === "updated") return []
+      return meta.id === "todo" ? language.t(meta.i18nKey, meta.values) : language.t(meta.i18nKey)
+    }),
+  ]
+    .filter(Boolean)
+    .join(" / ")
+}
+
+function HomeWorkflowTaskIcon(props: {
+  task: WorkflowTask
+  server: ServerConnection.Key
+  activeServer: boolean
+}) {
+  return (
+    <HomeSessionLeading
+      project={props.task.project}
+      session={props.task.session}
+      server={props.server}
+      activeServer={props.activeServer}
+    />
+  )
+}
+
+function HomeWorkflowTaskBadge(props: { task: WorkflowTask }) {
+  const language = useLanguage()
+
+  return (
+    <span class="inline-flex items-center gap-1.5 text-v2-text-text-base">
+      <HomeWorkflowTaskStatusDot status={props.task.status} class="size-1.5" />
+      {language.t(workflowStatusTitleKey(props.task.status))}
+    </span>
+  )
+}
+
+function HomeWorkflowTaskTrailing(props: { task: WorkflowTask }) {
+  return DateTime.fromMillis(props.task.updatedAt).toRelative()
+}
+
+function HomeWorkflowTaskStatusDot(props: { status: WorkflowTask["status"]; class?: string }) {
+  return <span class={`${props.class ?? "size-1.5"} shrink-0 rounded-full ${HOME_TASK_STATUS_DOT_CLASS[props.status]}`} />
 }
 
 function HomeSessionSkeleton(props: { label: string }) {

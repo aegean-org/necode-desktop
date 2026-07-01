@@ -27,28 +27,6 @@ export function HomeWorkflowInspector(props: {
   onNewSession?: () => void
 }) {
   const language = useLanguage()
-  const title = createMemo(() => {
-    const task = props.task
-    if (!task) return language.t("home.tasks.detail.emptyTitle")
-    return sessionTitle(task.title) || task.id
-  })
-  const metadata = createMemo(() => (props.task ? workflowTaskMeta(props.task) : []))
-  const updated = createMemo(() => {
-    const task = props.task
-    if (!task) return ""
-    return DateTime.fromMillis(task.updatedAt).toRelative()
-  })
-  const signalMetadata = createMemo(() => metadata().filter(isWorkflowSignalMeta))
-  const progress = createMemo(() => {
-    const task = props.task
-    if (!task?.todoProgress) return language.t("home.tasks.detail.noProgress")
-    return language.t("home.tasks.meta.todo", task.todoProgress)
-  })
-  const progressPercent = createMemo(() => {
-    const task = props.task
-    if (!task?.todoProgress) return 0
-    return Math.round((task.todoProgress.done / task.todoProgress.total) * 100)
-  })
 
   return (
     <aside
@@ -56,117 +34,176 @@ export function HomeWorkflowInspector(props: {
       aria-label={language.t("home.tasks.detail.title")}
     >
       <div class="flex min-h-0 flex-1 flex-col gap-5">
-        <div class="flex min-w-0 items-start justify-between gap-3">
-          <div class="flex min-w-0 flex-col gap-1">
-            <div class="text-v2-text-text-muted [font-weight:440]">{language.t("home.tasks.detail.title")}</div>
-            <h2 class="min-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-[18px] leading-6 text-v2-text-text-base [font-weight:560]">
-              {title()}
-            </h2>
-          </div>
-          <Show when={props.task}>
-            {(task) => (
-              <ButtonV2 variant="ghost-muted" size="normal" icon="edit" onClick={() => props.onOpenSession(task().session)}>
-                {language.t("home.tasks.detail.open")}
-              </ButtonV2>
-            )}
-          </Show>
-        </div>
+        <InspectorHeader task={props.task} onOpenSession={props.onOpenSession} />
         <Show
           when={props.task}
-          fallback={
-            <div class="flex min-h-0 flex-1 flex-col justify-between gap-4">
-              <p class="text-[13px] leading-5 text-v2-text-text-muted [font-weight:440]">
-                {language.t("home.tasks.detail.emptyDescription")}
-              </p>
-              <Show when={props.onNewSession}>
-                {(onNewSession) => (
-                  <ButtonV2 variant="neutral" size="normal" icon="edit" onClick={onNewSession()}>
-                    {language.t("command.session.new")}
-                  </ButtonV2>
-                )}
-              </Show>
-            </div>
-          }
+          fallback={<InspectorEmptyState onNewSession={props.onNewSession} />}
         >
-          {(task) => (
-            <div class="flex min-h-0 flex-1 flex-col justify-between gap-5">
-              <div class="flex min-w-0 flex-col gap-5">
-                <div class="grid min-w-0 grid-cols-3 gap-2">
-                  <InspectorMetric label={language.t("home.tasks.detail.status")}>
-                    <span class="inline-flex min-w-0 items-center gap-1.5">
-                      <span class={`size-1.5 shrink-0 rounded-full ${STATUS_DOT_CLASS[task().status]}`} />
-                      <span class="min-w-0 overflow-hidden text-ellipsis whitespace-nowrap">
-                        {language.t(workflowStatusTitleKey(task().status))}
-                      </span>
-                    </span>
-                  </InspectorMetric>
-                  <InspectorMetric label={language.t("home.tasks.detail.updated")}>{updated()}</InspectorMetric>
-                  <InspectorMetric label={language.t("home.tasks.detail.progress")}>{progress()}</InspectorMetric>
-                </div>
-
-                <Show when={task().todoProgress}>
-                  <div class={`flex min-w-0 flex-col gap-2 px-3 py-2 ${WORKFLOW_SURFACE_CARD}`}>
-                    <div class="flex min-w-0 items-center justify-between gap-3 text-[12px] leading-4">
-                      <span class="text-v2-text-text-muted [font-weight:440]">
-                        {language.t("home.tasks.detail.progress")}
-                      </span>
-                      <span class="text-v2-text-text-base [font-weight:560]">{progressPercent()}%</span>
-                    </div>
-                    <div class="h-1.5 overflow-hidden rounded-full bg-[var(--workflow-row-hover)]">
-                      <div
-                        class="h-full rounded-full bg-v2-icon-icon-accent"
-                        style={{ width: `${progressPercent()}%` }}
-                      />
-                    </div>
-                  </div>
-                </Show>
-
-                <div class="flex min-w-0 flex-col gap-2">
-                  <div class="text-[12px] leading-4 text-v2-text-text-muted [font-weight:440]">
-                    {language.t("home.tasks.detail.signals")}
-                  </div>
-                  <Show
-                    when={signalMetadata().length > 0}
-                    fallback={
-                      <div class={`px-3 py-2 text-[13px] leading-5 text-v2-text-text-muted [font-weight:440] ${WORKFLOW_SURFACE_CARD}`}>
-                        {language.t("home.tasks.detail.noSignals")}
-                      </div>
-                    }
-                  >
-                    <div class="flex flex-wrap gap-2">
-                      <For each={signalMetadata()}>
-                        {(meta) => (
-                          <span class={`${WORKFLOW_BADGE} !px-2.5 !py-1 text-v2-text-text-base`}>
-                            {meta.id === "todo" ? language.t(meta.i18nKey, meta.values) : language.t(meta.i18nKey)}
-                          </span>
-                        )}
-                      </For>
-                    </div>
-                  </Show>
-                </div>
-
-                <div class="flex min-w-0 flex-col gap-2">
-                  <div class="text-[12px] leading-4 text-v2-text-text-muted [font-weight:440]">
-                    {language.t("home.tasks.detail.context")}
-                  </div>
-                  <div class={`flex min-w-0 flex-col gap-px overflow-hidden ${WORKFLOW_SURFACE_CARD}`}>
-                    <InspectorRow label={language.t("home.tasks.detail.project")}>{task().projectName}</InspectorRow>
-                    <InspectorRow label={language.t("home.tasks.detail.directory")}>
-                      {task().session.directory}
-                    </InspectorRow>
-                    <InspectorRow label={language.t("home.tasks.detail.session")}>{task().id}</InspectorRow>
-                  </div>
-                </div>
-              </div>
-
-              <ButtonV2 variant="contrast" size="normal" icon="edit" onClick={() => props.onOpenSession(task().session)}>
-                {language.t("home.tasks.detail.open")}
-              </ButtonV2>
-            </div>
-          )}
+          {(task) => <InspectorTaskDetail task={task()} onOpenSession={props.onOpenSession} />}
         </Show>
       </div>
     </aside>
+  )
+}
+
+function InspectorHeader(props: {
+  task: WorkflowTask | undefined
+  onOpenSession: (session: Session) => void
+}) {
+  const language = useLanguage()
+  const title = createMemo(() => {
+    const task = props.task
+    if (!task) return language.t("home.tasks.detail.emptyTitle")
+    return sessionTitle(task.title) || task.id
+  })
+
+  return (
+    <div class="flex min-w-0 items-start justify-between gap-3">
+      <div class="flex min-w-0 flex-col gap-1">
+        <div class="text-v2-text-text-muted [font-weight:440]">{language.t("home.tasks.detail.title")}</div>
+        <h2 class="min-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-[18px] leading-6 text-v2-text-text-base [font-weight:560]">
+          {title()}
+        </h2>
+      </div>
+      <Show when={props.task}>
+        {(task) => (
+          <ButtonV2 variant="ghost-muted" size="normal" icon="edit" onClick={() => props.onOpenSession(task().session)}>
+            {language.t("home.tasks.detail.open")}
+          </ButtonV2>
+        )}
+      </Show>
+    </div>
+  )
+}
+
+function InspectorEmptyState(props: { onNewSession?: () => void }) {
+  const language = useLanguage()
+
+  return (
+    <div class="flex min-h-0 flex-1 flex-col justify-between gap-4">
+      <p class="text-[13px] leading-5 text-v2-text-text-muted [font-weight:440]">
+        {language.t("home.tasks.detail.emptyDescription")}
+      </p>
+      <Show when={props.onNewSession}>
+        {(onNewSession) => (
+          <ButtonV2 variant="neutral" size="normal" icon="edit" onClick={onNewSession()}>
+            {language.t("command.session.new")}
+          </ButtonV2>
+        )}
+      </Show>
+    </div>
+  )
+}
+
+function InspectorTaskDetail(props: { task: WorkflowTask; onOpenSession: (session: Session) => void }) {
+  const language = useLanguage()
+
+  return (
+    <div class="flex min-h-0 flex-1 flex-col justify-between gap-5">
+      <div class="flex min-w-0 flex-col gap-5">
+        <InspectorMetrics task={props.task} />
+        <InspectorProgress task={props.task} />
+        <InspectorSignals task={props.task} />
+        <InspectorContext task={props.task} />
+      </div>
+      <ButtonV2 variant="contrast" size="normal" icon="edit" onClick={() => props.onOpenSession(props.task.session)}>
+        {language.t("home.tasks.detail.open")}
+      </ButtonV2>
+    </div>
+  )
+}
+
+function InspectorMetrics(props: { task: WorkflowTask }) {
+  const language = useLanguage()
+  const updated = createMemo(() => DateTime.fromMillis(props.task.updatedAt).toRelative())
+  const progress = createMemo(() => {
+    if (!props.task.todoProgress) return language.t("home.tasks.detail.noProgress")
+    return language.t("home.tasks.meta.todo", props.task.todoProgress)
+  })
+
+  return (
+    <div class="grid min-w-0 grid-cols-3 gap-2">
+      <InspectorMetric label={language.t("home.tasks.detail.status")}>
+        <span class="inline-flex min-w-0 items-center gap-1.5">
+          <span class={`size-1.5 shrink-0 rounded-full ${STATUS_DOT_CLASS[props.task.status]}`} />
+          <span class="min-w-0 overflow-hidden text-ellipsis whitespace-nowrap">
+            {language.t(workflowStatusTitleKey(props.task.status))}
+          </span>
+        </span>
+      </InspectorMetric>
+      <InspectorMetric label={language.t("home.tasks.detail.updated")}>{updated()}</InspectorMetric>
+      <InspectorMetric label={language.t("home.tasks.detail.progress")}>{progress()}</InspectorMetric>
+    </div>
+  )
+}
+
+function InspectorProgress(props: { task: WorkflowTask }) {
+  const language = useLanguage()
+  const progressPercent = createMemo(() => {
+    if (!props.task.todoProgress) return 0
+    return Math.round((props.task.todoProgress.done / props.task.todoProgress.total) * 100)
+  })
+
+  return (
+    <Show when={props.task.todoProgress}>
+      <div class={`flex min-w-0 flex-col gap-2 px-3 py-2 ${WORKFLOW_SURFACE_CARD}`}>
+        <div class="flex min-w-0 items-center justify-between gap-3 text-[12px] leading-4">
+          <span class="text-v2-text-text-muted [font-weight:440]">{language.t("home.tasks.detail.progress")}</span>
+          <span class="text-v2-text-text-base [font-weight:560]">{progressPercent()}%</span>
+        </div>
+        <div class="h-1.5 overflow-hidden rounded-full bg-[var(--workflow-row-hover)]">
+          <div class="h-full rounded-full bg-v2-icon-icon-accent" style={{ width: `${progressPercent()}%` }} />
+        </div>
+      </div>
+    </Show>
+  )
+}
+
+function InspectorSignals(props: { task: WorkflowTask }) {
+  const language = useLanguage()
+  const signalMetadata = createMemo(() => workflowTaskMeta(props.task).filter(isWorkflowSignalMeta))
+
+  return (
+    <div class="flex min-w-0 flex-col gap-2">
+      <div class="text-[12px] leading-4 text-v2-text-text-muted [font-weight:440]">
+        {language.t("home.tasks.detail.signals")}
+      </div>
+      <Show
+        when={signalMetadata().length > 0}
+        fallback={
+          <div class={`px-3 py-2 text-[13px] leading-5 text-v2-text-text-muted [font-weight:440] ${WORKFLOW_SURFACE_CARD}`}>
+            {language.t("home.tasks.detail.noSignals")}
+          </div>
+        }
+      >
+        <div class="flex flex-wrap gap-2">
+          <For each={signalMetadata()}>
+            {(meta) => (
+              <span class={`${WORKFLOW_BADGE} !px-2.5 !py-1 text-v2-text-text-base`}>
+                {meta.id === "todo" ? language.t(meta.i18nKey, meta.values) : language.t(meta.i18nKey)}
+              </span>
+            )}
+          </For>
+        </div>
+      </Show>
+    </div>
+  )
+}
+
+function InspectorContext(props: { task: WorkflowTask }) {
+  const language = useLanguage()
+
+  return (
+    <div class="flex min-w-0 flex-col gap-2">
+      <div class="text-[12px] leading-4 text-v2-text-text-muted [font-weight:440]">
+        {language.t("home.tasks.detail.context")}
+      </div>
+      <div class={`flex min-w-0 flex-col gap-px overflow-hidden ${WORKFLOW_SURFACE_CARD}`}>
+        <InspectorRow label={language.t("home.tasks.detail.project")}>{props.task.projectName}</InspectorRow>
+        <InspectorRow label={language.t("home.tasks.detail.directory")}>{props.task.session.directory}</InspectorRow>
+        <InspectorRow label={language.t("home.tasks.detail.session")}>{props.task.id}</InspectorRow>
+      </div>
+    </div>
   )
 }
 
