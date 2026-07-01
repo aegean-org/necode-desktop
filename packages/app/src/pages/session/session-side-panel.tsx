@@ -21,7 +21,6 @@ import { useFile, type SelectedLineRange } from "@/context/file"
 import { useLanguage } from "@/context/language"
 import { useLayout } from "@/context/layout"
 import { useSettings } from "@/context/settings"
-import { useSync } from "@/context/sync"
 import { createFileTabListSync } from "@/pages/session/file-tab-scroll"
 import { FileTabContent } from "@/pages/session/file-tabs"
 import {
@@ -34,13 +33,12 @@ import {
 import { setSessionHandoff } from "@/pages/session/handoff"
 import { useSessionLayout } from "@/pages/session/session-layout"
 
+const FILE_TREE_MIN_WIDTH = 200
+const FILE_TREE_MAX_WIDTH = 480
+
 type RenderDiff = (SnapshotFileDiff & { file: string }) | VcsFileDiff
 
-function renderDiff(value: SnapshotFileDiff | VcsFileDiff): value is RenderDiff {
-  return typeof value.file === "string"
-}
-
-export function SessionSidePanel(props: {
+type SessionSidePanelProps = {
   canReview: () => boolean
   diffs: () => (SnapshotFileDiff | VcsFileDiff)[]
   diffsReady: () => boolean
@@ -53,540 +51,235 @@ export function SessionSidePanel(props: {
   reviewSnap: boolean
   size: Sizing
   embedded?: boolean
-}) {
+}
+
+type SessionSidePanelState = ReturnType<typeof createSessionSidePanelState>
+
+function renderDiff(value: SnapshotFileDiff | VcsFileDiff): value is RenderDiff {
+  return typeof value.file === "string"
+}
+
+export function SessionSidePanel(props: SessionSidePanelProps) {
+  return <SessionSidePanelShell state={createSessionSidePanelState(props)} />
+}
+
+function createSessionSidePanelState(props: SessionSidePanelProps) {
+  const base = createSidePanelBase()
+  const visibility = createSidePanelVisibility(props, base)
+  const diffs = createSidePanelDiffs(props)
+  const tabs = createSidePanelTabs(props, base, visibility)
+  const fileTree = createSidePanelFileTree(base, diffs, tabs)
+  const workflow = createWorkflowPanelState(props, base, tabs)
+  const drag = createSidePanelDrag(base, tabs)
+
+  createSessionHandoffEffect(base)
+
+  return { props, ...base, visibility, diffs, tabs, fileTree, workflow, drag }
+}
+
+function createSidePanelBase() {
   const layout = useLayout()
   const settings = useSettings()
-  const sync = useSync()
   const file = useFile()
   const language = useLanguage()
   const command = useCommand()
   const dialog = useDialog()
-  const { sessionKey, tabs, view, params } = useSessionLayout()
-
+  const session = useSessionLayout()
   const isDesktop = createMediaQuery("(min-width: 768px)")
-  const shown = settings.visibility.fileTree
 
-  const reviewOpen = createMemo(() => isDesktop() && view().reviewPanel.opened())
-  const workflowLayout = createMemo(() => settings.general.newLayoutDesigns())
-  const fileOpen = createMemo(
-    () =>
-      isDesktop() &&
-      shouldShowFileTree({
-        visible: shown(),
-        opened: layout.fileTree.opened(),
-      }),
-  )
+  return { layout, settings, file, language, command, dialog, session, isDesktop }
+}
+
+function createSidePanelVisibility(props: SessionSidePanelProps, base: ReturnType<typeof createSidePanelBase>) {
+  const shown = base.settings.visibility.fileTree
+  const reviewOpen = createMemo(() => base.isDesktop() && base.session.view().reviewPanel.opened())
+  const workflowLayout = createMemo(() => base.settings.general.newLayoutDesigns())
+  const fileOpen = createMemo(() => base.isDesktop() && shouldShowFileTree({ visible: shown(), opened: base.layout.fileTree.opened() }))
   const open = createMemo(() => reviewOpen() || fileOpen())
-  const reviewTab = createMemo(() => isDesktop())
+  const reviewTab = createMemo(() => base.isDesktop())
   const panelWidth = createMemo(() => {
     if (!open()) return "0px"
     if (props.embedded) return "100%"
     if (reviewOpen()) return "auto"
-    return `${layout.fileTree.width()}px`
+    return `${base.layout.fileTree.width()}px`
   })
   const treeWidth = createMemo(() => {
     if (!fileOpen()) return "0px"
     if (props.embedded && !reviewOpen()) return "100%"
-    return `${layout.fileTree.width()}px`
+    return `${base.layout.fileTree.width()}px`
   })
 
+  return { shown, reviewOpen, workflowLayout, fileOpen, open, reviewTab, panelWidth, treeWidth }
+}
+
+function createSidePanelDiffs(props: SessionSidePanelProps) {
   const diffs = createMemo(() => props.diffs().filter(renderDiff))
-  const diffFiles = createMemo(() => diffs().map((d) => d.file))
+  const diffFiles = createMemo(() => diffs().map((diff) => diff.file))
   const kinds = createMemo(() => {
-    const merge = (a: "add" | "del" | "mix" | undefined, b: "add" | "del" | "mix") => {
-      if (!a) return b
-      if (a === b) return a
-      return "mix" as const
-    }
-
-    const normalize = (p: string) => p.replaceAll("\\\\", "/").replace(/\/+$/, "")
-
     const out = new Map<string, "add" | "del" | "mix">()
     for (const diff of diffs()) {
-      const file = normalize(diff.file)
+      const file = diff.file.replaceAll("\\\\", "/").replace(/\/+$/, "")
       const kind = diff.status === "added" ? "add" : diff.status === "deleted" ? "del" : "mix"
 
       out.set(file, kind)
-
-      const parts = file.split("/")
-      for (const [idx] of parts.slice(0, -1).entries()) {
-        const dir = parts.slice(0, idx + 1).join("/")
-        if (!dir) continue
-        out.set(dir, merge(out.get(dir), kind))
+      for (const [idx] of file.split("/").slice(0, -1).entries()) {
+        const dir = file.split("/").slice(0, idx + 1).join("/")
+        if (dir) out.set(dir, mergeDiffKind(out.get(dir), kind))
       }
     }
     return out
   })
 
-  const empty = (msg: string) => (
-    <div class="h-full flex flex-col">
-      <div class="h-6 shrink-0" aria-hidden />
-      <div class="flex-1 pb-64 flex items-center justify-center text-center">
-        <div class="text-12-regular text-text-weak">{msg}</div>
-      </div>
-    </div>
-  )
+  return { diffs, diffFiles, kinds }
+}
 
-  const nofiles = createMemo(() => {
-    const state = file.tree.state("")
-    if (!state?.loaded) return false
-    return file.tree.children("").length === 0
-  })
+function mergeDiffKind(current: "add" | "del" | "mix" | undefined, next: "add" | "del" | "mix") {
+  if (!current) return next
+  if (current === next) return current
+  return "mix" as const
+}
 
-  const normalizeTab = (tab: string) => {
-    if (!tab.startsWith("file://")) return tab
-    return file.tab(tab)
-  }
-
+function createSidePanelTabs(
+  props: SessionSidePanelProps,
+  base: ReturnType<typeof createSidePanelBase>,
+  visibility: ReturnType<typeof createSidePanelVisibility>,
+) {
+  const normalizeTab = (tab: string) => (tab.startsWith("file://") ? base.file.tab(tab) : tab)
   const openReviewPanel = () => {
-    if (!view().reviewPanel.opened()) view().reviewPanel.open()
+    if (!base.session.view().reviewPanel.opened()) base.session.view().reviewPanel.open()
   }
-
   const openTab = createOpenSessionFileTab({
     normalizeTab,
-    openTab: tabs().open,
-    pathFromTab: file.pathFromTab,
-    loadFile: file.load,
+    openTab: base.session.tabs().open,
+    pathFromTab: base.file.pathFromTab,
+    loadFile: base.file.load,
     openReviewPanel,
-    setActive: tabs().setActive,
+    setActive: base.session.tabs().setActive,
   })
-
   const tabState = createSessionTabs({
-    tabs,
-    pathFromTab: file.pathFromTab,
+    tabs: base.session.tabs,
+    pathFromTab: base.file.pathFromTab,
     normalizeTab,
-    review: reviewTab,
+    review: visibility.reviewTab,
     hasReview: props.canReview,
   })
-  const contextOpen = tabState.contextOpen
-  const openedTabs = tabState.openedTabs
-  const activeTab = tabState.activeTab
-  const activeFileTab = tabState.activeFileTab
 
-  const fileTreeTab = () => layout.fileTree.tab()
+  return { openTab, ...tabState }
+}
 
-  const setFileTreeTabValue = (value: string) => {
+function createSidePanelFileTree(
+  base: ReturnType<typeof createSidePanelBase>,
+  diffs: ReturnType<typeof createSidePanelDiffs>,
+  tabs: ReturnType<typeof createSidePanelTabs>,
+) {
+  const tab = () => base.layout.fileTree.tab()
+  const tabsVariant = () => (base.settings.general.newLayoutDesigns() ? undefined : ("pill" as const))
+  const nofiles = createMemo(() => fileTreeLoadedEmpty(base.file))
+  const selectTab = (value: string) => {
     if (value !== "changes" && value !== "all") return
-    layout.fileTree.setTab(value)
+    base.layout.fileTree.setTab(value)
   }
-
   const showAllFiles = () => {
-    if (fileTreeTab() !== "changes") return
-    layout.fileTree.setTab("all")
+    if (tab() !== "changes") return
+    base.layout.fileTree.setTab("all")
   }
-
   const openFileDialog = () => {
     void import("@/components/dialog-select-file").then((x) => {
-      dialog.show(() => <x.DialogSelectFile mode="files" onOpenFile={showAllFiles} />)
+      base.dialog.show(() => <x.DialogSelectFile mode="files" onOpenFile={showAllFiles} />)
     })
   }
 
-  const activeFilePath = createMemo(() => {
-    const tab = activeFileTab()
-    if (!tab) return
-    return file.pathFromTab(tab)
-  })
+  return { tab, tabsVariant, nofiles, selectTab, showAllFiles, openFileDialog, diffs, tabs }
+}
 
-  const workflowPanelTitle = createMemo<JSX.Element>(() => {
+function fileTreeLoadedEmpty(file: ReturnType<typeof useFile>) {
+  const state = file.tree.state("")
+  if (!state?.loaded) return false
+  return file.tree.children("").length === 0
+}
+
+function createWorkflowPanelState(
+  props: SessionSidePanelProps,
+  base: ReturnType<typeof createSidePanelBase>,
+  tabs: ReturnType<typeof createSidePanelTabs>,
+) {
+  const activeFilePath = createMemo(() => {
+    const tab = tabs.activeFileTab()
+    if (!tab) return
+    return base.file.pathFromTab(tab)
+  })
+  const title = createMemo<JSX.Element>(() => {
     const path = activeFilePath()
     if (path) return <FileVisual active path={path} />
-    if (activeTab() === "context") {
-      return (
-        <div class="flex min-w-0 items-center gap-2">
-          <SessionContextUsage variant="indicator" />
-          <span class="min-w-0 overflow-hidden text-ellipsis whitespace-nowrap">
-            {language.t("session.tab.context")}
-          </span>
-        </div>
-      )
-    }
-    if (activeTab() === "empty") return language.t("session.files.selectToOpen")
-    return (
-      <div class="flex min-w-0 items-center gap-2">
-        <span>{language.t("session.tab.review")}</span>
-        <Show when={props.hasReview()}>
-          <span class={WORKFLOW_BADGE}>
-            {props.reviewCount()}
-          </span>
-        </Show>
-      </div>
-    )
+    if (tabs.activeTab() === "context") return <WorkflowContextTitle state={{ base }} />
+    if (tabs.activeTab() === "empty") return base.language.t("session.files.selectToOpen")
+    return <WorkflowReviewTitle state={{ base, props }} />
   })
 
-  const [store, setStore] = createStore({
-    activeDraggable: undefined as string | undefined,
-  })
+  return { title }
+}
 
-  const handleDragStart = (event: unknown) => {
+function createSidePanelDrag(
+  base: ReturnType<typeof createSidePanelBase>,
+  tabs: ReturnType<typeof createSidePanelTabs>,
+) {
+  const [store, setStore] = createStore({ activeDraggable: undefined as string | undefined })
+  const start = (event: unknown) => {
     const id = getDraggableId(event)
-    if (!id) return
-    setStore("activeDraggable", id)
+    if (id) setStore("activeDraggable", id)
   }
-
-  const handleDragOver = (event: DragEvent) => {
-    const { draggable, droppable } = event
-    if (!draggable || !droppable) return
-
-    const currentTabs = tabs().all()
-    const toIndex = getTabReorderIndex(currentTabs, draggable.id.toString(), droppable.id.toString())
+  const over = (event: DragEvent) => {
+    if (!event.draggable || !event.droppable) return
+    const toIndex = getTabReorderIndex(base.session.tabs().all(), event.draggable.id.toString(), event.droppable.id.toString())
     if (toIndex === undefined) return
-    tabs().move(draggable.id.toString(), toIndex)
+    base.session.tabs().move(event.draggable.id.toString(), toIndex)
   }
+  const end = () => setStore("activeDraggable", undefined)
 
-  const handleDragEnd = () => {
-    setStore("activeDraggable", undefined)
-  }
+  return { store, start, over, end, tabs }
+}
 
+function createSessionHandoffEffect(base: ReturnType<typeof createSidePanelBase>) {
   createEffect(() => {
-    if (!file.ready()) return
-
-    setSessionHandoff(sessionKey(), {
-      files: tabs()
-        .all()
-        .reduce<Record<string, SelectedLineRange | null>>((acc, tab) => {
-          const path = file.pathFromTab(tab)
-          if (!path) return acc
-
-          const selected = file.selectedLines(path)
-          acc[path] =
-            selected && typeof selected === "object" && "start" in selected && "end" in selected
-              ? (selected as SelectedLineRange)
-              : null
-
-          return acc
-        }, {}),
+    if (!base.file.ready()) return
+    setSessionHandoff(base.session.sessionKey(), {
+      files: Object.fromEntries(base.session.tabs().all().map((tab) => selectedRangeEntry(base.file, tab)).filter(isDefined)),
     })
   })
+}
 
+function selectedRangeEntry(file: ReturnType<typeof useFile>, tab: string): [string, SelectedLineRange | null] | undefined {
+  const path = file.pathFromTab(tab)
+  if (!path) return
+  const selected = file.selectedLines(path)
+  return [path, isSelectedLineRange(selected) ? selected : null]
+}
+
+function isSelectedLineRange(value: unknown): value is SelectedLineRange {
+  return typeof value === "object" && value !== null && "start" in value && "end" in value
+}
+
+function isDefined<T>(value: T | undefined): value is T {
+  return value !== undefined
+}
+
+function SessionSidePanelShell(props: { state: SessionSidePanelState }) {
+  const state = props.state
   return (
-    <Show when={isDesktop() && !(settings.general.newLayoutDesigns() && !params.id)}>
+    <Show when={state.isDesktop() && !(state.visibility.workflowLayout() && !state.session.params.id)}>
       <aside
         id="review-panel"
-        aria-label={language.t("session.panel.reviewAndFiles")}
-        aria-hidden={!open()}
-        inert={!open()}
+        aria-label={state.language.t("session.panel.reviewAndFiles")}
+        aria-hidden={!state.visibility.open()}
+        inert={!state.visibility.open()}
         class="relative min-w-0 h-full flex shrink-0 overflow-hidden"
-        classList={{
-          "bg-[var(--workflow-panel-base)] text-v2-text-text-base": props.embedded,
-          "bg-background-base": !props.embedded,
-          "pointer-events-none": !open(),
-          "transition-[width] duration-[240ms] ease-[cubic-bezier(0.22,1,0.36,1)] will-change-[width] motion-reduce:transition-none":
-            !props.size.active() && !props.reviewSnap,
-          "rounded-[10px] shadow-[var(--workflow-elevation-middle)] overflow-hidden":
-            settings.general.newLayoutDesigns() && !props.embedded,
-          "flex-1": reviewOpen(),
-        }}
-        style={{ width: panelWidth() }}
+        classList={sidePanelClassList(state)}
+        style={{ width: state.visibility.panelWidth() }}
       >
-        <Show when={open()}>
-          <div
-            class="size-full flex"
-            classList={{
-              "border-l border-border-weaker-base": !settings.general.newLayoutDesigns(),
-            }}
-          >
-            <div
-              aria-hidden={!reviewOpen()}
-              inert={!reviewOpen()}
-              class="relative min-w-0 h-full flex-1 overflow-hidden"
-              classList={{
-                "bg-[var(--workflow-panel-content)]": props.embedded,
-                "bg-background-base": !props.embedded,
-                "pointer-events-none": !reviewOpen(),
-                "hidden": props.embedded && !reviewOpen(),
-              }}
-            >
-              <div
-                class="size-full min-w-0 h-full"
-                classList={{
-                  "bg-[var(--workflow-panel-content)]": props.embedded,
-                  "bg-background-base": !props.embedded,
-                }}
-              >
-                <DragDropProvider
-                  onDragStart={handleDragStart}
-                  onDragEnd={handleDragEnd}
-                  onDragOver={handleDragOver}
-                  collisionDetector={closestCenter}
-                >
-                  <DragDropSensors />
-                  <ConstrainDragYAxis />
-                  <Tabs value={activeTab()} onChange={openTab}>
-                    <Show
-                      when={workflowLayout()}
-                      fallback={
-                        <div class="sticky top-0 shrink-0 flex">
-                          <Tabs.List
-                            ref={(el: HTMLDivElement) => {
-                              const stop = createFileTabListSync({ el, contextOpen })
-                              onCleanup(stop)
-                            }}
-                          >
-                            <Show when={reviewTab() && props.canReview()}>
-                              <Tabs.Trigger value="review">
-                                <div class="flex items-center gap-1.5">
-                                  <div>{language.t("session.tab.review")}</div>
-                                  <Show when={props.hasReview()}>
-                                    <div>{props.reviewCount()}</div>
-                                  </Show>
-                                </div>
-                              </Tabs.Trigger>
-                            </Show>
-                            <Show when={contextOpen()}>
-                              <Tabs.Trigger
-                                value="context"
-                                closeButton={
-                                  <TooltipKeybind
-                                    title={language.t("common.closeTab")}
-                                    keybind={command.keybind("tab.close")}
-                                    placement="bottom"
-                                    gutter={10}
-                                  >
-                                    <IconButton
-                                      icon="close-small"
-                                      variant="ghost"
-                                      class="h-5 w-5"
-                                      onClick={() => tabs().close("context")}
-                                      aria-label={language.t("common.closeTab")}
-                                    />
-                                  </TooltipKeybind>
-                                }
-                                hideCloseButton
-                                onMiddleClick={() => tabs().close("context")}
-                              >
-                                <div class="flex items-center gap-2">
-                                  <SessionContextUsage variant="indicator" />
-                                  <div>{language.t("session.tab.context")}</div>
-                                </div>
-                              </Tabs.Trigger>
-                            </Show>
-                            <SortableProvider ids={openedTabs()}>
-                              <For each={openedTabs()}>
-                                {(tab) => <SortableTab tab={tab} onTabClose={tabs().close} />}
-                              </For>
-                            </SortableProvider>
-                            <div class="bg-background-stronger h-full shrink-0 sticky right-0 z-10 flex items-center justify-center pr-3">
-                              <TooltipKeybind
-                                title={language.t("command.file.open")}
-                                keybind={command.keybind("file.open")}
-                                class="flex items-center"
-                              >
-                                <IconButton
-                                  icon="plus-small"
-                                  variant="ghost"
-                                  iconSize="large"
-                                  class="!rounded-md"
-                                  onClick={openFileDialog}
-                                  aria-label={language.t("command.file.open")}
-                                />
-                              </TooltipKeybind>
-                            </div>
-                          </Tabs.List>
-                        </div>
-                      }
-                    >
-                      <SessionWorkflowPanelHeader
-                        title={workflowPanelTitle()}
-                        onOpenFile={openFileDialog}
-                        openFileLabel={language.t("command.file.open")}
-                        openFileKeybind={command.keybind("file.open")}
-                      />
-                    </Show>
-
-                    <Show when={reviewTab() && props.canReview()}>
-                      <Tabs.Content
-                        value="review"
-                        class={
-                          workflowLayout()
-                            ? "flex flex-col h-full overflow-hidden contain-strict bg-[var(--workflow-panel-content)]"
-                            : "flex flex-col h-full overflow-hidden contain-strict"
-                        }
-                      >
-                        <Show when={reviewOpen() && activeTab() === "review"}>{props.reviewPanel()}</Show>
-                      </Tabs.Content>
-                    </Show>
-
-                    <Tabs.Content
-                      value="empty"
-                      class={
-                        workflowLayout()
-                          ? "flex flex-col h-full overflow-hidden contain-strict bg-[var(--workflow-panel-content)]"
-                          : "flex flex-col h-full overflow-hidden contain-strict"
-                      }
-                    >
-                      <Show when={activeTab() === "empty"}>
-                        <div class="relative pt-2 flex-1 min-h-0 overflow-hidden">
-                          <div class="h-full px-6 pb-42 -mt-4 flex flex-col items-center justify-center text-center gap-6">
-                            <Mark class="w-14 opacity-10" />
-                            <div class="text-14-regular text-text-weak max-w-56">
-                              {language.t("session.files.selectToOpen")}
-                            </div>
-                          </div>
-                        </div>
-                      </Show>
-                    </Tabs.Content>
-
-                    <Show when={contextOpen()}>
-                      <Tabs.Content
-                        value="context"
-                        class={
-                          workflowLayout()
-                            ? "flex flex-col h-full overflow-hidden contain-strict bg-[var(--workflow-panel-content)]"
-                            : "flex flex-col h-full overflow-hidden contain-strict"
-                        }
-                      >
-                        <Show when={activeTab() === "context"}>
-                          <div class="relative pt-2 flex-1 min-h-0 overflow-hidden">
-                            <SessionContextTab />
-                          </div>
-                        </Show>
-                      </Tabs.Content>
-                    </Show>
-
-                    <Show when={activeFileTab()} keyed>
-                      {(tab) => <FileTabContent tab={tab} />}
-                    </Show>
-                  </Tabs>
-                  <DragOverlay>
-                    <Show when={store.activeDraggable} keyed>
-                      {(tab) => {
-                        const path = file.pathFromTab(tab)
-                        return (
-                          <div data-component="tabs-drag-preview">
-                            <Show when={path}>{(p) => <FileVisual active path={p()} />}</Show>
-                          </div>
-                        )
-                      }}
-                    </Show>
-                  </DragOverlay>
-                </DragDropProvider>
-              </div>
-            </div>
-
-            <Show when={shown()}>
-              <div
-                id="file-tree-panel"
-                aria-hidden={!fileOpen()}
-                inert={!fileOpen()}
-                class="relative min-w-0 h-full shrink-0 overflow-hidden"
-                classList={{
-                  "pointer-events-none": !fileOpen(),
-                  "transition-[width] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] will-change-[width] motion-reduce:transition-none":
-                    !props.size.active(),
-                }}
-                style={{ width: treeWidth() }}
-              >
-                <div
-                  class="h-full flex flex-col overflow-hidden group/filetree"
-                  classList={{
-                    "border-l border-border-weaker-base": reviewOpen() && !workflowLayout(),
-                    "bg-[var(--workflow-panel-base)]": workflowLayout(),
-                  }}
-                >
-                  <Tabs
-                    value={fileTreeTab()}
-                    onChange={setFileTreeTabValue}
-                    class="h-full"
-                    data-scope="filetree"
-                  >
-                    <Show
-                      when={workflowLayout()}
-                      fallback={
-                        <Tabs.List>
-                          <Tabs.Trigger value="changes" class="flex-1" classes={{ button: "w-full" }}>
-                            {props.reviewCount()}{" "}
-                            {language.t(
-                              props.reviewCount() === 1 ? "session.review.change.one" : "session.review.change.other",
-                            )}
-                          </Tabs.Trigger>
-                          <Tabs.Trigger value="all" class="flex-1" classes={{ button: "w-full" }}>
-                            {language.t("session.files.all")}
-                          </Tabs.Trigger>
-                        </Tabs.List>
-                      }
-                    >
-                      <SessionWorkflowFileTreeHeader
-                        active={fileTreeTab()}
-                        reviewCount={props.reviewCount()}
-                        changesLabel={language.t(
-                          props.reviewCount() === 1 ? "session.review.change.one" : "session.review.change.other",
-                        )}
-                        allLabel={language.t("session.files.all")}
-                        onSelect={setFileTreeTabValue}
-                      />
-                    </Show>
-                    <Tabs.Content
-                      value="changes"
-                      class={
-                        workflowLayout()
-                          ? "bg-[var(--workflow-panel-content)] px-3 py-0"
-                          : "bg-background-stronger px-3 py-0"
-                      }
-                    >
-                      <Switch>
-                        <Match when={props.hasReview() || !props.diffsReady()}>
-                          <Show
-                            when={props.diffsReady()}
-                            fallback={
-                              <div class="px-2 py-2 text-12-regular text-text-weak">
-                                {language.t("common.loading")}
-                                {language.t("common.loading.ellipsis")}
-                              </div>
-                            }
-                          >
-                            <FileTree
-                              path=""
-                              class="pt-3"
-                              allowed={diffFiles()}
-                              kinds={kinds()}
-                              draggable={false}
-                              active={props.activeDiff}
-                              onFileClick={(node) => props.focusReviewDiff(node.path)}
-                            />
-                          </Show>
-                        </Match>
-                      </Switch>
-                    </Tabs.Content>
-                    <Tabs.Content
-                      value="all"
-                      class={
-                        workflowLayout()
-                          ? "bg-[var(--workflow-panel-content)] px-3 py-0"
-                          : "bg-background-stronger px-3 py-0"
-                      }
-                    >
-                      <Switch>
-                        <Match when={nofiles()}>{empty(language.t("session.files.empty"))}</Match>
-                        <Match when={true}>
-                          <FileTree
-                            path=""
-                            class="pt-3"
-                            modified={diffFiles()}
-                            kinds={kinds()}
-                            onFileClick={(node) => openTab(file.tab(node.path))}
-                          />
-                        </Match>
-                      </Switch>
-                    </Tabs.Content>
-                  </Tabs>
-                </div>
-                <Show when={fileOpen()}>
-                  <div onPointerDown={() => props.size.start()}>
-                    <ResizeHandle
-                      direction="horizontal"
-                      edge="start"
-                      size={layout.fileTree.width()}
-                      min={200}
-                      max={480}
-                      onResize={(width) => {
-                        props.size.touch()
-                        layout.fileTree.resize(width)
-                      }}
-                    />
-                  </div>
-                </Show>
-              </div>
-            </Show>
+        <Show when={state.visibility.open()}>
+          <div class="size-full flex" classList={{ "border-l border-border-weaker-base": !state.visibility.workflowLayout() }}>
+            <SessionReviewTabsPanel state={state} />
+            <SessionFileTreePanel state={state} />
           </div>
         </Show>
       </aside>
@@ -594,52 +287,397 @@ export function SessionSidePanel(props: {
   )
 }
 
-function SessionWorkflowPanelHeader(props: {
-  title: JSX.Element
-  openFileLabel: string
-  openFileKeybind: string
-  onOpenFile: () => void
-}) {
+function sidePanelClassList(state: SessionSidePanelState) {
+  return {
+    "bg-[var(--workflow-panel-base)] text-v2-text-text-base": state.props.embedded,
+    "bg-background-base": !state.props.embedded,
+    "pointer-events-none": !state.visibility.open(),
+    "transition-[width] duration-[240ms] ease-[cubic-bezier(0.22,1,0.36,1)] will-change-[width] motion-reduce:transition-none":
+      !state.props.size.active() && !state.props.reviewSnap,
+    "rounded-[10px] shadow-[var(--workflow-elevation-middle)] overflow-hidden": state.visibility.workflowLayout() && !state.props.embedded,
+    "flex-1": state.visibility.reviewOpen(),
+  }
+}
+
+function SessionReviewTabsPanel(props: { state: SessionSidePanelState }) {
+  const state = props.state
+  return (
+    <div
+      aria-hidden={!state.visibility.reviewOpen()}
+      inert={!state.visibility.reviewOpen()}
+      class="relative min-w-0 h-full flex-1 overflow-hidden"
+      classList={reviewTabsPanelClassList(state)}
+    >
+      <div class="size-full min-w-0 h-full" classList={contentPanelClassList(state)}>
+        <DragDropProvider onDragStart={state.drag.start} onDragEnd={state.drag.end} onDragOver={state.drag.over} collisionDetector={closestCenter}>
+          <DragDropSensors />
+          <ConstrainDragYAxis />
+          <Tabs value={state.tabs.activeTab()} onChange={state.tabs.openTab}>
+            <SessionTabHeader state={state} />
+            <ReviewTabContent state={state} />
+            <EmptyTabContent state={state} />
+            <ContextTabContent state={state} />
+            <Show when={state.tabs.activeFileTab()} keyed>{(tab) => <FileTabContent tab={tab} />}</Show>
+          </Tabs>
+          <FileTabDragOverlay state={state} />
+        </DragDropProvider>
+      </div>
+    </div>
+  )
+}
+
+function reviewTabsPanelClassList(state: SessionSidePanelState) {
+  return {
+    "bg-[var(--workflow-panel-content)]": state.props.embedded,
+    "bg-background-base": !state.props.embedded,
+    "pointer-events-none": !state.visibility.reviewOpen(),
+    "hidden": state.props.embedded && !state.visibility.reviewOpen(),
+  }
+}
+
+function contentPanelClassList(state: SessionSidePanelState) {
+  return {
+    "bg-[var(--workflow-panel-content)]": state.props.embedded,
+    "bg-background-base": !state.props.embedded,
+  }
+}
+
+function SessionTabHeader(props: { state: SessionSidePanelState }) {
+  return (
+    <Show when={props.state.visibility.workflowLayout()} fallback={<LegacySessionTabHeader state={props.state} />}>
+      <SessionWorkflowPanelHeader
+        title={props.state.workflow.title()}
+        onOpenFile={props.state.fileTree.openFileDialog}
+        openFileLabel={props.state.language.t("command.file.open")}
+        openFileKeybind={props.state.command.keybind("file.open")}
+      />
+    </Show>
+  )
+}
+
+function LegacySessionTabHeader(props: { state: SessionSidePanelState }) {
+  const state = props.state
+  return (
+    <div class="sticky top-0 shrink-0 flex">
+      <Tabs.List ref={(el: HTMLDivElement) => onCleanup(createFileTabListSync({ el, contextOpen: state.tabs.contextOpen }))}>
+        <LegacyReviewTrigger state={state} />
+        <LegacyContextTrigger state={state} />
+        <SortableOpenedTabs state={state} />
+        <div class="bg-background-stronger h-full shrink-0 sticky right-0 z-10 flex items-center justify-center pr-3">
+          <OpenFileButton
+            label={state.language.t("command.file.open")}
+            keybind={state.command.keybind("file.open")}
+            onOpen={state.fileTree.openFileDialog}
+          />
+        </div>
+      </Tabs.List>
+    </div>
+  )
+}
+
+function LegacyReviewTrigger(props: { state: SessionSidePanelState }) {
+  const state = props.state
+  return (
+    <Show when={state.visibility.reviewTab() && state.props.canReview()}>
+      <Tabs.Trigger value="review">
+        <div class="flex items-center gap-1.5">
+          <div>{state.language.t("session.tab.review")}</div>
+          <Show when={state.props.hasReview()}><div>{state.props.reviewCount()}</div></Show>
+        </div>
+      </Tabs.Trigger>
+    </Show>
+  )
+}
+
+function LegacyContextTrigger(props: { state: SessionSidePanelState }) {
+  const state = props.state
+  return (
+    <Show when={state.tabs.contextOpen()}>
+      <Tabs.Trigger closeButton={<CloseContextTabButton state={state} />} hideCloseButton onMiddleClick={() => state.session.tabs().close("context")} value="context">
+        <div class="flex items-center gap-2">
+          <SessionContextUsage variant="indicator" />
+          <div>{state.language.t("session.tab.context")}</div>
+        </div>
+      </Tabs.Trigger>
+    </Show>
+  )
+}
+
+function CloseContextTabButton(props: { state: SessionSidePanelState }) {
+  const state = props.state
+  return (
+    <TooltipKeybind title={state.language.t("common.closeTab")} keybind={state.command.keybind("tab.close")} placement="bottom" gutter={10}>
+      <IconButton icon="close-small" variant="ghost" class="h-5 w-5" onClick={() => state.session.tabs().close("context")} aria-label={state.language.t("common.closeTab")} />
+    </TooltipKeybind>
+  )
+}
+
+function SortableOpenedTabs(props: { state: SessionSidePanelState }) {
+  return (
+    <SortableProvider ids={props.state.tabs.openedTabs()}>
+      <For each={props.state.tabs.openedTabs()}>{(tab) => <SortableTab tab={tab} onTabClose={props.state.session.tabs().close} />}</For>
+    </SortableProvider>
+  )
+}
+
+function OpenFileButton(props: { label: string; keybind: string; onOpen: () => void }) {
+  return (
+    <TooltipKeybind title={props.label} keybind={props.keybind} class="flex items-center">
+      <IconButton icon="plus-small" variant="ghost" iconSize="large" class="!rounded-md" onClick={props.onOpen} aria-label={props.label} />
+    </TooltipKeybind>
+  )
+}
+
+function SessionWorkflowPanelHeader(props: { title: JSX.Element; openFileLabel: string; openFileKeybind: string; onOpenFile: () => void }) {
   return (
     <WorkflowPanelHeader
       class="bg-[var(--workflow-panel-base)]"
       title={props.title}
-      actions={
-        <TooltipKeybind title={props.openFileLabel} keybind={props.openFileKeybind} class="flex items-center">
-          <IconButton
-            icon="plus-small"
-            variant="ghost"
-            iconSize="large"
-            class="!rounded-md"
-            onClick={props.onOpenFile}
-            aria-label={props.openFileLabel}
-          />
-        </TooltipKeybind>
-      }
+      actions={<OpenFileButton label={props.openFileLabel} keybind={props.openFileKeybind} onOpen={props.onOpenFile} />}
     />
   )
 }
 
-function SessionWorkflowFileTreeHeader(props: {
-  active: string
-  reviewCount: number
-  changesLabel: string
-  allLabel: string
-  onSelect: (value: string) => void
-}) {
+function ReviewTabContent(props: { state: SessionSidePanelState }) {
+  const state = props.state
+  return (
+    <Show when={state.visibility.reviewTab() && state.props.canReview()}>
+      <Tabs.Content value="review" class={tabContentClass(state)}>
+        <Show when={state.visibility.reviewOpen() && state.tabs.activeTab() === "review"}>{state.props.reviewPanel()}</Show>
+      </Tabs.Content>
+    </Show>
+  )
+}
+
+function EmptyTabContent(props: { state: SessionSidePanelState }) {
+  const state = props.state
+  return (
+    <Tabs.Content value="empty" class={tabContentClass(state)}>
+      <Show when={state.tabs.activeTab() === "empty"}>
+        <div class="relative pt-2 flex-1 min-h-0 overflow-hidden">
+          <div class="h-full px-6 pb-42 -mt-4 flex flex-col items-center justify-center text-center gap-6">
+            <Mark class="w-14 opacity-10" />
+            <div class="text-14-regular text-text-weak max-w-56">{state.language.t("session.files.selectToOpen")}</div>
+          </div>
+        </div>
+      </Show>
+    </Tabs.Content>
+  )
+}
+
+function ContextTabContent(props: { state: SessionSidePanelState }) {
+  const state = props.state
+  return (
+    <Show when={state.tabs.contextOpen()}>
+      <Tabs.Content value="context" class={tabContentClass(state)}>
+        <Show when={state.tabs.activeTab() === "context"}>
+          <div class="relative pt-2 flex-1 min-h-0 overflow-hidden"><SessionContextTab /></div>
+        </Show>
+      </Tabs.Content>
+    </Show>
+  )
+}
+
+function tabContentClass(state: SessionSidePanelState) {
+  if (state.visibility.workflowLayout()) return "flex flex-col h-full overflow-hidden contain-strict bg-[var(--workflow-panel-content)]"
+  return "flex flex-col h-full overflow-hidden contain-strict"
+}
+
+function FileTabDragOverlay(props: { state: SessionSidePanelState }) {
+  const state = props.state
+  return (
+    <DragOverlay>
+      <Show when={state.drag.store.activeDraggable} keyed>
+        {(tab) => (
+          <div data-component="tabs-drag-preview">
+            <Show when={state.file.pathFromTab(tab)}>{(path) => <FileVisual active path={path()} />}</Show>
+          </div>
+        )}
+      </Show>
+    </DragOverlay>
+  )
+}
+
+function SessionFileTreePanel(props: { state: SessionSidePanelState }) {
+  const state = props.state
+  return (
+    <Show when={state.visibility.shown()}>
+      <div
+        id="file-tree-panel"
+        aria-hidden={!state.visibility.fileOpen()}
+        inert={!state.visibility.fileOpen()}
+        class="relative min-w-0 h-full shrink-0 overflow-hidden"
+        classList={fileTreePanelClassList(state)}
+        style={{ width: state.visibility.treeWidth() }}
+      >
+        <SessionFileTreeBody state={state} />
+        <SessionFileTreeResizeHandle state={state} />
+      </div>
+    </Show>
+  )
+}
+
+function fileTreePanelClassList(state: SessionSidePanelState) {
+  return {
+    "pointer-events-none": !state.visibility.fileOpen(),
+    "transition-[width] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] will-change-[width] motion-reduce:transition-none": !state.props.size.active(),
+  }
+}
+
+function SessionFileTreeBody(props: { state: SessionSidePanelState }) {
+  const state = props.state
+  return (
+    <div class="h-full flex flex-col overflow-hidden group/filetree" classList={fileTreeBodyClassList(state)}>
+      <Tabs variant={state.fileTree.tabsVariant()} value={state.fileTree.tab()} onChange={state.fileTree.selectTab} class="h-full" data-scope="filetree">
+        <SessionFileTreeHeader state={state} />
+        <ChangesFileTreeContent state={state} />
+        <AllFilesContent state={state} />
+      </Tabs>
+    </div>
+  )
+}
+
+function fileTreeBodyClassList(state: SessionSidePanelState) {
+  return {
+    "border-l border-border-weaker-base": state.visibility.reviewOpen() && !state.visibility.workflowLayout(),
+    "bg-[var(--workflow-panel-base)]": state.visibility.workflowLayout(),
+  }
+}
+
+function SessionFileTreeHeader(props: { state: SessionSidePanelState }) {
+  return (
+    <Show when={props.state.visibility.workflowLayout()} fallback={<LegacyFileTreeHeader state={props.state} />}>
+      <SessionWorkflowFileTreeHeader state={props.state} />
+    </Show>
+  )
+}
+
+function LegacyFileTreeHeader(props: { state: SessionSidePanelState }) {
+  const state = props.state
+  return (
+    <Tabs.List>
+      <Tabs.Trigger value="changes" class="flex-1" classes={{ button: "w-full" }}>
+        {state.props.reviewCount()} {state.language.t(state.props.reviewCount() === 1 ? "session.review.change.one" : "session.review.change.other")}
+      </Tabs.Trigger>
+      <Tabs.Trigger value="all" class="flex-1" classes={{ button: "w-full" }}>
+        {state.language.t("session.files.all")}
+      </Tabs.Trigger>
+    </Tabs.List>
+  )
+}
+
+function SessionWorkflowFileTreeHeader(props: { state: SessionSidePanelState }) {
+  const state = props.state
   return (
     <WorkflowPanelHeader
       class="bg-[var(--workflow-panel-base)]"
       title={
         <WorkflowSegmentedControl
-          value={props.active}
+          value={state.fileTree.tab()}
           options={[
-            { value: "changes", label: `${props.reviewCount} ${props.changesLabel}` },
-            { value: "all", label: props.allLabel },
+            { value: "changes", label: `${state.props.reviewCount()} ${state.language.t(state.props.reviewCount() === 1 ? "session.review.change.one" : "session.review.change.other")}` },
+            { value: "all", label: state.language.t("session.files.all") },
           ]}
-          onSelect={props.onSelect}
+          onSelect={state.fileTree.selectTab}
         />
       }
     />
+  )
+}
+
+function ChangesFileTreeContent(props: { state: SessionSidePanelState }) {
+  const state = props.state
+  return (
+    <Tabs.Content value="changes" class={fileTreeContentClass(state)}>
+      <Switch>
+        <Match when={state.props.hasReview() || !state.props.diffsReady()}>
+          <Show when={state.props.diffsReady()} fallback={<FileTreeLoading state={state} />}>
+            <FileTree path="" class="pt-3" allowed={state.diffs.diffFiles()} kinds={state.diffs.kinds()} draggable={false} active={state.props.activeDiff} onFileClick={(node) => state.props.focusReviewDiff(node.path)} />
+          </Show>
+        </Match>
+      </Switch>
+    </Tabs.Content>
+  )
+}
+
+function AllFilesContent(props: { state: SessionSidePanelState }) {
+  const state = props.state
+  return (
+    <Tabs.Content value="all" class={fileTreeContentClass(state)}>
+      <Switch>
+        <Match when={state.fileTree.nofiles()}>{emptyFileTreeMessage(state.language.t("session.files.empty"))}</Match>
+        <Match when={true}>
+          <FileTree path="" class="pt-3" modified={state.diffs.diffFiles()} kinds={state.diffs.kinds()} onFileClick={(node) => state.tabs.openTab(state.file.tab(node.path))} />
+        </Match>
+      </Switch>
+    </Tabs.Content>
+  )
+}
+
+function fileTreeContentClass(state: SessionSidePanelState) {
+  if (state.visibility.workflowLayout()) return "bg-[var(--workflow-panel-content)] px-3 py-0"
+  return "bg-background-stronger px-3 py-0"
+}
+
+function FileTreeLoading(props: { state: SessionSidePanelState }) {
+  return (
+    <div class="px-2 py-2 text-12-regular text-text-weak">
+      {props.state.language.t("common.loading")}
+      {props.state.language.t("common.loading.ellipsis")}
+    </div>
+  )
+}
+
+function emptyFileTreeMessage(message: string) {
+  return (
+    <div class="h-full flex flex-col">
+      <div class="h-6 shrink-0" aria-hidden />
+      <div class="flex-1 pb-64 flex items-center justify-center text-center">
+        <div class="text-12-regular text-text-weak">{message}</div>
+      </div>
+    </div>
+  )
+}
+
+function SessionFileTreeResizeHandle(props: { state: SessionSidePanelState }) {
+  const state = props.state
+  return (
+    <Show when={state.visibility.fileOpen()}>
+      <div onPointerDown={() => state.props.size.start()}>
+        <ResizeHandle
+          direction="horizontal"
+          edge="start"
+          size={state.layout.fileTree.width()}
+          min={FILE_TREE_MIN_WIDTH}
+          max={FILE_TREE_MAX_WIDTH}
+          onResize={(width) => {
+            state.props.size.touch()
+            state.layout.fileTree.resize(width)
+          }}
+        />
+      </div>
+    </Show>
+  )
+}
+
+function WorkflowContextTitle(props: { state: { base: ReturnType<typeof createSidePanelBase> } }) {
+  return (
+    <div class="flex min-w-0 items-center gap-2">
+      <SessionContextUsage variant="indicator" />
+      <span class="min-w-0 overflow-hidden text-ellipsis whitespace-nowrap">
+        {props.state.base.language.t("session.tab.context")}
+      </span>
+    </div>
+  )
+}
+
+function WorkflowReviewTitle(props: { state: { base: ReturnType<typeof createSidePanelBase>; props: SessionSidePanelProps } }) {
+  return (
+    <div class="flex min-w-0 items-center gap-2">
+      <span>{props.state.base.language.t("session.tab.review")}</span>
+      <Show when={props.state.props.hasReview()}>
+        <span class={WORKFLOW_BADGE}>{props.state.props.reviewCount()}</span>
+      </Show>
+    </div>
   )
 }
