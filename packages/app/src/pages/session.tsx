@@ -74,6 +74,7 @@ import { SessionSidePanel } from "@/pages/session/session-side-panel"
 import { TerminalPanel } from "@/pages/session/terminal-panel"
 import { useSessionCommands } from "@/pages/session/use-session-commands"
 import { useSessionHashScroll } from "@/pages/session/use-session-hash-scroll"
+import { WorkflowChatInputDock } from "@/pages/session/workflow-chat-input-dock"
 import { Identifier } from "@/utils/id"
 import { diffs as list } from "@/utils/diffs"
 import { Persist, persisted } from "@/utils/persist"
@@ -1604,58 +1605,62 @@ export default function Page() {
 
   useUsageExceededDialogs()
 
-  const composerRegion = (placement: "dock" | "inline") => (
-    <SessionComposerRegion
-      state={composer}
-      ready={!store.deferRender && messagesReady()}
-      centered={placement === "dock" && centered()}
-      placement={placement}
-      inputRef={(el) => {
-        inputRef = el
-      }}
-      newSessionWorktree={newSessionWorktree()}
-      onNewSessionWorktreeReset={() => setStore("newSessionWorktree", "main")}
-      onSubmit={() => {
-        comments.clear()
-        resumeScroll()
-      }}
-      onResponseSubmit={resumeScroll}
-      followup={
-        params.id && !isChildSession()
-          ? {
-              queue: queueEnabled,
-              items: followupDock(),
-              sending: sendingFollowup(),
-              edit: editingFollowup(),
-              onQueue: queueFollowup,
-              onAbort: () => {
-                const id = params.id
-                if (!id) return
-                setFollowup("paused", id, true)
-              },
-              onSend: (id) => {
-                void sendFollowup(params.id!, id, { manual: true })
-              },
-              onEdit: editFollowup,
-              onEditLoaded: clearFollowupEdit,
-            }
-          : undefined
-      }
-      revert={
-        rolled().length > 0
-          ? {
-              items: rolled(),
-              restoring: restoring(),
-              disabled: reverting(),
-              onRestore: restore,
-            }
-          : undefined
-      }
-      setPromptDockRef={(el) => {
-        promptDock = el
-      }}
-    />
-  )
+  const followupConfig = createMemo(() => {
+    const id = params.id
+    if (!id || isChildSession()) return
+    return {
+      queue: queueEnabled,
+      items: followupDock(),
+      sending: sendingFollowup(),
+      edit: editingFollowup(),
+      onQueue: queueFollowup,
+      onAbort: () => setFollowup("paused", id, true),
+      onSend: (itemID: string) => {
+        void sendFollowup(id, itemID, { manual: true })
+      },
+      onEdit: editFollowup,
+      onEditLoaded: clearFollowupEdit,
+    }
+  })
+
+  const revertConfig = createMemo(() => {
+    if (rolled().length === 0) return
+    return {
+      items: rolled(),
+      restoring: restoring(),
+      disabled: reverting(),
+      onRestore: restore,
+    }
+  })
+
+  const composerRegion = (placement: "dock" | "inline") => {
+    const region = (
+      <SessionComposerRegion
+        state={composer}
+        ready={!store.deferRender && messagesReady()}
+        centered={placement === "dock" && centered()}
+        placement={placement}
+        inputRef={(el) => {
+          inputRef = el
+        }}
+        newSessionWorktree={newSessionWorktree()}
+        onNewSessionWorktreeReset={() => setStore("newSessionWorktree", "main")}
+        onSubmit={() => {
+          comments.clear()
+          resumeScroll()
+        }}
+        onResponseSubmit={resumeScroll}
+        followup={followupConfig()}
+        revert={revertConfig()}
+        setPromptDockRef={(el) => {
+          promptDock = el
+        }}
+      />
+    )
+
+    if (placement !== "dock" || !settings.general.newLayoutDesigns()) return region
+    return <WorkflowChatInputDock>{region}</WorkflowChatInputDock>
+  }
 
   const mobileTabs = () => (
     <Show when={!isDesktop() && !!params.id}>
