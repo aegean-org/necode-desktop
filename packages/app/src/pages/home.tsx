@@ -1173,10 +1173,7 @@ function HomeWorkflowTaskRow(props: {
             {language.t("home.tasks.detail.open")}
           </ButtonV2>
         }
-        onSelect={() => {
-          props.previewTask()
-          props.openSession(props.task.session)
-        }}
+        onSelect={props.previewTask}
         class="home-workflow-task-row"
       />
     </div>

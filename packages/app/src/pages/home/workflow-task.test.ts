@@ -14,6 +14,8 @@ import {
   workflowTaskMeta,
 } from "./workflow-task"
 
+const homeSource = await Bun.file(new URL("../home.tsx", import.meta.url)).text()
+
 const project = (name = "App") =>
   ({
     id: name,
@@ -216,5 +218,18 @@ describe("buildWorkflowTasks", () => {
     expect(tasks[0].title).toBe("Implement shell")
     expect(tasks[0].status).toBe("running")
     expect(workflowTaskMeta(tasks[0]).map((item) => item.id)).toEqual(["status", "updated"])
+  })
+
+  test("keeps home task row selection separate from opening sessions", () => {
+    const rowSource = homeSource.slice(
+      homeSource.indexOf("function HomeWorkflowTaskRow"),
+      homeSource.indexOf("function HomeSessionSkeleton"),
+    )
+    const actionsSource = rowSource.slice(rowSource.indexOf("actions={"), rowSource.indexOf("onSelect="))
+
+    expect(rowSource).toContain('data-component="home-workflow-task-row"')
+    expect(actionsSource).toContain("props.openSession(props.task.session)")
+    expect(rowSource).toContain("onSelect={props.previewTask}")
+    expect(rowSource).not.toContain("props.previewTask()\n          props.openSession(props.task.session)")
   })
 })
