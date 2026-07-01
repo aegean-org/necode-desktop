@@ -28,9 +28,10 @@ import { createAutoScroll } from "@opencode-ai/ui/hooks"
 import { previewSelectedLines } from "@opencode-ai/ui/pierre/selection-bridge"
 import { Button } from "@opencode-ai/ui/button"
 import { showToast } from "@/utils/toast"
-import { checksum } from "@opencode-ai/core/util/encode"
-import { useLocation, useSearchParams } from "@solidjs/router"
+import { base64Encode, checksum } from "@opencode-ai/core/util/encode"
+import { useLocation, useNavigate, useSearchParams } from "@solidjs/router"
 import { NewSessionView, SessionHeader } from "@/components/session"
+import { WorkflowShell } from "@/components/workflow-shell"
 import { useComments } from "@/context/comments"
 import { useServerSync } from "@/context/server-sync"
 import { useLanguage } from "@/context/language"
@@ -45,11 +46,19 @@ import { useTerminal } from "@/context/terminal"
 import { type FollowupDraft, sendFollowupDraft } from "@/components/prompt-input/submit"
 import { createSessionComposerState, SessionComposerRegion } from "@/pages/session/composer"
 import {
+  buildWorkflowTasksFromStores,
+  filterWorkflowTasks,
+  type WorkflowTaskFilter,
+  type WorkflowTaskRecord,
+} from "@/pages/home/workflow-task"
+import { displayName, projectForSession, sortedRootSessions } from "@/pages/layout/helpers"
+import {
   createOpenReviewFile,
   createSessionTabs,
   createSizing,
   focusTerminalById,
   shouldFocusTerminalOnKeyDown,
+  shouldCenterSessionContent,
   shouldShowFileTree,
 } from "@/pages/session/helpers"
 import { MessageTimeline } from "@/pages/session/timeline/message-timeline"
@@ -57,6 +66,8 @@ import { createTimelineModel } from "@/pages/session/timeline/model"
 import { type DiffStyle, SessionReviewTab, type SessionReviewTabProps } from "@/pages/session/review-tab"
 import { useSessionLayout } from "@/pages/session/session-layout"
 import { useServer } from "@/context/server"
+import { WorkflowSessionSidebar } from "@/pages/session/workflow-session-sidebar"
+import { WorkflowSessionNavigator } from "@/pages/session/workflow-session-navigator"
 import { syncSessionModel } from "@/pages/session/session-model-helpers"
 import { SessionSidePanel } from "@/pages/session/session-side-panel"
 import { TerminalPanel } from "@/pages/session/terminal-panel"
@@ -72,6 +83,7 @@ import { useUsageExceededDialogs } from "./session/usage-exceeded-dialogs"
 type FollowupItem = FollowupDraft & { id: string }
 type FollowupEdit = Pick<FollowupItem, "id" | "prompt" | "context">
 const emptyFollowups: FollowupItem[] = []
+const SESSION_WORKFLOW_LIMIT = 64
 
 type ChangeMode = "git" | "branch" | "turn"
 type VcsMode = "git" | "branch"
@@ -95,6 +107,7 @@ export default function Page() {
   const server = useServer()
   const [searchParams, setSearchParams] = useSearchParams<{ prompt?: string }>()
   const location = useLocation()
+  const navigate = useNavigate()
   const { params, sessionKey, workspaceKey, tabs, view } = useSessionLayout()
   const newSessionDesign = createMemo(() => settings.general.newLayoutDesigns())
 
@@ -121,6 +134,14 @@ export default function Page() {
   })
 
   const composer = createSessionComposerState()
+  const [store, setStore] = createStore({
+    messageId: undefined as string | undefined,
+    mobileTab: "session" as "session" | "changes",
+    changes: "git" as ChangeMode,
+    newSessionWorktree: "main",
+    workflowFilter: "all" as WorkflowTaskFilter,
+    deferRender: false,
+  })
 
   const workspaceTabs = createMemo(() => layout.tabs(workspaceKey))
 
@@ -162,6 +183,7 @@ export default function Page() {
   )
 
   const isDesktop = createMediaQuery("(min-width: 768px)")
+  const isWorkflowPanelWidth = createMediaQuery("(min-width: 1024px)")
   const size = createSizing()
   const desktopReviewOpen = createMemo(() => isDesktop() && view().reviewPanel.opened())
   const desktopFileTreeOpen = createMemo(
@@ -173,12 +195,20 @@ export default function Page() {
       }),
   )
   const desktopSidePanelOpen = createMemo(() => desktopReviewOpen() || desktopFileTreeOpen())
+  const workflowSessionNavigatorOpen = createMemo(() => settings.general.newLayoutDesigns() && isWorkflowPanelWidth())
   const sessionPanelWidth = createMemo(() => {
+    if (workflowSessionNavigatorOpen()) return undefined
     if (!desktopSidePanelOpen()) return "100%"
     if (desktopReviewOpen()) return `${layout.session.width()}px`
     return `calc(100% - ${layout.fileTree.width()}px)`
   })
-  const centered = createMemo(() => isDesktop() && !desktopReviewOpen())
+  const centered = createMemo(() =>
+    shouldCenterSessionContent({
+      desktop: isDesktop(),
+      reviewOpen: desktopReviewOpen(),
+      workflowLayout: newSessionDesign(),
+    }),
+  )
 
   function normalizeTab(tab: string) {
     if (!tab.startsWith("file://")) return tab
@@ -202,6 +232,67 @@ export default function Page() {
   }
 
   const info = createMemo(() => (params.id ? sync().session.get(params.id) : undefined))
+  const sessionWorkflowLoad = createQuery(() => ({
+    queryKey: ["session", "workflow", server.scope(), sdk().directory] as const,
+    enabled: settings.general.newLayoutDesigns(),
+    queryFn: async () => {
+      await serverSync().project.loadSessions(sdk().directory, { limit: SESSION_WORKFLOW_LIMIT })
+      return null
+    },
+  }))
+  const workflowProjectByID = createMemo(
+    () => new Map(layout.projects.list().flatMap((project) => (project.id ? [[project.id, project] as const] : []))),
+  )
+  const workflowFallbackProject = createMemo(() => {
+    return (
+      layout
+        .projects
+        .list()
+        .find((project) => project.worktree === sdk().directory || project.sandboxes?.includes(sdk().directory)) ?? {
+        ...(sync().project ?? {}),
+        worktree: sdk().directory,
+        expanded: true,
+      }
+    )
+  })
+  const workflowSessionRecords = createMemo<WorkflowTaskRecord[]>(() =>
+    sortedRootSessions(sync().data, Date.now()).map((session) => {
+      const project = projectForSession(session, layout.projects.list(), workflowProjectByID()) ?? workflowFallbackProject()
+      return {
+        session,
+        project,
+        projectName: displayName(project),
+      }
+    }),
+  )
+  const workflowSessionTasks = createMemo(() =>
+    buildWorkflowTasksFromStores({
+      records: workflowSessionRecords(),
+      stores: [sync().data],
+    }),
+  )
+  const filteredWorkflowSessionTasks = createMemo(() => filterWorkflowTasks(workflowSessionTasks(), store.workflowFilter))
+  const activeWorkflowSessionID = createMemo(() => info()?.parentID ?? params.id)
+  const openWorkflowSession = (session: WorkflowTaskRecord["session"]) => {
+    navigate(`/${base64Encode(session.directory)}/session/${session.id}`)
+  }
+  const openWorkflowProject = (directory: string) => {
+    navigate(`/${base64Encode(directory)}`)
+  }
+  const openWorkflowNewSession = () => {
+    openWorkflowProjectNewSession(sdk().directory)
+  }
+  const openWorkflowProjectNewSession = (directory: string) => {
+    navigate(`/${base64Encode(directory)}/session`)
+  }
+  const openWorkflowSettings = () => {
+    void import("@/components/settings-v2").then((x) => {
+      dialog.show(() => <x.DialogSettings />)
+    })
+  }
+  const openWorkflowHelp = () => {
+    platform.openLink("https://opencode.ai/desktop-feedback")
+  }
   const isChildSession = createMemo(() => !!info()?.parentID)
   const diffs = createMemo(() => (params.id ? list(sync().data.session_diff[params.id]) : []))
   const canReview = createMemo(() => !!sync().project)
@@ -256,14 +347,6 @@ export default function Page() {
       { defer: true },
     ),
   )
-
-  const [store, setStore] = createStore({
-    messageId: undefined as string | undefined,
-    mobileTab: "session" as "session" | "changes",
-    changes: "git" as ChangeMode,
-    newSessionWorktree: "main",
-    deferRender: false,
-  })
 
   const [followup, setFollowup] = persisted(
     Persist.serverWorkspace(serverSDK().scope, sdk().directory, "followup", ["followup.v1"]),
@@ -865,7 +948,7 @@ export default function Page() {
   )
 
   const reviewPanel = () => (
-    <div class="flex flex-col h-full overflow-hidden bg-background-stronger contain-strict">
+    <div class="flex flex-col h-full overflow-hidden bg-[var(--workflow-panel-base)] contain-strict">
       <div class="relative pt-2 flex-1 min-h-0 overflow-hidden">
         {reviewContent({
           diffStyle: layout.review.diffStyle(),
@@ -1570,58 +1653,58 @@ export default function Page() {
     />
   )
 
-  return (
-    <div class="relative size-full overflow-hidden flex flex-col">
-      {sessionSync() ?? ""}
-      <SessionHeader />
+  const mobileTabs = () => (
+    <Show when={!isDesktop() && !!params.id}>
+      <Tabs value={store.mobileTab} class="h-auto">
+        <Tabs.List>
+          <Tabs.Trigger
+            value="session"
+            class="!w-1/2 !max-w-none"
+            classes={{ button: "w-full" }}
+            onClick={() => setStore("mobileTab", "session")}
+          >
+            {language.t("session.tab.session")}
+          </Tabs.Trigger>
+          <Tabs.Trigger
+            value="changes"
+            class="!w-1/2 !max-w-none !border-r-0"
+            classes={{ button: "w-full" }}
+            onClick={() => setStore("mobileTab", "changes")}
+          >
+            {hasReview()
+              ? language.t("session.review.filesChanged", { count: reviewCount() })
+              : language.t("session.review.change.other")}
+          </Tabs.Trigger>
+        </Tabs.List>
+      </Tabs>
+    </Show>
+  )
+
+  const sessionPanel = (workflow: boolean) => (
+    <>
+      {mobileTabs()}
       <div
-        class="flex-1 min-h-0 flex flex-col md:flex-row "
         classList={{
-          "gap-2 p-2": settings.general.newLayoutDesigns(),
+          "@container relative flex h-full min-h-0 min-w-0 flex-col": true,
+          "flex-1": workflow,
+          "shrink-0 transition-[width]": !workflow,
+          "flex-1 md:flex-none": !workflow,
+          "duration-[240ms] ease-[cubic-bezier(0.22,1,0.36,1)] will-change-[width] motion-reduce:transition-none":
+            !workflow && !size.active() && !ui.reviewSnap,
+        }}
+        style={{
+          width: workflow ? undefined : sessionPanelWidth(),
         }}
       >
-        <Show when={!isDesktop() && !!params.id}>
-          <Tabs value={store.mobileTab} class="h-auto">
-            <Tabs.List>
-              <Tabs.Trigger
-                value="session"
-                class="!w-1/2 !max-w-none"
-                classes={{ button: "w-full" }}
-                onClick={() => setStore("mobileTab", "session")}
-              >
-                {language.t("session.tab.session")}
-              </Tabs.Trigger>
-              <Tabs.Trigger
-                value="changes"
-                class="!w-1/2 !max-w-none !border-r-0"
-                classes={{ button: "w-full" }}
-                onClick={() => setStore("mobileTab", "changes")}
-              >
-                {hasReview()
-                  ? language.t("session.review.filesChanged", { count: reviewCount() })
-                  : language.t("session.review.change.other")}
-              </Tabs.Trigger>
-            </Tabs.List>
-          </Tabs>
-        </Show>
-
         <div
           classList={{
-            "@container relative shrink-0 flex flex-col min-h-0 h-full flex-1 md:flex-none transition-[width]": true,
-            "duration-[240ms] ease-[cubic-bezier(0.22,1,0.36,1)] will-change-[width] motion-reduce:transition-none":
-              !size.active() && !ui.reviewSnap,
-          }}
-          style={{
-            width: sessionPanelWidth(),
+            "flex-1 min-h-0 flex flex-col overflow-hidden": true,
+            "bg-[var(--workflow-panel-content)]": workflow,
+            "bg-background-stronger": !workflow,
+            "rounded-[10px] overflow-hidden": !workflow && settings.general.newLayoutDesigns(),
+            "shadow-[var(--v2-elevation-raised)]": !workflow && settings.general.newLayoutDesigns() && !!params.id,
           }}
         >
-          <div
-            classList={{
-              "flex-1 min-h-0 flex flex-col bg-background-stronger": true,
-              "rounded-[10px] overflow-hidden": settings.general.newLayoutDesigns(),
-              "shadow-[var(--v2-elevation-raised)]": settings.general.newLayoutDesigns() && !!params.id,
-            }}
-          >
             <div class="flex-1 min-h-0 overflow-hidden">
               <Switch>
                 <Match when={params.id && mobileChanges()}>
@@ -1689,39 +1772,92 @@ export default function Page() {
             <Show when={params.id || !newSessionDesign()}>{composerRegion("dock")}</Show>
           </div>
 
-          <Show when={desktopReviewOpen()}>
-            <div onPointerDown={() => size.start()}>
-              <ResizeHandle
-                classList={{
-                  "-right-1": settings.general.newLayoutDesigns(),
-                }}
-                direction="horizontal"
-                size={layout.session.width()}
-                min={450}
-                max={typeof window === "undefined" ? 1000 : window.innerWidth * 0.45}
-                onResize={(width) => {
-                  size.touch()
-                  layout.session.resize(width)
-                }}
-              />
-            </div>
-          </Show>
-        </div>
-
-        <SessionSidePanel
-          canReview={canReview}
-          diffs={reviewDiffs}
-          diffsReady={reviewReady}
-          empty={reviewEmptyText}
-          hasReview={hasReview}
-          reviewCount={reviewCount}
-          reviewPanel={reviewPanel}
-          activeDiff={tree.activeDiff}
-          focusReviewDiff={focusReviewDiff}
-          reviewSnap={ui.reviewSnap}
-          size={size}
-        />
+        <Show when={!workflow && desktopReviewOpen()}>
+          <div onPointerDown={() => size.start()}>
+            <ResizeHandle
+              classList={{
+                "-right-1": settings.general.newLayoutDesigns(),
+              }}
+              direction="horizontal"
+              size={layout.session.width()}
+              min={450}
+              max={typeof window === "undefined" ? 1000 : window.innerWidth * 0.45}
+              onResize={(width) => {
+                size.touch()
+                layout.session.resize(width)
+              }}
+            />
+          </div>
+        </Show>
       </div>
+    </>
+  )
+
+  const sidePanel = (embedded: boolean) => (
+    <SessionSidePanel
+      canReview={canReview}
+      diffs={reviewDiffs}
+      diffsReady={reviewReady}
+      empty={reviewEmptyText}
+      hasReview={hasReview}
+      reviewCount={reviewCount}
+      reviewPanel={reviewPanel}
+      activeDiff={tree.activeDiff}
+      focusReviewDiff={focusReviewDiff}
+      reviewSnap={ui.reviewSnap}
+      size={size}
+      embedded={embedded}
+    />
+  )
+
+  const workflowSessionShell = () => (
+    <WorkflowShell
+      storageKey="session.workflow-shell.panels"
+      left={
+        <WorkflowSessionSidebar
+          projects={layout.projects.list()}
+          activeDirectory={sdk().directory}
+          tasks={workflowSessionTasks()}
+          filter={store.workflowFilter}
+          onFilter={(filter) => setStore("workflowFilter", filter)}
+          onOpenProject={openWorkflowProject}
+          onNewSession={openWorkflowProjectNewSession}
+          onOpenSettings={openWorkflowSettings}
+          onOpenHelp={openWorkflowHelp}
+        />
+      }
+      navigator={
+        <WorkflowSessionNavigator
+          embedded
+          tasks={filteredWorkflowSessionTasks()}
+          activeID={activeWorkflowSessionID()}
+          loading={sessionWorkflowLoad.isLoading}
+          onOpenSession={openWorkflowSession}
+          onNewSession={openWorkflowNewSession}
+        />
+      }
+      center={sessionPanel(true)}
+      right={desktopSidePanelOpen() ? sidePanel(true) : undefined}
+      leftWidth={280}
+      navigatorWidth={360}
+      rightWidth={desktopReviewOpen() ? 520 : layout.fileTree.width()}
+    />
+  )
+
+  const legacySessionShell = () => (
+    <div class="flex-1 min-h-0 flex flex-col md:flex-row">
+      {sessionPanel(false)}
+      {sidePanel(false)}
+    </div>
+  )
+
+  return (
+    <div class="relative size-full overflow-hidden flex flex-col">
+      {sessionSync() ?? ""}
+      <SessionHeader />
+      <Show when={settings.general.newLayoutDesigns()} fallback={legacySessionShell()}>
+        {workflowSessionShell()}
+      </Show>
 
       <TerminalPanel />
     </div>

@@ -7,9 +7,52 @@ import {
   createSessionTabs,
   focusTerminalById,
   getTabReorderIndex,
+  shouldCenterSessionContent,
   shouldFocusTerminalOnKeyDown,
   shouldShowFileTree,
 } from "./helpers"
+
+describe("session page initialization", () => {
+  test("initializes interaction store before workflow memos read it", async () => {
+    const source = await Bun.file(new URL("../session.tsx", import.meta.url)).text()
+    const store = source.indexOf("const [store, setStore] = createStore({")
+    const workflowFilter = source.indexOf("const filteredWorkflowSessionTasks = createMemo")
+
+    expect(store).toBeGreaterThanOrEqual(0)
+    expect(workflowFilter).toBeGreaterThanOrEqual(0)
+    expect(store).toBeLessThan(workflowFilter)
+  })
+
+  test("wires workflow shell slots explicitly", async () => {
+    const source = await Bun.file(new URL("../session.tsx", import.meta.url)).text()
+
+    expect(source).toContain('storageKey="session.workflow-shell.panels"')
+    expect(source).toContain("right={desktopSidePanelOpen() ? sidePanel(true) : undefined}")
+  })
+
+  test("renders workflow navigator rows through shared entity rows", async () => {
+    const source = await Bun.file(new URL("./workflow-session-navigator.tsx", import.meta.url)).text()
+
+    expect(source).toContain("WorkflowEntityRow")
+    expect(source).not.toContain("WORKFLOW_ENTITY_ROW")
+  })
+})
+
+describe("shouldCenterSessionContent", () => {
+  test("keeps workflow layout from centering desktop session content", () => {
+    expect(shouldCenterSessionContent({ desktop: true, reviewOpen: false, workflowLayout: true })).toBe(false)
+  })
+
+  test("keeps legacy desktop sessions centered only outside the workflow layout", () => {
+    expect(shouldCenterSessionContent({ desktop: true, reviewOpen: false, workflowLayout: false })).toBe(true)
+    expect(shouldCenterSessionContent({ desktop: true, reviewOpen: false, workflowLayout: true })).toBe(false)
+  })
+
+  test("does not center mobile or review layouts", () => {
+    expect(shouldCenterSessionContent({ desktop: false, reviewOpen: false, workflowLayout: false })).toBe(false)
+    expect(shouldCenterSessionContent({ desktop: true, reviewOpen: true, workflowLayout: false })).toBe(false)
+  })
+})
 
 describe("shouldShowFileTree", () => {
   test("does not reserve space for a disabled file tree", () => {
