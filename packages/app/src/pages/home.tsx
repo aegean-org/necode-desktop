@@ -46,16 +46,39 @@ import { useCommand } from "@/context/command"
 import { useSettings } from "@/context/settings"
 import { ServerRowMenu } from "@/components/server/server-row-menu"
 import { ServerHealthIndicator } from "@/components/server/server-row"
+import { WorkflowShell } from "@/components/workflow-shell"
+import {
+  WORKFLOW_ENTITY_ROW,
+  WORKFLOW_NAV_ROW,
+  WORKFLOW_SECTION_LABEL,
+  WorkflowEntityList,
+  WorkflowEntityRow,
+  WorkflowPanelHeader,
+  WorkflowSectionHeader,
+} from "@/components/workflow-ui"
 import { type ServerHealth } from "@/utils/server-health"
+import {
+  buildWorkflowTasksFromStores,
+  filterWorkflowTasks,
+  groupWorkflowTasks,
+  workflowGroupTitleKey,
+  workflowStatusTitleKey,
+  workflowTaskMeta,
+  type WorkflowTask,
+  type WorkflowTaskFilter,
+} from "./home/workflow-task"
+import { HomeWorkflowInspector } from "./home/workflow-inspector"
+import { HomeWorkflowOverview } from "./home/workflow-overview"
+import { HomeWorkflowNav } from "./home/workflow-sidebar"
 
 const HOME_SESSION_LIMIT = 64
-const HOME_ROW_LAYOUT =
-  "flex min-w-0 w-full shrink-0 cursor-default items-center rounded-[6px] bg-transparent text-left transition-[background-color,color,box-shadow] duration-[120ms] ease-in-out focus-visible:outline-none"
-const HOME_ROW_BASE = `${HOME_ROW_LAYOUT} border-0`
-const HOME_ROW = `${HOME_ROW_BASE} [font-weight:530] text-v2-text-text-muted hover:bg-v2-overlay-simple-overlay-hover focus-visible:bg-v2-overlay-simple-overlay-hover`
 const HOME_PROJECT_NAV_LABEL = "min-w-0 flex-1 overflow-hidden text-ellipsis whitespace-nowrap"
-const HOME_PROJECT_NAV_ROW = `${HOME_ROW_LAYOUT} h-7 gap-2 px-1.5 [font-weight:440] text-v2-text-text-muted hover:bg-v2-background-bg-layer-01 hover:text-v2-text-text-base hover:[box-shadow:inset_0_0_0_0.5px_var(--v2-border-border-muted)] data-[selected]:bg-v2-background-bg-layer-03 data-[selected]:text-v2-text-text-base data-[selected]:[box-shadow:inset_0_0_0_0.5px_var(--v2-border-border-muted)] data-[selected]:hover:bg-v2-background-bg-layer-03 focus-visible:bg-v2-background-bg-layer-01 focus-visible:text-v2-text-text-base focus-visible:[box-shadow:inset_0_0_0_0.5px_var(--v2-border-border-muted)]`
-const HOME_SECTION_LABEL = "text-v2-text-text-muted [font-weight:440]"
+const HOME_TASK_STATUS_DOT_CLASS = {
+  needs_action: "bg-icon-critical-base",
+  running: "bg-icon-info-base",
+  ready: "bg-icon-weak-base",
+  done: "bg-icon-success-base",
+}
 
 type HomeSessionRecord = {
   session: Session
@@ -63,15 +86,9 @@ type HomeSessionRecord = {
   projectName: string
 }
 
-type HomeSessionGroup = {
-  id: "today" | "yesterday" | "older"
-  title: string
-  sessions: HomeSessionRecord[]
-}
-
 const HOME_SESSION_SEARCH_RESULTS_ID = "home-session-search-results"
 const HOME_SEARCH_RESULT_ROW =
-  "flex h-10 w-full shrink-0 cursor-default items-center gap-2 border-0 py-3 pl-4 pr-6 text-left transition-[background-color] duration-[120ms] ease-in-out hover:bg-v2-overlay-simple-overlay-hover focus-visible:bg-v2-overlay-simple-overlay-hover focus-visible:outline-none"
+  `flex h-10 w-full shrink-0 items-center gap-2 py-2 pl-4 pr-6 ${WORKFLOW_ENTITY_ROW}`
 const HOME_SEARCH_RESULT_TITLE =
   "min-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-[13px] leading-4 tracking-[-0.04px] text-v2-text-text-base [font-weight:530]"
 const HOME_SEARCH_RESULT_META =
@@ -139,6 +156,8 @@ function HomeDesign() {
     search: "",
     selection: { server: server.key } as HomeProjectSelection,
     searchFocused: false,
+    activeTask: "",
+    filter: "all" as WorkflowTaskFilter,
   })
 
   const focusedServer = createMemo(
@@ -189,13 +208,21 @@ function HomeDesign() {
     }),
   )
   const records = createMemo(() => allRecords().slice(0, HOME_SESSION_LIMIT))
+  const workflowStores = createMemo(() =>
+    projectDirectories().map((directory) => focusedSync().child(directory, { bootstrap: false })[0]),
+  )
+  const workflowTasks = createMemo(() => buildWorkflowTasksFromStores({ records: records(), stores: workflowStores() }))
+  const filteredWorkflowTasks = createMemo(() => filterWorkflowTasks(workflowTasks(), state.filter))
+  const workflowGroups = createMemo(() => groupWorkflowTasks(filteredWorkflowTasks()))
+  const activeTask = createMemo(
+    () => filteredWorkflowTasks().find((task) => task.id === state.activeTask) ?? filteredWorkflowTasks()[0],
+  )
   const searchResults = createMemo(() => {
     const query = search().toLowerCase()
     if (!query) return []
     return allRecords().filter((record) => matchesHomeSessionSearch(record, query))
   })
   const searchOpen = createMemo(() => state.searchFocused && search().length > 0)
-  const groups = createMemo(() => groupSessions(records(), language))
 
   function setSelection(next: HomeProjectSelection) {
     batch(() => {
@@ -216,8 +243,8 @@ function HomeDesign() {
 
   command.register("home", () => [
     {
-      id: "home.sessions.search.focus",
-      title: language.t("home.sessions.search.placeholder"),
+      id: "home.tasks.search.focus",
+      title: language.t("home.tasks.search.placeholder"),
       keybind: "mod+f",
       hidden: true,
       onSelect: () => focusSessionSearch?.(),
@@ -236,6 +263,12 @@ function HomeDesign() {
     if (!pending || pending.server !== server.key) return
     pendingHomeNavigation = undefined
     navigate(pending.href)
+  })
+
+  createEffect(() => {
+    const next = activeTask()?.id ?? ""
+    if (state.activeTask === next) return
+    setState("activeTask", next)
   })
 
   function focusServer(conn: ServerConnection.Any) {
@@ -338,8 +371,8 @@ function HomeDesign() {
   }
 
   return (
-    <div class="rounded-[10px] shadow-[var(--v2-elevation-raised)] m-2 min-h-0 lg:overflow-hidden bg-v2-background-bg-base self-stretch flex-1">
-      <div class="mx-auto grid w-full h-full max-w-[1080px] gap-8 px-6 pb-16 lg:grid-cols-[280px_minmax(0,720px)]">
+    <WorkflowShell
+      left={
         <HomeProjectColumn
           projects={projects()}
           selected={state.selection}
@@ -359,68 +392,97 @@ function HomeDesign() {
           }}
           clearNotifications={clearNotifications}
           unseenCount={unseenCount}
+          workflowTasks={workflowTasks()}
+          workflowFilter={state.filter}
+          setWorkflowFilter={(filter) => setState("filter", filter)}
           openSettings={openSettings}
           openHelp={() => platform.openLink("https://opencode.ai/desktop-feedback")}
           language={language}
         />
-
-        <section
-          class="min-h-0 min-w-0 flex-1 flex flex-col pt-12"
-          aria-label={language.t("sidebar.project.recentSessions")}
-        >
-          <HomeSessionSearch
-            value={state.search}
-            placeholder={language.t("home.sessions.search.placeholder")}
-            open={searchOpen()}
-            loading={sessionLoad.isLoading}
-            results={searchResults()}
-            server={state.selection.server}
-            activeServer={state.selection.server === server.key}
-            noResultsLabel={language.t("home.sessions.search.noResults", { query: search() })}
-            bindFocus={(focus) => {
-              focusSessionSearch = focus
-            }}
-            onInput={(value) => setState("search", value)}
-            onFocus={() => setState("searchFocused", true)}
-            onClose={closeSearch}
-            onSelect={selectSearchSession}
+      }
+      navigator={
+        <section class="flex min-h-0 min-w-0 flex-1 flex-col px-5 pb-5 pt-3" aria-label={language.t("home.tasks.title")}>
+          <WorkflowPanelHeader
+            class="mb-3 !px-0"
+            title={language.t("home.tasks.title")}
+            badge={filteredWorkflowTasks().length}
+            actions={
+              <Show when={newSessionProject()}>
+                <ButtonV2
+                  data-action="home-new-session"
+                  variant="ghost-muted"
+                  size="normal"
+                  icon="edit"
+                  class="h-7 px-2 [font-weight:530]"
+                  onClick={openNewSession}
+                >
+                  {language.t("command.session.new")}
+                </ButtonV2>
+              </Show>
+            }
           />
+          <HomeWorkflowOverview
+            tasks={workflowTasks()}
+            filter={state.filter}
+            onFilter={(filter) => setState("filter", filter)}
+          />
+          <div class="mt-3">
+            <HomeSessionSearch
+              value={state.search}
+              placeholder={language.t("home.tasks.search.placeholder")}
+              open={searchOpen()}
+              loading={sessionLoad.isLoading}
+              results={searchResults()}
+              server={state.selection.server}
+              activeServer={state.selection.server === server.key}
+              noResultsLabel={language.t("home.tasks.search.noResults", { query: search() })}
+              bindFocus={(focus) => {
+                focusSessionSearch = focus
+              }}
+              onInput={(value) => setState("search", value)}
+              onFocus={() => setState("searchFocused", true)}
+              onClose={closeSearch}
+              onSelect={selectSearchSession}
+            />
+          </div>
           <ScrollView class="mt-3 min-h-0 flex-1">
-            <div class="pt-3 flex flex-col gap-6">
+            <div class="flex flex-col gap-6 pt-2">
               <Show
                 when={!sessionLoad.isLoading}
                 fallback={<HomeSessionSkeleton label={language.t("common.loading")} />}
               >
                 <Show
-                  when={groups().length > 0}
+                  when={workflowGroups().length > 0}
                   fallback={
                     <div class="flex min-w-0 flex-col gap-4">
                       <HomeSessionGroupHeader
-                        title={language.t("home.sessions.empty")}
+                        title={language.t("home.tasks.empty")}
                         onNewSession={newSessionProject() ? openNewSession : undefined}
                       />
                     </div>
                   }
                 >
-                  <For each={groups()}>
-                    {(group, index) => (
+                  <For each={workflowGroups()}>
+                    {(group) => (
                       <div class="flex min-w-0 flex-col gap-4">
                         <HomeSessionGroupHeader
-                          title={group.title}
-                          onNewSession={index() === 0 && newSessionProject() ? openNewSession : undefined}
+                          title={language.t(workflowGroupTitleKey(group.id))}
+                          count={group.tasks.length}
                         />
-                        <div class="flex min-w-0 flex-col gap-px">
-                          <For each={group.sessions}>
-                            {(record) => (
-                              <HomeSessionRow
-                                record={record}
+                        <WorkflowEntityList class="px-2">
+                          <For each={group.tasks}>
+                            {(task) => (
+                              <HomeWorkflowTaskRow
+                                task={task}
                                 server={state.selection.server}
                                 activeServer={state.selection.server === server.key}
+                                selected={activeTask()?.id === task.id}
+                                previewTask={() => setState("activeTask", task.id)}
                                 openSession={openSession}
                               />
                             )}
                           </For>
-                        </div>
+                        </WorkflowEntityList>
                       </div>
                     )}
                   </For>
@@ -429,8 +491,16 @@ function HomeDesign() {
             </div>
           </ScrollView>
         </section>
-      </div>
-    </div>
+      }
+      center={
+        <HomeWorkflowInspector
+          task={activeTask()}
+          onOpenSession={openSession}
+          onNewSession={newSessionProject() ? openNewSession : undefined}
+        />
+      }
+      navigatorWidth={360}
+    />
   )
 }
 
@@ -445,6 +515,9 @@ function HomeProjectColumn(props: {
   closeProject: (server: ServerConnection.Any, directory: string) => void
   clearNotifications: (server: ServerConnection.Any, project: LocalProject) => void
   unseenCount: (server: ServerConnection.Any, project: LocalProject) => number
+  workflowTasks: WorkflowTask[]
+  workflowFilter: WorkflowTaskFilter
+  setWorkflowFilter: (filter: WorkflowTaskFilter) => void
   openSettings: () => void
   openHelp: () => void
   language: ReturnType<typeof useLanguage>
@@ -453,21 +526,33 @@ function HomeProjectColumn(props: {
   const dialog = useDialog()
   const controller = useServerManagementController({ navigateOnAdd: false })
   return (
-    <aside class="flex min-w-0 flex-col lg:pt-[52px] mt-14 gap-4" aria-label={props.language.t("home.projects")}>
-      <div class="flex h-7 min-w-0 items-center justify-between pl-1.5">
-        <div class={HOME_SECTION_LABEL}>{props.language.t("home.projects")}</div>
-        <Show when={global.servers.list().length === 1}>
-          <IconButtonV2
-            data-action="home-add-project"
-            variant="ghost-muted"
-            size="large"
-            class="titlebar-icon [&_[data-slot=icon-svg]]:text-v2-icon-icon-muted"
-            icon={<IconV2 name="folder-add-left" />}
-            onClick={() => props.chooseProject(global.servers.list()[0]!)}
-            aria-label={props.language.t("home.project.add")}
-          />
-        </Show>
-      </div>
+    <aside
+      class="flex min-h-0 min-w-0 flex-col gap-5 overflow-hidden px-3 pb-4 pt-3"
+      aria-label={props.language.t("home.projects")}
+    >
+      <HomeWorkflowNav
+        tasks={props.workflowTasks}
+        filter={props.workflowFilter}
+        onFilter={props.setWorkflowFilter}
+      />
+      <div class="mx-1 h-px bg-v2-border-border-muted" aria-hidden="true" />
+      <WorkflowSectionHeader
+        class="!h-7 !px-1.5"
+        title={props.language.t("home.projects")}
+        actions={
+          <Show when={global.servers.list().length === 1}>
+            <IconButtonV2
+              data-action="home-add-project"
+              variant="ghost-muted"
+              size="large"
+              class="titlebar-icon [&_[data-slot=icon-svg]]:text-v2-icon-icon-muted"
+              icon={<IconV2 name="folder-add-left" />}
+              onClick={() => props.chooseProject(global.servers.list()[0]!)}
+              aria-label={props.language.t("home.project.add")}
+            />
+          </Show>
+        }
+      />
       <Show
         when={global.servers.list().length > 1}
         fallback={<HomeProjectList {...props} server={global.servers.list()[0]!} />}
@@ -502,7 +587,7 @@ function HomeProjectColumn(props: {
       <div class="mt-4 flex min-w-0 flex-col gap-1">
         <button
           type="button"
-          class={`${HOME_PROJECT_NAV_ROW} text-v2-text-text-faint [&>[data-slot=icon-svg]]:text-v2-icon-icon-muted`}
+          class={`${WORKFLOW_NAV_ROW} text-v2-text-text-faint [&>[data-slot=icon-svg]]:text-v2-icon-icon-muted`}
           onClick={props.openSettings}
         >
           <IconV2 name="settings-gear" size="small" />
@@ -510,7 +595,7 @@ function HomeProjectColumn(props: {
         </button>
         <button
           type="button"
-          class={`${HOME_PROJECT_NAV_ROW} text-v2-text-text-faint [&>[data-slot=icon-svg]]:text-v2-icon-icon-muted`}
+          class={`${WORKFLOW_NAV_ROW} text-v2-text-text-faint [&>[data-slot=icon-svg]]:text-v2-icon-icon-muted`}
           onClick={props.openHelp}
         >
           <IconV2 name="help" size="small" />
@@ -537,7 +622,7 @@ function HomeServerRow(props: {
     <div class="group/server relative flex h-7 min-w-0 items-center rounded-[6px]">
       <button
         type="button"
-        class={`${HOME_PROJECT_NAV_ROW} pr-16 disabled:opacity-60`}
+        class={`${WORKFLOW_NAV_ROW} pr-16 disabled:opacity-60`}
         data-selected={props.selected ? "" : undefined}
         disabled={!props.healthy}
         onClick={() => props.focusServer(props.server)}
@@ -635,7 +720,7 @@ function HomeProjectRow(props: {
       <button
         type="button"
         data-component="home-project-row"
-        class={`${HOME_PROJECT_NAV_ROW} pr-16`}
+        class={`${WORKFLOW_NAV_ROW} pr-16`}
         data-selected={props.selected ? "" : undefined}
         aria-current={props.selected ? "page" : undefined}
         onClick={() => props.selectProject(props.server, props.project.worktree)}
@@ -827,12 +912,12 @@ function HomeSessionSearch(props: {
   )
 
   return (
-    <div class="ml-4 mr-2 w-[calc(100%_-_24px)]">
+    <div class="w-full">
       <div ref={root} data-component="home-session-search" class="relative z-10 w-full">
         <Show when={props.open}>
           <div
             data-component="home-session-search-panel"
-            class="absolute flex flex-col rounded-[12px] bg-v2-background-bg-base shadow-[var(--v2-elevation-floating)]"
+            class="absolute flex flex-col rounded-[12px] bg-[var(--workflow-panel-base)] shadow-[var(--workflow-elevation-middle)]"
             style={{
               top: "-6px",
               left: "-6px",
@@ -858,8 +943,8 @@ function HomeSessionSearch(props: {
                     }
                   >
                     <div class="flex flex-col">
-                      <p class="my-1.5 px-4 text-[13px] leading-4 tracking-[-0.04px] text-v2-text-text-muted [font-weight:440]">
-                        {language.t("home.sessions.search.sessions")}
+                      <p class={`my-1.5 px-4 ${WORKFLOW_SECTION_LABEL}`}>
+                        {language.t("home.tasks.search.tasks")}
                       </p>
                       <div ref={listRef} class="flex max-h-80 flex-col gap-px overflow-y-auto">
                         <For each={props.results}>
@@ -968,12 +1053,10 @@ function HomeSessionSearchResultRow(props: {
       id={`home-session-search-option-${key()}`}
       data-key={key()}
       data-component="home-session-search-row"
+      data-selected={props.selected ? "" : undefined}
       role="option"
       aria-selected={props.selected}
-      classList={{
-        [HOME_SEARCH_RESULT_ROW]: true,
-        "bg-v2-overlay-simple-overlay-hover": props.selected,
-      }}
+      class={HOME_SEARCH_RESULT_ROW}
       onMouseEnter={() => props.onHighlight()}
       onClick={() => props.onSelect(props.record.session)}
     >
@@ -984,9 +1067,7 @@ function HomeSessionSearchResultRow(props: {
         activeServer={props.activeServer}
       />
       <div class="flex min-w-0 flex-1 items-center gap-1.5">
-        <span
-          class={`${HOME_SEARCH_RESULT_TITLE} ${props.record.projectName ? "max-w-[min(70%,480px)] flex-[0_1_auto]" : "flex-[1_1_auto]"}`}
-        >
+        <span class={`${HOME_SEARCH_RESULT_TITLE} ${props.record.projectName ? "max-w-[min(70%,480px)] flex-[0_1_auto]" : "flex-[1_1_auto]"}`}>
           {title()}
         </span>
         <Show when={props.record.projectName}>
@@ -997,100 +1078,120 @@ function HomeSessionSearchResultRow(props: {
   )
 }
 
-function HomeSessionGroupHeader(props: { title: string; onNewSession?: () => void }) {
+function HomeSessionGroupHeader(props: { title: string; count?: number; onNewSession?: () => void }) {
   const language = useLanguage()
   return (
-    <div class="flex h-7 min-w-0 items-center justify-between pl-4 pr-2">
-      <div class={HOME_SECTION_LABEL}>{props.title}</div>
-      <Show when={props.onNewSession}>
-        {(onNewSession) => (
+    <WorkflowSectionHeader
+      title={props.title}
+      count={props.count}
+      actions={
+        props.onNewSession ? (
           <ButtonV2
             data-action="home-new-session"
             variant="ghost-muted"
             size="normal"
             icon="edit"
             class="h-7 px-2 [font-weight:530]"
-            onClick={onNewSession()}
+            onClick={props.onNewSession}
           >
             {language.t("command.session.new")}
           </ButtonV2>
-        )}
-      </Show>
-    </div>
+        ) : undefined
+      }
+    />
   )
 }
 
-function HomeSessionRow(props: {
-  record: HomeSessionRecord
+function HomeWorkflowTaskRow(props: {
+  task: WorkflowTask
   server: ServerConnection.Key
   activeServer: boolean
+  selected: boolean
+  previewTask: () => void
   openSession: (session: Session) => void
 }) {
-  const title = createMemo(() => sessionTitle(props.record.session.title) || props.record.session.id)
+  const language = useLanguage()
+  const title = createMemo(() => sessionTitle(props.task.title) || props.task.id)
+  const metadata = createMemo(() => workflowTaskMeta(props.task))
+  const status = createMemo(() => metadata().find((meta) => meta.id === "status"))
+  const updated = createMemo(() => metadata().find((meta) => meta.id === "updated"))
+  const subtitle = createMemo(() =>
+    [
+      props.task.projectName,
+      ...metadata().flatMap((meta) => {
+        if (meta.id === "status" || meta.id === "updated") return []
+        return meta.id === "todo" ? language.t(meta.i18nKey, meta.values) : language.t(meta.i18nKey)
+      }),
+    ]
+      .filter(Boolean)
+      .join(" / "),
+  )
 
   return (
-    <button
-      type="button"
-      data-component="home-session-row"
-      class={`${HOME_ROW} h-10 gap-2 px-6 py-3 pl-4`}
-      onClick={() => props.openSession(props.record.session)}
+    <div
+      data-component="home-workflow-task-row"
+      data-status={props.task.status}
+      aria-current={props.selected ? "page" : undefined}
+      onFocusIn={props.previewTask}
+      onPointerEnter={props.previewTask}
     >
-      <HomeSessionLeading
-        project={props.record.project}
-        session={props.record.session}
-        server={props.server}
-        activeServer={props.activeServer}
+      <WorkflowEntityRow
+        rowID={props.task.id}
+        selected={props.selected}
+        title={
+          <span class="flex min-w-0 items-center gap-2">
+            <span class="min-w-0 overflow-hidden text-ellipsis whitespace-nowrap">
+              {title()}
+            </span>
+            <span class={`size-1.5 shrink-0 rounded-full ${HOME_TASK_STATUS_DOT_CLASS[props.task.status]}`} />
+          </span>
+        }
+        subtitle={subtitle()}
+        icon={
+          <HomeSessionLeading
+            project={props.task.project}
+            session={props.task.session}
+            server={props.server}
+            activeServer={props.activeServer}
+          />
+        }
+        badge={
+          <Show when={status()}>
+            {(meta) => (
+              <span class="inline-flex items-center gap-1.5 text-v2-text-text-base">
+                <span class={`size-1.5 rounded-full ${HOME_TASK_STATUS_DOT_CLASS[meta().status]}`} />
+                {language.t(workflowStatusTitleKey(meta().status))}
+              </span>
+            )}
+          </Show>
+        }
+        trailing={
+          <Show when={updated()}>{(meta) => DateTime.fromMillis(meta().updatedAt).toRelative()}</Show>
+        }
+        actions={
+          <ButtonV2 variant="ghost-muted" size="normal" icon="edit" onClick={() => props.openSession(props.task.session)}>
+            {language.t("home.tasks.detail.open")}
+          </ButtonV2>
+        }
+        onSelect={() => {
+          props.previewTask()
+          props.openSession(props.task.session)
+        }}
+        class="home-workflow-task-row"
       />
-      <span
-        class={`min-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-v2-text-text-base [font-weight:530] ${props.record.projectName ? "max-w-[min(70%,480px)] flex-[0_1_auto]" : "flex-[1_1_auto]"}`}
-      >
-        {title()}
-      </span>
-      <Show when={props.record.projectName}>
-        <span class="min-w-0 flex-[1_1_auto] overflow-hidden text-ellipsis whitespace-nowrap text-v2-text-text-muted [font-weight:440]">
-          {props.record.projectName}
-        </span>
-      </Show>
-    </button>
+    </div>
   )
 }
 
 function HomeSessionSkeleton(props: { label: string }) {
   return (
     <div class="flex min-w-0 flex-col gap-4">
-      <div class="flex h-7 min-w-0 items-center justify-between px-4">
-        <div class={HOME_SECTION_LABEL}>{props.label}</div>
-      </div>
-      <div class="flex min-w-0 flex-col gap-px" aria-hidden="true">
-        <For each={[0, 1, 2, 3]}>{() => <div class="h-10 rounded-[6px] bg-v2-background-bg-deep opacity-70" />}</For>
-      </div>
+      <WorkflowSectionHeader title={props.label} />
+      <WorkflowEntityList class="px-0" aria-hidden="true">
+        <For each={[0, 1, 2, 3]}>{() => <div class="h-10 rounded-[6px] bg-[var(--workflow-surface-muted)] opacity-70" />}</For>
+      </WorkflowEntityList>
     </div>
   )
-}
-
-function groupSessions(records: HomeSessionRecord[], language: ReturnType<typeof useLanguage>): HomeSessionGroup[] {
-  const now = DateTime.local()
-  const yesterday = now.minus({ days: 1 })
-  const todaySessions = records.filter((record) =>
-    DateTime.fromMillis(record.session.time.updated ?? record.session.time.created).hasSame(now, "day"),
-  )
-  const yesterdaySessions = records.filter((record) =>
-    DateTime.fromMillis(record.session.time.updated ?? record.session.time.created).hasSame(yesterday, "day"),
-  )
-  const olderSessions = records.filter((record) => {
-    const time = DateTime.fromMillis(record.session.time.updated ?? record.session.time.created)
-    return !time.hasSame(now, "day") && !time.hasSame(yesterday, "day")
-  })
-  const olderTitle =
-    todaySessions.length === 0 && yesterdaySessions.length === 0
-      ? language.t("sidebar.project.recentSessions")
-      : language.t("home.sessions.group.older")
-
-  return [
-    { id: "today" as const, title: language.t("home.sessions.group.today"), sessions: todaySessions },
-    { id: "yesterday" as const, title: language.t("home.sessions.group.yesterday"), sessions: yesterdaySessions },
-    { id: "older" as const, title: olderTitle, sessions: olderSessions },
-  ].filter((group) => group.sessions.length > 0)
 }
 
 function LegacyHome() {
