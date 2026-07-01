@@ -71,7 +71,11 @@ export function WorkflowEntityRow(props: {
           ) : null}
         </div>
       </button>
-      {props.actions ? <div class="shrink-0 opacity-0 transition-opacity group-hover:opacity-100">{props.actions}</div> : null}
+      {props.actions ? (
+        <div class="shrink-0 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
+          {props.actions}
+        </div>
+      ) : null}
     </div>
   )
 }

@@ -68,6 +68,18 @@ describe("workflow UI primitives", () => {
     expect(actionsSource).not.toContain("onClick={props.onSelect}")
   })
 
+  test("reveals row actions when keyboard focus enters the row", () => {
+    const rowSource = workflowUiSource.slice(
+      workflowUiSource.indexOf("export function WorkflowEntityRow"),
+      workflowUiSource.indexOf("export function WorkflowEntityList"),
+    )
+    const actionsSource = rowSource.slice(rowSource.indexOf("{props.actions ?"))
+
+    expect(actionsSource).toContain("opacity-0")
+    expect(actionsSource).toContain("group-hover:opacity-100")
+    expect(actionsSource).toContain("group-focus-within:opacity-100")
+  })
+
   test("keeps shared workflow class constants intentional", () => {
     expect(WORKFLOW_SECTION_LABEL).toContain("uppercase")
     expect(WORKFLOW_SURFACE_BUTTON).toContain(WORKFLOW_SURFACE_CARD)
