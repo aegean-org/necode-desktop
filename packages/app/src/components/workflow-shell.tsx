@@ -1,6 +1,6 @@
 import { createResizeObserver } from "@solid-primitives/resize-observer"
 import { ResizeHandle } from "@opencode-ai/ui/resize-handle"
-import { Show, createMemo, type JSX } from "solid-js"
+import { Show, createEffect, createMemo, type JSX } from "solid-js"
 import { createStore } from "solid-js/store"
 import { Persist, persisted } from "@/utils/persist"
 import {
@@ -8,6 +8,7 @@ import {
   clampWorkflowPanelWidth,
   panelLimit,
   parseWorkflowPanelWidth,
+  workflowPanelWidthAfterPropSync,
   workflowPanelChromeStyle,
   workflowPanelResizeMax,
   workflowPanelScrollStyle,
@@ -36,6 +37,7 @@ type WorkflowShellProps = {
 
 type PanelVisibility = Record<WorkflowShellPanelSide, () => boolean>
 type PanelSizes = Record<WorkflowShellPanelSide, number>
+type SetPanelSize = (side: WorkflowShellPanelSide, width: number) => void
 
 /** Craft-style resizable workflow shell shared by home and session pages. */
 export function WorkflowShell(props: WorkflowShellProps) {
@@ -112,6 +114,7 @@ function createWorkflowShellSizing(props: WorkflowShellProps) {
   const [metrics, setMetrics] = createStore({ width: 0 })
   const [sizes, setSizes] = createWorkflowPanelSizeStore(props)
   const visible = createWorkflowPanelVisibility(props)
+  syncWorkflowPanelWidthProps(props, sizes, (side, width) => setSizes(side, width))
   const fixedPanelCount = createMemo(() => workflowFixedPanelCount(visible))
   const panelContext = (side: WorkflowShellPanelSide) =>
     workflowPanelSizingContext({
@@ -154,6 +157,48 @@ function createWorkflowPanelSizeStore(props: WorkflowShellProps) {
       right: parseWorkflowPanelWidth(props.rightWidth, WORKFLOW_SHELL_LIMITS.rightDefault),
     }),
   )
+}
+
+function syncWorkflowPanelWidthProps(props: WorkflowShellProps, sizes: PanelSizes, setPanelSize: SetPanelSize) {
+  syncWorkflowPanelWidthProp({
+    side: "left",
+    sizes,
+    setPanelSize,
+    propWidth: createMemo(() => parseWorkflowPanelWidth(props.leftWidth, WORKFLOW_SHELL_LIMITS.leftDefault)),
+  })
+  syncWorkflowPanelWidthProp({
+    side: "navigator",
+    sizes,
+    setPanelSize,
+    propWidth: createMemo(() => parseWorkflowPanelWidth(props.navigatorWidth, WORKFLOW_SHELL_LIMITS.navigatorDefault)),
+  })
+  syncWorkflowPanelWidthProp({
+    side: "right",
+    sizes,
+    setPanelSize,
+    propWidth: createMemo(() => parseWorkflowPanelWidth(props.rightWidth, WORKFLOW_SHELL_LIMITS.rightDefault)),
+  })
+}
+
+function syncWorkflowPanelWidthProp(input: {
+  side: WorkflowShellPanelSide
+  sizes: PanelSizes
+  setPanelSize: SetPanelSize
+  propWidth: () => number
+}) {
+  let previousPropWidth = input.propWidth()
+
+  createEffect(() => {
+    const nextPropWidth = input.propWidth()
+    const nextWidth = workflowPanelWidthAfterPropSync({
+      currentWidth: input.sizes[input.side],
+      previousPropWidth,
+      nextPropWidth,
+    })
+    previousPropWidth = nextPropWidth
+    if (nextWidth === input.sizes[input.side]) return
+    input.setPanelSize(input.side, nextWidth)
+  })
 }
 
 function createWorkflowPanelVisibility(props: WorkflowShellProps): PanelVisibility {

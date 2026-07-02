@@ -15,6 +15,7 @@ import {
 } from "./workflow-task"
 
 const homeSource = await Bun.file(new URL("../home.tsx", import.meta.url)).text()
+const HOME_SOURCE_FUNCTION_LINE_LIMIT = 50
 
 const project = (name = "App") =>
   ({
@@ -232,4 +233,27 @@ describe("buildWorkflowTasks", () => {
     expect(rowSource).toContain("onSelect={props.previewTask}")
     expect(rowSource).not.toContain("props.previewTask()\n          props.openSession(props.task.session)")
   })
+
+  test("keeps touched home workflow functions under the local line limit", () => {
+    expect(topLevelFunctionNonblankLineCount(homeSource, "HomeDesign")).toBeLessThanOrEqual(
+      HOME_SOURCE_FUNCTION_LINE_LIMIT,
+    )
+    expect(topLevelFunctionNonblankLineCount(homeSource, "HomeProjectColumn")).toBeLessThanOrEqual(
+      HOME_SOURCE_FUNCTION_LINE_LIMIT,
+    )
+  })
 })
+
+function topLevelFunctionNonblankLineCount(source: string, name: string) {
+  const start = new RegExp(`^function ${name}\\(`, "m").exec(source)
+  expect(start).not.toBeNull()
+
+  const rest = source.slice(start!.index + 1)
+  const next = /^function [A-Za-z0-9_]+\(/m.exec(rest)
+  expect(next).not.toBeNull()
+
+  return source
+    .slice(start!.index, start!.index + 1 + next!.index)
+    .split(/\r?\n/)
+    .filter((line) => line.trim()).length
+}

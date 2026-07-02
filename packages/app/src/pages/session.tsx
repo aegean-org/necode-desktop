@@ -196,6 +196,8 @@ export default function Page() {
       }),
   )
   const desktopSidePanelOpen = createMemo(() => desktopReviewOpen() || desktopFileTreeOpen())
+  const workflowRightPanelOpen = createMemo(() => !!params.id && desktopSidePanelOpen())
+  const workflowRightPanelWidth = createMemo(() => (desktopReviewOpen() ? 520 : layout.fileTree.width()))
   const sessionPanelWidth = createMemo(() => {
     if (!desktopSidePanelOpen()) return "100%"
     if (desktopReviewOpen()) return `${layout.session.width()}px`
@@ -1858,10 +1860,10 @@ export default function Page() {
         />
       }
       center={sessionPanel(true)}
-      right={desktopSidePanelOpen() ? sidePanel(true) : undefined}
+      right={workflowRightPanelOpen() ? sidePanel(true) : undefined}
       leftWidth={280}
       navigatorWidth={360}
-      rightWidth={desktopReviewOpen() ? 520 : layout.fileTree.width()}
+      rightWidth={workflowRightPanelOpen() ? workflowRightPanelWidth() : undefined}
     />
   )
 

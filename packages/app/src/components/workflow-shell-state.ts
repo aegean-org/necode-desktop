@@ -80,6 +80,16 @@ export function clampWorkflowPanelWidth(input: {
   return Math.min(max, Math.max(min, input.width))
 }
 
+/** Returns the next stored width when a parent-provided panel width changes. */
+export function workflowPanelWidthAfterPropSync(input: {
+  currentWidth: number
+  previousPropWidth: number
+  nextPropWidth: number
+}) {
+  if (input.previousPropWidth === input.nextPropWidth) return input.currentWidth
+  return input.nextPropWidth
+}
+
 /** Returns the outer shell spacing that separates the stack from the app edge. */
 export function workflowShellOuterStyle(): WorkflowShellStyle {
   return {

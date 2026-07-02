@@ -29,7 +29,9 @@ describe("session page initialization", () => {
     const source = await Bun.file(new URL("../session.tsx", import.meta.url)).text()
 
     expect(source).toContain('storageKey="session.workflow-shell.panels"')
-    expect(source).toContain("right={desktopSidePanelOpen() ? sidePanel(true) : undefined}")
+    expect(source).toContain("const workflowRightPanelOpen = createMemo")
+    expect(source).toContain("!!params.id && desktopSidePanelOpen()")
+    expect(source).toContain("right={workflowRightPanelOpen() ? sidePanel(true) : undefined}")
   })
 
   test("renders workflow navigator rows through shared entity rows", async () => {

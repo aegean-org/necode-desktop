@@ -140,6 +140,30 @@ export default function Home() {
 }
 
 function HomeDesign() {
+  const controller = createHomeWorkflowController()
+  return <HomeWorkflowShell controller={controller} />
+}
+
+function homeProjectDirectoriesFromProject(project: LocalProject) {
+  return [project.worktree, ...(project.sandboxes ?? [])]
+}
+
+function createHomeWorkflowController() {
+  const context = createHomeWorkflowContext()
+  const selection = createHomeWorkflowSelection(context)
+  const tasks = createHomeWorkflowTasks({ context, selection })
+  const actions = createHomeWorkflowActions({ context, selection, tasks })
+  createHomeWorkflowEffects({ context, selection, tasks, actions })
+  return { context, selection, tasks, actions }
+}
+
+type HomeWorkflowController = ReturnType<typeof createHomeWorkflowController>
+type HomeWorkflowContext = ReturnType<typeof createHomeWorkflowContext>
+type HomeWorkflowSelection = ReturnType<typeof createHomeWorkflowSelection>
+type HomeWorkflowTasks = ReturnType<typeof createHomeWorkflowTasks>
+type HomeWorkflowActions = ReturnType<typeof createHomeWorkflowActions>
+
+function createHomeWorkflowContext() {
   const sync = useServerSync()
   const layout = useLayout()
   const platform = usePlatform()
@@ -151,7 +175,7 @@ function HomeDesign() {
   const global = useGlobal()
   const command = useCommand()
   const notification = useNotification()
-  let focusSessionSearch: (() => void) | undefined
+  const focusSessionSearch = { current: undefined as (() => void) | undefined }
   const [state, setState] = createStore({
     search: "",
     selection: { server: server.key } as HomeProjectSelection,
@@ -160,343 +184,259 @@ function HomeDesign() {
     filter: "all" as WorkflowTaskFilter,
   })
 
+  return { sync, layout, platform, pickDirectory, dialog, navigate, server, language, global, command, notification, focusSessionSearch, state, setState }
+}
+
+function createHomeWorkflowSelection(context: HomeWorkflowContext) {
   const focusedServer = createMemo(
-    () => global.servers.list().find((conn) => ServerConnection.key(conn) === state.selection.server) ?? server.current,
+    () => context.global.servers.list().find((conn) => ServerConnection.key(conn) === context.state.selection.server) ?? context.server.current,
   )
   const focusedServerCtx = createMemo(() => {
     const conn = focusedServer()
     if (!conn) return
-    return global.createServerCtx(conn)
+    return context.global.createServerCtx(conn)
   })
-  const focusedSync = () => focusedServerCtx()?.sync ?? sync()
-  const projects = createMemo(() => focusedServerCtx()?.projects.list() ?? layout.projects.list())
-  const selectedProject = createMemo(() => projects().find((project) => project.worktree === state.selection.directory))
+  const focusedSync = () => focusedServerCtx()?.sync ?? context.sync()
+  const projects = createMemo(() => focusedServerCtx()?.projects.list() ?? context.layout.projects.list())
+  const selectedProject = createMemo(() => projects().find((project) => project.worktree === context.state.selection.directory))
   const newSessionProject = createMemo(
     () =>
       selectedProject() ??
       projects().find((project) => project.worktree === focusedServerCtx()?.projects.last()) ??
       projects()[0],
   )
-  const directories = (project: LocalProject) => [project.worktree, ...(project.sandboxes ?? [])]
   const projectDirectories = createMemo(() => {
     const project = selectedProject()
-    if (!project) return projects().flatMap(directories)
-    return directories(project)
+    if (!project) return projects().flatMap(homeProjectDirectoriesFromProject)
+    return homeProjectDirectoriesFromProject(project)
   })
-  const search = createMemo(() => state.search.trim())
+  const search = createMemo(() => context.state.search.trim())
+  const projectByID = createMemo(
+    () => new Map(projects().flatMap((project) => (project.id ? [[project.id, project] as const] : []))),
+  )
+
+  return { focusedServer, focusedSync, projects, selectedProject, newSessionProject, projectDirectories, search, projectByID }
+}
+
+function createHomeWorkflowTasks(input: { context: HomeWorkflowContext; selection: HomeWorkflowSelection }) {
   const sessionLoad = useQuery(() => ({
-    queryKey: ["home", "sessions", state.selection.server, ...projectDirectories()] as const,
+    queryKey: ["home", "sessions", input.context.state.selection.server, ...input.selection.projectDirectories()] as const,
     queryFn: async () => {
       await Promise.all(
-        projectDirectories().map((directory) =>
-          focusedSync().project.loadSessions(directory, { limit: HOME_SESSION_LIMIT }),
-        ),
+        input.selection
+          .projectDirectories()
+          .map((directory) => input.selection.focusedSync().project.loadSessions(directory, { limit: HOME_SESSION_LIMIT })),
       )
       return null
     },
   }))
-
-  const projectByID = createMemo(
-    () => new Map(projects().flatMap((project) => (project.id ? [[project.id, project] as const] : []))),
-  )
   const allRecords = createMemo(() =>
     buildHomeSessionRecords({
-      sync: focusedSync(),
-      projectDirectories,
-      projects,
-      projectByID,
+      sync: input.selection.focusedSync(),
+      projectDirectories: input.selection.projectDirectories,
+      projects: input.selection.projects,
+      projectByID: input.selection.projectByID,
     }),
   )
   const records = createMemo(() => allRecords().slice(0, HOME_SESSION_LIMIT))
   const workflowStores = createMemo(() =>
-    projectDirectories().map((directory) => focusedSync().child(directory, { bootstrap: false })[0]),
+    input.selection.projectDirectories().map((directory) => input.selection.focusedSync().child(directory, { bootstrap: false })[0]),
   )
   const workflowTasks = createMemo(() => buildWorkflowTasksFromStores({ records: records(), stores: workflowStores() }))
-  const filteredWorkflowTasks = createMemo(() => filterWorkflowTasks(workflowTasks(), state.filter))
+  const filteredWorkflowTasks = createMemo(() => filterWorkflowTasks(workflowTasks(), input.context.state.filter))
   const workflowGroups = createMemo(() => groupWorkflowTasks(filteredWorkflowTasks()))
   const activeTask = createMemo(
-    () => filteredWorkflowTasks().find((task) => task.id === state.activeTask) ?? filteredWorkflowTasks()[0],
+    () => filteredWorkflowTasks().find((task) => task.id === input.context.state.activeTask) ?? filteredWorkflowTasks()[0],
   )
   const searchResults = createMemo(() => {
-    const query = search().toLowerCase()
+    const query = input.selection.search().toLowerCase()
     if (!query) return []
     return allRecords().filter((record) => matchesHomeSessionSearch(record, query))
   })
-  const searchOpen = createMemo(() => state.searchFocused && search().length > 0)
+  const searchOpen = createMemo(() => input.context.state.searchFocused && input.selection.search().length > 0)
+  return { sessionLoad, workflowTasks, filteredWorkflowTasks, workflowGroups, activeTask, searchResults, searchOpen }
+}
 
+function createHomeWorkflowActions(input: {
+  context: HomeWorkflowContext
+  selection: HomeWorkflowSelection
+  tasks: HomeWorkflowTasks
+}) {
+  const selectionActions = createHomeSelectionActions(input)
+  const navigationActions = createHomeNavigationActions({ ...input, selectionActions })
+  const projectActions = createHomeProjectActions({ ...input, selectionActions })
+  const closeSearch = () => {
+    input.context.setState("search", "")
+    input.context.setState("searchFocused", false)
+  }
+  return {
+    ...selectionActions,
+    ...navigationActions,
+    ...projectActions,
+    closeSearch,
+    selectSearchSession: (session: Session) => {
+      navigationActions.openSession(session)
+      closeSearch()
+    },
+    bindSessionSearchFocus: (focus: () => void) => {
+      input.context.focusSessionSearch.current = focus
+    },
+    setWorkflowFilter: (filter: WorkflowTaskFilter) => input.context.setState("filter", filter),
+    previewTask: (id: string) => input.context.setState("activeTask", id),
+  }
+}
+
+function createHomeSelectionActions(input: { context: HomeWorkflowContext; selection: HomeWorkflowSelection }) {
   function setSelection(next: HomeProjectSelection) {
     batch(() => {
-      if (state.selection.server !== next.server) setState("selection", "server", next.server)
-      if (state.selection.directory !== next.directory) setState("selection", "directory", next.directory)
+      if (input.context.state.selection.server !== next.server) input.context.setState("selection", "server", next.server)
+      if (input.context.state.selection.directory !== next.directory) input.context.setState("selection", "directory", next.directory)
     })
   }
 
-  function closeSearch() {
-    setState("search", "")
-    setState("searchFocused", false)
-  }
-
-  function selectSearchSession(session: Session) {
-    openSession(session)
-    closeSearch()
-  }
-
-  command.register("home", () => [
-    {
-      id: "home.tasks.search.focus",
-      title: language.t("home.tasks.search.placeholder"),
-      keybind: "mod+f",
-      hidden: true,
-      onSelect: () => focusSessionSearch?.(),
+  return {
+    setSelection,
+    focusServer: (conn: ServerConnection.Any) => setSelection({ server: ServerConnection.key(conn) }),
+    selectProject: (conn: ServerConnection.Any, directory: string) => {
+      const key = ServerConnection.key(conn)
+      if (!input.context.global.createServerCtx(conn).projects.list().some((project) => project.worktree === directory)) return
+      setSelection(toggleHomeProjectSelection(input.context.state.selection, key, directory))
     },
-  ])
-
-  createEffect(() => {
-    const list = global.servers.list()
-    if (list.some((conn) => ServerConnection.key(conn) === state.selection.server)) return
-    const conn = list.find((conn) => ServerConnection.key(conn) === server.key) ?? list[0]
-    if (conn) setSelection({ server: ServerConnection.key(conn) })
-  })
-
-  createEffect(() => {
-    const pending = pendingHomeNavigation
-    if (!pending || pending.server !== server.key) return
-    pendingHomeNavigation = undefined
-    navigate(pending.href)
-  })
-
-  createEffect(() => {
-    const next = activeTask()?.id ?? ""
-    if (state.activeTask === next) return
-    setState("activeTask", next)
-  })
-
-  function focusServer(conn: ServerConnection.Any) {
-    setSelection({ server: ServerConnection.key(conn) })
+    addProjects: (conn: ServerConnection.Any, directories: string[]) => {
+      const directory = directories[0]
+      if (!directory) return
+      const ctx = input.context.global.createServerCtx(conn)
+      directories.forEach(ctx.projects.open)
+      ctx.projects.touch(directory)
+      setSelection({ server: ServerConnection.key(conn), directory })
+    },
   }
+}
 
-  function selectProject(conn: ServerConnection.Any, directory: string) {
-    const key = ServerConnection.key(conn)
-    if (
-      !global
-        .createServerCtx(conn)
-        .projects.list()
-        .some((project) => project.worktree === directory)
-    )
-      return
-    setSelection(toggleHomeProjectSelection(state.selection, key, directory))
-  }
-
-  function addProjects(conn: ServerConnection.Any, directories: string[]) {
-    const directory = directories[0]
-    if (!directory) return
-    const ctx = global.createServerCtx(conn)
-    directories.forEach(ctx.projects.open)
-    ctx.projects.touch(directory)
-    setSelection({ server: ServerConnection.key(conn), directory })
-  }
-
-  function openNewSession() {
-    const conn = focusedServer()
-    const project = newSessionProject()
-    if (!conn || !project) return
-    openProjectNewSession(conn, project.worktree)
-  }
-
-  function navigateOnServer(conn: ServerConnection.Any, href: string) {
-    const next = homeProjectNavigation(server.key, ServerConnection.key(conn), href)
-    if (!next.server) {
-      navigate(next.href)
-      return
-    }
+function createHomeNavigationActions(input: {
+  context: HomeWorkflowContext
+  selection: HomeWorkflowSelection
+  selectionActions: ReturnType<typeof createHomeSelectionActions>
+}) {
+  const navigateOnServer = (conn: ServerConnection.Any, href: string) => {
+    const next = homeProjectNavigation(input.context.server.key, ServerConnection.key(conn), href)
+    if (!next.server) return input.context.navigate(next.href)
     pendingHomeNavigation = next
-    server.setActive(next.server)
+    input.context.server.setActive(next.server)
   }
-
-  function openProjectNewSession(conn: ServerConnection.Any, directory: string) {
-    const ctx = global.createServerCtx(conn)
+  const openProjectNewSession = (conn: ServerConnection.Any, directory: string) => {
+    const ctx = input.context.global.createServerCtx(conn)
     ctx.projects.open(directory)
     ctx.projects.touch(directory)
     navigateOnServer(conn, `/${base64Encode(directory)}/session`)
   }
 
-  function editProject(conn: ServerConnection.Any, project: LocalProject) {
-    void import("@/components/dialog-edit-project").then((x) => {
-      dialog.show(() => <x.DialogEditProject server={conn} project={project} />)
-    })
-  }
-
-  function unseenCount(conn: ServerConnection.Any, project: LocalProject) {
-    if (ServerConnection.key(conn) !== server.key) return 0
-    return directories(project).reduce((total, directory) => total + notification.project.unseenCount(directory), 0)
-  }
-
-  function clearNotifications(conn: ServerConnection.Any, project: LocalProject) {
-    if (ServerConnection.key(conn) !== server.key) return
-    directories(project)
-      .filter((directory) => notification.project.unseenCount(directory) > 0)
-      .forEach((directory) => notification.project.markViewed(directory))
-  }
-
-  function openSession(session: Session) {
-    const project = projectForSession(session, projects(), projectByID())
-    const conn = focusedServer()
-    if (!conn) return
-    const directory = project?.worktree ?? session.directory
-    const ctx = global.createServerCtx(conn)
-    ctx.projects.open(directory)
-    ctx.projects.touch(directory)
-    navigateOnServer(conn, `/${base64Encode(session.directory)}/session/${session.id}`)
-  }
-
-  function chooseProject(conn: ServerConnection.Any) {
-    function resolve(result: string | string[] | null) {
-      addProjects(conn, homeProjectDirectories(result))
-    }
-
-    const server = global.createServerCtx(conn)
-
-    pickDirectory({
+  return {
+    navigateOnServer,
+    openProjectNewSession,
+    openNewSession: () => {
+      const conn = input.selection.focusedServer()
+      const project = input.selection.newSessionProject()
+      if (conn && project) openProjectNewSession(conn, project.worktree)
+    },
+    openSession: (session: Session) => {
+      const project = projectForSession(session, input.selection.projects(), input.selection.projectByID())
+      const conn = input.selection.focusedServer()
+      if (!conn) return
+      const directory = project?.worktree ?? session.directory
+      const ctx = input.context.global.createServerCtx(conn)
+      ctx.projects.open(directory)
+      ctx.projects.touch(directory)
+      navigateOnServer(conn, `/${base64Encode(session.directory)}/session/${session.id}`)
+    },
+    chooseProject: (conn: ServerConnection.Any) => input.context.pickDirectory({
       server: conn,
-      title: language.t("command.project.open"),
+      title: input.context.language.t("command.project.open"),
       multiple: true,
-      onSelect: resolve,
-    })
+      onSelect: (result) => input.selectionActions.addProjects(conn, homeProjectDirectories(result)),
+    }),
   }
+}
 
-  function openSettings() {
-    void import("@/components/settings-v2").then((x) => {
-      dialog.show(() => <x.DialogSettings />)
-    })
+function createHomeProjectActions(input: {
+  context: HomeWorkflowContext
+  selection: HomeWorkflowSelection
+  selectionActions: ReturnType<typeof createHomeSelectionActions>
+}) {
+  return {
+    editProject: (conn: ServerConnection.Any, project: LocalProject) => void import("@/components/dialog-edit-project").then((x) => {
+      input.context.dialog.show(() => <x.DialogEditProject server={conn} project={project} />)
+    }),
+    closeProject: (conn: ServerConnection.Any, directory: string) => {
+      const next = closeHomeProject(input.context.state.selection, ServerConnection.key(conn), input.context.global.createServerCtx(conn).projects, directory)
+      if (next) input.selectionActions.setSelection(next)
+    },
+    clearNotifications: (conn: ServerConnection.Any, project: LocalProject) => {
+      if (ServerConnection.key(conn) !== input.context.server.key) return
+      homeProjectDirectoriesFromProject(project)
+        .filter((directory) => input.context.notification.project.unseenCount(directory) > 0)
+        .forEach((directory) => input.context.notification.project.markViewed(directory))
+    },
+    unseenCount: (conn: ServerConnection.Any, project: LocalProject) => {
+      if (ServerConnection.key(conn) !== input.context.server.key) return 0
+      return homeProjectDirectoriesFromProject(project).reduce(
+        (total, directory) => total + input.context.notification.project.unseenCount(directory),
+        0,
+      )
+    },
+    openSettings: () => void import("@/components/settings-v2").then((x) => {
+      input.context.dialog.show(() => <x.DialogSettings />)
+    }),
+    openHelp: () => input.context.platform.openLink("https://opencode.ai/desktop-feedback"),
   }
+}
 
+function createHomeWorkflowEffects(input: {
+  context: HomeWorkflowContext
+  selection: HomeWorkflowSelection
+  tasks: HomeWorkflowTasks
+  actions: HomeWorkflowActions
+}) {
+  input.context.command.register("home", () => [{
+    id: "home.tasks.search.focus",
+    title: input.context.language.t("home.tasks.search.placeholder"),
+    keybind: "mod+f",
+    hidden: true,
+    onSelect: () => input.context.focusSessionSearch.current?.(),
+  }])
+
+  createEffect(() => {
+    const list = input.context.global.servers.list()
+    if (list.some((conn) => ServerConnection.key(conn) === input.context.state.selection.server)) return
+    const conn = list.find((conn) => ServerConnection.key(conn) === input.context.server.key) ?? list[0]
+    if (conn) input.actions.setSelection({ server: ServerConnection.key(conn) })
+  })
+
+  createEffect(() => {
+    const pending = pendingHomeNavigation
+    if (!pending || pending.server !== input.context.server.key) return
+    pendingHomeNavigation = undefined
+    input.context.navigate(pending.href)
+  })
+
+  createEffect(() => {
+    const next = input.tasks.activeTask()?.id ?? ""
+    if (input.context.state.activeTask === next) return
+    input.context.setState("activeTask", next)
+  })
+}
+
+function HomeWorkflowShell(props: { controller: HomeWorkflowController }) {
+  const controller = props.controller
   return (
     <WorkflowShell
-      left={
-        <HomeProjectColumn
-          projects={projects()}
-          selected={state.selection}
-          focusServer={focusServer}
-          selectProject={selectProject}
-          openNewSession={openProjectNewSession}
-          chooseProject={(conn) => void chooseProject(conn)}
-          editProject={editProject}
-          closeProject={(conn, directory) => {
-            const next = closeHomeProject(
-              state.selection,
-              ServerConnection.key(conn),
-              global.createServerCtx(conn).projects,
-              directory,
-            )
-            if (next) setSelection(next)
-          }}
-          clearNotifications={clearNotifications}
-          unseenCount={unseenCount}
-          workflowTasks={workflowTasks()}
-          workflowFilter={state.filter}
-          setWorkflowFilter={(filter) => setState("filter", filter)}
-          openSettings={openSettings}
-          openHelp={() => platform.openLink("https://opencode.ai/desktop-feedback")}
-          language={language}
-        />
-      }
-      navigator={
-        <section class="flex min-h-0 min-w-0 flex-1 flex-col px-5 pb-5 pt-3" aria-label={language.t("home.tasks.title")}>
-          <WorkflowPanelHeader
-            class="mb-3 !px-0"
-            title={language.t("home.tasks.title")}
-            badge={filteredWorkflowTasks().length}
-            actions={
-              <Show when={newSessionProject()}>
-                <ButtonV2
-                  data-action="home-new-session"
-                  variant="ghost-muted"
-                  size="normal"
-                  icon="edit"
-                  class="h-7 px-2 [font-weight:530]"
-                  onClick={openNewSession}
-                >
-                  {language.t("command.session.new")}
-                </ButtonV2>
-              </Show>
-            }
-          />
-          <HomeWorkflowOverview
-            tasks={workflowTasks()}
-            filter={state.filter}
-            onFilter={(filter) => setState("filter", filter)}
-          />
-          <div class="mt-3">
-            <HomeSessionSearch
-              value={state.search}
-              placeholder={language.t("home.tasks.search.placeholder")}
-              open={searchOpen()}
-              loading={sessionLoad.isLoading}
-              results={searchResults()}
-              server={state.selection.server}
-              activeServer={state.selection.server === server.key}
-              noResultsLabel={language.t("home.tasks.search.noResults", { query: search() })}
-              bindFocus={(focus) => {
-                focusSessionSearch = focus
-              }}
-              onInput={(value) => setState("search", value)}
-              onFocus={() => setState("searchFocused", true)}
-              onClose={closeSearch}
-              onSelect={selectSearchSession}
-            />
-          </div>
-          <ScrollView class="mt-3 min-h-0 flex-1">
-            <div class="flex flex-col gap-6 pt-2">
-              <Show
-                when={!sessionLoad.isLoading}
-                fallback={<HomeSessionSkeleton label={language.t("common.loading")} />}
-              >
-                <Show
-                  when={workflowGroups().length > 0}
-                  fallback={
-                    <div class="flex min-w-0 flex-col gap-4">
-                      <HomeSessionGroupHeader
-                        title={language.t("home.tasks.empty")}
-                        onNewSession={newSessionProject() ? openNewSession : undefined}
-                      />
-                    </div>
-                  }
-                >
-                  <For each={workflowGroups()}>
-                    {(group) => (
-                      <div class="flex min-w-0 flex-col gap-4">
-                        <HomeSessionGroupHeader
-                          title={language.t(workflowGroupTitleKey(group.id))}
-                          count={group.tasks.length}
-                        />
-                        <WorkflowEntityList class="px-2">
-                          <For each={group.tasks}>
-                            {(task) => (
-                              <HomeWorkflowTaskRow
-                                task={task}
-                                server={state.selection.server}
-                                activeServer={state.selection.server === server.key}
-                                selected={activeTask()?.id === task.id}
-                                previewTask={() => setState("activeTask", task.id)}
-                                openSession={openSession}
-                              />
-                            )}
-                          </For>
-                        </WorkflowEntityList>
-                      </div>
-                    )}
-                  </For>
-                </Show>
-              </Show>
-            </div>
-          </ScrollView>
-        </section>
-      }
+      left={<HomeWorkflowProjectColumn controller={controller} />}
+      navigator={<HomeTaskNavigatorPanel controller={controller} />}
       center={
         <HomeWorkflowInspector
-          task={activeTask()}
-          onOpenSession={openSession}
-          onNewSession={newSessionProject() ? openNewSession : undefined}
+          task={controller.tasks.activeTask()}
+          onOpenSession={controller.actions.openSession}
+          onNewSession={controller.selection.newSessionProject() ? controller.actions.openNewSession : undefined}
         />
       }
       navigatorWidth={360}
@@ -504,7 +444,162 @@ function HomeDesign() {
   )
 }
 
-function HomeProjectColumn(props: {
+function HomeWorkflowProjectColumn(props: { controller: HomeWorkflowController }) {
+  return (
+    <HomeProjectColumn
+      projects={props.controller.selection.projects()}
+      selected={props.controller.context.state.selection}
+      focusServer={props.controller.actions.focusServer}
+      selectProject={props.controller.actions.selectProject}
+      openNewSession={props.controller.actions.openProjectNewSession}
+      chooseProject={(conn) => void props.controller.actions.chooseProject(conn)}
+      editProject={props.controller.actions.editProject}
+      closeProject={props.controller.actions.closeProject}
+      clearNotifications={props.controller.actions.clearNotifications}
+      unseenCount={props.controller.actions.unseenCount}
+      workflowTasks={props.controller.tasks.workflowTasks()}
+      workflowFilter={props.controller.context.state.filter}
+      setWorkflowFilter={props.controller.actions.setWorkflowFilter}
+      openSettings={props.controller.actions.openSettings}
+      openHelp={props.controller.actions.openHelp}
+      language={props.controller.context.language}
+    />
+  )
+}
+
+function HomeTaskNavigatorPanel(props: { controller: HomeWorkflowController }) {
+  const controller = props.controller
+  return (
+    <section
+      class="flex min-h-0 min-w-0 flex-1 flex-col px-5 pb-5 pt-3"
+      aria-label={controller.context.language.t("home.tasks.title")}
+    >
+      <HomeTaskNavigatorHeader controller={controller} />
+      <HomeWorkflowOverview
+        tasks={controller.tasks.workflowTasks()}
+        filter={controller.context.state.filter}
+        onFilter={controller.actions.setWorkflowFilter}
+      />
+      <HomeTaskSearch controller={controller} />
+      <HomeTaskGroups controller={controller} />
+    </section>
+  )
+}
+
+function HomeTaskNavigatorHeader(props: { controller: HomeWorkflowController }) {
+  const controller = props.controller
+  return (
+    <WorkflowPanelHeader
+      class="mb-3 !px-0"
+      title={controller.context.language.t("home.tasks.title")}
+      badge={controller.tasks.filteredWorkflowTasks().length}
+      actions={
+        <Show when={controller.selection.newSessionProject()}>
+          <ButtonV2
+            data-action="home-new-session"
+            variant="ghost-muted"
+            size="normal"
+            icon="edit"
+            class="h-7 px-2 [font-weight:530]"
+            onClick={controller.actions.openNewSession}
+          >
+            {controller.context.language.t("command.session.new")}
+          </ButtonV2>
+        </Show>
+      }
+    />
+  )
+}
+
+function HomeTaskSearch(props: { controller: HomeWorkflowController }) {
+  const controller = props.controller
+  return (
+    <div class="mt-3">
+      <HomeSessionSearch
+        value={controller.context.state.search}
+        placeholder={controller.context.language.t("home.tasks.search.placeholder")}
+        open={controller.tasks.searchOpen()}
+        loading={controller.tasks.sessionLoad.isLoading}
+        results={controller.tasks.searchResults()}
+        server={controller.context.state.selection.server}
+        activeServer={controller.context.state.selection.server === controller.context.server.key}
+        noResultsLabel={controller.context.language.t("home.tasks.search.noResults", { query: controller.selection.search() })}
+        bindFocus={controller.actions.bindSessionSearchFocus}
+        onInput={(value) => controller.context.setState("search", value)}
+        onFocus={() => controller.context.setState("searchFocused", true)}
+        onClose={controller.actions.closeSearch}
+        onSelect={controller.actions.selectSearchSession}
+      />
+    </div>
+  )
+}
+
+function HomeTaskGroups(props: { controller: HomeWorkflowController }) {
+  return (
+    <ScrollView class="mt-3 min-h-0 flex-1">
+      <div class="flex flex-col gap-6 pt-2">
+        <Show
+          when={!props.controller.tasks.sessionLoad.isLoading}
+          fallback={<HomeSessionSkeleton label={props.controller.context.language.t("common.loading")} />}
+        >
+          <HomeTaskGroupsContent controller={props.controller} />
+        </Show>
+      </div>
+    </ScrollView>
+  )
+}
+
+function HomeTaskGroupsContent(props: { controller: HomeWorkflowController }) {
+  const controller = props.controller
+  return (
+    <Show
+      when={controller.tasks.workflowGroups().length > 0}
+      fallback={
+        <div class="flex min-w-0 flex-col gap-4">
+          <HomeSessionGroupHeader
+            title={controller.context.language.t("home.tasks.empty")}
+            onNewSession={controller.selection.newSessionProject() ? controller.actions.openNewSession : undefined}
+          />
+        </div>
+      }
+    >
+      <For each={controller.tasks.workflowGroups()}>
+        {(group) => <HomeTaskGroup group={group} controller={controller} />}
+      </For>
+    </Show>
+  )
+}
+
+function HomeTaskGroup(props: {
+  group: ReturnType<typeof groupWorkflowTasks>[number]
+  controller: HomeWorkflowController
+}) {
+  const controller = props.controller
+  return (
+    <div class="flex min-w-0 flex-col gap-4">
+      <HomeSessionGroupHeader
+        title={controller.context.language.t(workflowGroupTitleKey(props.group.id))}
+        count={props.group.tasks.length}
+      />
+      <WorkflowEntityList class="px-2">
+        <For each={props.group.tasks}>
+          {(task) => (
+            <HomeWorkflowTaskRow
+              task={task}
+              server={controller.context.state.selection.server}
+              activeServer={controller.context.state.selection.server === controller.context.server.key}
+              selected={controller.tasks.activeTask()?.id === task.id}
+              previewTask={() => controller.actions.previewTask(task.id)}
+              openSession={controller.actions.openSession}
+            />
+          )}
+        </For>
+      </WorkflowEntityList>
+    </div>
+  )
+}
+
+type HomeProjectColumnProps = {
   projects: LocalProject[]
   selected: HomeProjectSelection
   focusServer: (server: ServerConnection.Any) => void
@@ -521,88 +616,117 @@ function HomeProjectColumn(props: {
   openSettings: () => void
   openHelp: () => void
   language: ReturnType<typeof useLanguage>
-}) {
+}
+
+type HomeProjectColumnContext = {
+  global: ReturnType<typeof useGlobal>
+  dialog: ReturnType<typeof useDialog>
+  controller: ReturnType<typeof useServerManagementController>
+}
+
+function HomeProjectColumn(props: HomeProjectColumnProps) {
   const global = useGlobal()
   const dialog = useDialog()
   const controller = useServerManagementController({ navigateOnAdd: false })
+  const context = { global, dialog, controller }
+
   return (
     <aside
       class="flex min-h-0 min-w-0 flex-col gap-5 overflow-hidden px-3 pb-4 pt-3"
       aria-label={props.language.t("home.projects")}
     >
-      <HomeWorkflowNav
-        tasks={props.workflowTasks}
-        filter={props.workflowFilter}
-        onFilter={props.setWorkflowFilter}
-      />
+      <HomeWorkflowNav tasks={props.workflowTasks} filter={props.workflowFilter} onFilter={props.setWorkflowFilter} />
       <div class="mx-1 h-px bg-v2-border-border-muted" aria-hidden="true" />
-      <WorkflowSectionHeader
-        class="!h-7 !px-1.5"
-        title={props.language.t("home.projects")}
-        actions={
-          <Show when={global.servers.list().length === 1}>
-            <IconButtonV2
-              data-action="home-add-project"
-              variant="ghost-muted"
-              size="large"
-              class="titlebar-icon [&_[data-slot=icon-svg]]:text-v2-icon-icon-muted"
-              icon={<IconV2 name="folder-add-left" />}
-              onClick={() => props.chooseProject(global.servers.list()[0]!)}
-              aria-label={props.language.t("home.project.add")}
-            />
-          </Show>
-        }
-      />
-      <Show
-        when={global.servers.list().length > 1}
-        fallback={<HomeProjectList {...props} server={global.servers.list()[0]!} />}
-      >
-        <For each={global.servers.list()}>
-          {(item) => {
-            const key = ServerConnection.key(item)
-            const healthy = () => !!global.servers.health[key]?.healthy
-            const serverCtx = global.createServerCtx(item)
-            return (
-              <div class="flex max-h-[min(572px,calc(100vh_-_300px))] min-w-0 flex-col gap-1 overflow-y-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-                <HomeServerRow
-                  server={item}
-                  selected={props.selected.server === key && !props.selected.directory}
-                  healthy={healthy()}
-                  health={global.servers.health[key]}
-                  controller={controller}
-                  focusServer={props.focusServer}
-                  chooseProject={props.chooseProject}
-                  openEdit={(server) => dialog.show(() => <DialogServerV2 mode="edit" server={server} />)}
-                  language={props.language}
-                />
-                <Show when={healthy()}>
-                  <div class="mx-3 h-px bg-v2-border-border-base" />
-                  <HomeProjectList {...props} server={item} projects={serverCtx.projects.list()} />
-                </Show>
-              </div>
-            )
-          }}
-        </For>
-      </Show>
-      <div class="mt-4 flex min-w-0 flex-col gap-1">
-        <button
-          type="button"
-          class={`${WORKFLOW_NAV_ROW} text-v2-text-text-faint [&>[data-slot=icon-svg]]:text-v2-icon-icon-muted`}
-          onClick={props.openSettings}
-        >
-          <IconV2 name="settings-gear" size="small" />
-          <span class={HOME_PROJECT_NAV_LABEL}>{props.language.t("sidebar.settings")}</span>
-        </button>
-        <button
-          type="button"
-          class={`${WORKFLOW_NAV_ROW} text-v2-text-text-faint [&>[data-slot=icon-svg]]:text-v2-icon-icon-muted`}
-          onClick={props.openHelp}
-        >
-          <IconV2 name="help" size="small" />
-          <span class={HOME_PROJECT_NAV_LABEL}>{props.language.t("sidebar.help")}</span>
-        </button>
-      </div>
+      <HomeProjectColumnHeader column={props} global={global} />
+      <HomeProjectColumnBody column={props} context={context} />
+      <HomeProjectColumnFooter column={props} />
     </aside>
+  )
+}
+
+function HomeProjectColumnHeader(props: { column: HomeProjectColumnProps; global: ReturnType<typeof useGlobal> }) {
+  return (
+    <WorkflowSectionHeader
+      class="!h-7 !px-1.5"
+      title={props.column.language.t("home.projects")}
+      actions={
+        <Show when={props.global.servers.list().length === 1}>
+          <IconButtonV2
+            data-action="home-add-project"
+            variant="ghost-muted"
+            size="large"
+            class="titlebar-icon [&_[data-slot=icon-svg]]:text-v2-icon-icon-muted"
+            icon={<IconV2 name="folder-add-left" />}
+            onClick={() => props.column.chooseProject(props.global.servers.list()[0]!)}
+            aria-label={props.column.language.t("home.project.add")}
+          />
+        </Show>
+      }
+    />
+  )
+}
+
+function HomeProjectColumnBody(props: { column: HomeProjectColumnProps; context: HomeProjectColumnContext }) {
+  return (
+    <Show
+      when={props.context.global.servers.list().length > 1}
+      fallback={<HomeProjectList {...props.column} server={props.context.global.servers.list()[0]!} />}
+    >
+      <For each={props.context.global.servers.list()}>
+        {(server) => <HomeServerProjectGroup server={server} column={props.column} context={props.context} />}
+      </For>
+    </Show>
+  )
+}
+
+function HomeServerProjectGroup(props: {
+  server: ServerConnection.Any
+  column: HomeProjectColumnProps
+  context: HomeProjectColumnContext
+}) {
+  const key = ServerConnection.key(props.server)
+  const healthy = () => !!props.context.global.servers.health[key]?.healthy
+  const serverCtx = props.context.global.createServerCtx(props.server)
+  return (
+    <div class="flex max-h-[min(572px,calc(100vh_-_300px))] min-w-0 flex-col gap-1 overflow-y-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+      <HomeServerRow
+        server={props.server}
+        selected={props.column.selected.server === key && !props.column.selected.directory}
+        healthy={healthy()}
+        health={props.context.global.servers.health[key]}
+        controller={props.context.controller}
+        focusServer={props.column.focusServer}
+        chooseProject={props.column.chooseProject}
+        openEdit={(server) => props.context.dialog.show(() => <DialogServerV2 mode="edit" server={server} />)}
+        language={props.column.language}
+      />
+      <Show when={healthy()}>
+        <div class="mx-3 h-px bg-v2-border-border-base" />
+        <HomeProjectList {...props.column} server={props.server} projects={serverCtx.projects.list()} />
+      </Show>
+    </div>
+  )
+}
+
+function HomeProjectColumnFooter(props: { column: HomeProjectColumnProps }) {
+  return (
+    <div class="mt-4 flex min-w-0 flex-col gap-1">
+      <HomeProjectFooterButton icon="settings-gear" label={props.column.language.t("sidebar.settings")} onClick={props.column.openSettings} />
+      <HomeProjectFooterButton icon="help" label={props.column.language.t("sidebar.help")} onClick={props.column.openHelp} />
+    </div>
+  )
+}
+
+function HomeProjectFooterButton(props: { icon: "settings-gear" | "help"; label: string; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      class={`${WORKFLOW_NAV_ROW} text-v2-text-text-faint [&>[data-slot=icon-svg]]:text-v2-icon-icon-muted`}
+      onClick={props.onClick}
+    >
+      <IconV2 name={props.icon} size="small" />
+      <span class={HOME_PROJECT_NAV_LABEL}>{props.label}</span>
+    </button>
   )
 }
 

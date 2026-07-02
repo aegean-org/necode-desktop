@@ -3,6 +3,7 @@ import {
   WORKFLOW_SHELL_LIMITS,
   clampWorkflowPanelWidth,
   parseWorkflowPanelWidth,
+  workflowPanelWidthAfterPropSync,
   workflowPanelChromeStyle,
   workflowPanelSurfaceClass,
   workflowPanelUsesChrome,
@@ -160,5 +161,23 @@ describe("workflow shell sizing", () => {
     ).toBe(
       1600 - WORKFLOW_SHELL_LIMITS.edgeInset * 2 - 760 - WORKFLOW_SHELL_LIMITS.centerMin - WORKFLOW_SHELL_LIMITS.gap * 3,
     )
+  })
+
+  test("syncs panel width only when the width prop changes", () => {
+    expect(
+      workflowPanelWidthAfterPropSync({
+        currentWidth: 420,
+        previousPropWidth: 360,
+        nextPropWidth: 520,
+      }),
+    ).toBe(520)
+
+    expect(
+      workflowPanelWidthAfterPropSync({
+        currentWidth: 480,
+        previousPropWidth: 520,
+        nextPropWidth: 520,
+      }),
+    ).toBe(480)
   })
 })
