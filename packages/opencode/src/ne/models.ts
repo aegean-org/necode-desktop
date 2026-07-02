@@ -81,6 +81,7 @@ function toModelEntry(entry: unknown, index: number): [string, Model] {
 }
 
 function createModel(id: string, name: string, record: JsonRecord, index: number): Model {
+  const input = inputCapabilities(record)
   return {
     id,
     providerID: NE_PROVIDER_ID,
@@ -97,9 +98,9 @@ function createModel(id: string, name: string, record: JsonRecord, index: number
     capabilities: {
       temperature: true,
       reasoning: booleanField(record, ["reasoning", "supportReasoning", "supports_reasoning"]) ?? true,
-      attachment: false,
+      attachment: input.image || input.pdf,
       toolcall: booleanField(record, ["tool_call", "toolcall", "tools"]) ?? true,
-      input: inputCapabilities(record),
+      input,
       output: { text: true, audio: false, image: false, video: false, pdf: false },
       interleaved: false,
     },
@@ -110,13 +111,18 @@ function createModel(id: string, name: string, record: JsonRecord, index: number
 
 function inputCapabilities(record: JsonRecord) {
   const input = record.input ?? record.inputs
-  const values = Array.isArray(input) ? input : booleanField(record, ["supportsImage", "supports_image", "vision"]) ? ["image"] : []
+  const values = Array.isArray(input)
+    ? input.filter((value): value is string => typeof value === "string").map((value) => value.trim().toLowerCase())
+    : undefined
+  const image = values
+    ? values.includes("image")
+    : (booleanField(record, ["supportsImage", "supports_image", "vision"]) ?? true)
   return {
     text: true,
     audio: false,
-    image: values.includes("image"),
+    image,
     video: false,
-    pdf: values.includes("pdf"),
+    pdf: values?.includes("pdf") ?? false,
   }
 }
 

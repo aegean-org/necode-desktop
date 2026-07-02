@@ -49,12 +49,12 @@ export function WorkflowEntityRow(props: {
     <div
       data-component="workflow-entity-row"
       {...workflowEntityRowDataAttributes({ selected: props.selected, rowID: props.rowID })}
-      class={`group flex min-h-[58px] w-full min-w-0 items-start gap-2 px-3 py-2 ${WORKFLOW_ENTITY_ROW} ${props.class ?? ""}`}
+      class={`group relative min-h-[58px] w-full min-w-0 ${WORKFLOW_ENTITY_ROW} ${props.class ?? ""}`}
     >
       <button
         type="button"
         data-component="workflow-entity-row-select"
-        class="flex min-w-0 flex-1 cursor-default items-start gap-2 border-0 bg-transparent p-0 text-left focus-visible:outline-none"
+        class="flex w-full min-w-0 cursor-default items-start gap-2 border-0 bg-transparent px-3 py-3 pr-10 text-left focus-visible:outline-none"
         onClick={props.onSelect}
       >
         {props.icon ? <div class="mt-0.5 flex size-4 shrink-0 items-center justify-center">{props.icon}</div> : null}
@@ -72,7 +72,10 @@ export function WorkflowEntityRow(props: {
         </div>
       </button>
       {props.actions ? (
-        <div class="shrink-0 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
+        <div
+          data-component="workflow-entity-row-actions"
+          class="absolute right-2 top-2 z-10 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100"
+        >
           {props.actions}
         </div>
       ) : null}

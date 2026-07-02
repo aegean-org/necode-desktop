@@ -80,6 +80,18 @@ describe("workflow UI primitives", () => {
     expect(actionsSource).toContain("group-focus-within:opacity-100")
   })
 
+  test("keeps row actions as a compact overlay affordance", () => {
+    const rowSource = workflowUiSource.slice(
+      workflowUiSource.indexOf("export function WorkflowEntityRow"),
+      workflowUiSource.indexOf("export function WorkflowEntityList"),
+    )
+    const actionsSource = rowSource.slice(rowSource.indexOf("{props.actions ?"))
+
+    expect(actionsSource).toContain('data-component="workflow-entity-row-actions"')
+    expect(actionsSource).toContain("absolute")
+    expect(actionsSource).toContain("right-2")
+  })
+
   test("keeps shared workflow class constants intentional", () => {
     expect(WORKFLOW_SECTION_LABEL).toContain("uppercase")
     expect(WORKFLOW_SURFACE_BUTTON).toContain(WORKFLOW_SURFACE_CARD)

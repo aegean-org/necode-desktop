@@ -24,6 +24,13 @@ export function shouldShowFileTree(input: { visible: boolean; opened: boolean })
   return input.opened && input.visible
 }
 
+/**
+ * Keeps the legacy chat-width constraint out of the workflow-style session detail layout.
+ */
+export function shouldCenterSessionContent(input: { desktop: boolean; reviewOpen: boolean; workflowLayout: boolean }) {
+  return input.desktop && !input.reviewOpen && !input.workflowLayout
+}
+
 export const createSessionTabs = (input: TabsInput) => {
   const review = input.review ?? (() => false)
   const hasReview = input.hasReview ?? (() => false)

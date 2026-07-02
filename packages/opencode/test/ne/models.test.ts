@@ -29,11 +29,11 @@ test("createNeModels converts gateway chat models and filters non-chat entries",
     capabilities: {
       temperature: true,
       reasoning: true,
-      attachment: false,
+      attachment: true,
       toolcall: true,
       input: {
         text: true,
-        image: false,
+        image: true,
       },
       output: {
         text: true,
@@ -46,4 +46,13 @@ test("createNeModels converts gateway chat models and filters non-chat entries",
       output: 16384,
     },
   })
+})
+
+test("createNeModels treats gateway model-list entries as image-capable by default", () => {
+  const models = createNeModels({
+    data: [{ id: "qwen3.5", object: "model", created: 1779391793, owned_by: "configured" }],
+  })
+
+  expect(models["qwen3.5"].capabilities.attachment).toBe(true)
+  expect(models["qwen3.5"].capabilities.input.image).toBe(true)
 })

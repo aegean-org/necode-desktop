@@ -15,6 +15,7 @@ import {
 } from "./workflow-task"
 
 const homeSource = await Bun.file(new URL("../home.tsx", import.meta.url)).text()
+const inspectorSource = await Bun.file(new URL("./workflow-inspector.tsx", import.meta.url)).text()
 const HOME_SOURCE_FUNCTION_LINE_LIMIT = 50
 
 const project = (name = "App") =>
@@ -232,6 +233,26 @@ describe("buildWorkflowTasks", () => {
     expect(actionsSource).toContain("props.openSession(props.task.session)")
     expect(rowSource).toContain("onSelect={props.previewTask}")
     expect(rowSource).not.toContain("props.previewTask()\n          props.openSession(props.task.session)")
+  })
+
+  test("keeps home task rows using compact workflow actions", () => {
+    const rowSource = homeSource.slice(
+      homeSource.indexOf("function HomeWorkflowTaskRow"),
+      homeSource.indexOf("function HomeSessionSkeleton"),
+    )
+
+    expect(rowSource).toContain("HomeWorkflowTaskOpenAction")
+    expect(rowSource).not.toContain('>{language.t("home.tasks.detail.open")}</ButtonV2>')
+  })
+
+  test("keeps the home inspector from regressing to dashboard cards", () => {
+    const taskDetailSource = inspectorSource.slice(
+      inspectorSource.indexOf("function InspectorTaskDetail"),
+      inspectorSource.indexOf("function InspectorProgress"),
+    )
+
+    expect(taskDetailSource).not.toContain("grid-cols-3")
+    expect(taskDetailSource).not.toContain('variant="contrast"')
   })
 
   test("keeps touched home workflow functions under the local line limit", () => {

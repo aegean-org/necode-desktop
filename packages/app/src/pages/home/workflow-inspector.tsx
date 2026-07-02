@@ -1,5 +1,7 @@
 import type { Session } from "@opencode-ai/sdk/v2/client"
 import { ButtonV2 } from "@opencode-ai/ui/v2/button-v2"
+import { IconButtonV2 } from "@opencode-ai/ui/v2/icon-button-v2"
+import { Icon as IconV2 } from "@opencode-ai/ui/v2/icon"
 import { DateTime } from "luxon"
 import { createMemo, For, Show, type JSX } from "solid-js"
 import { WORKFLOW_BADGE, WORKFLOW_SURFACE_CARD } from "@/components/workflow-ui"
@@ -67,9 +69,15 @@ function InspectorHeader(props: {
       </div>
       <Show when={props.task}>
         {(task) => (
-          <ButtonV2 variant="ghost-muted" size="normal" icon="edit" onClick={() => props.onOpenSession(task().session)}>
-            {language.t("home.tasks.detail.open")}
-          </ButtonV2>
+          <IconButtonV2
+            aria-label={language.t("home.tasks.detail.open")}
+            title={language.t("home.tasks.detail.open")}
+            variant="ghost-muted"
+            size="small"
+            class="size-7 rounded-[7px]"
+            icon={<IconV2 name="edit" />}
+            onClick={() => props.onOpenSession(task().session)}
+          />
         )}
       </Show>
     </div>
@@ -96,19 +104,12 @@ function InspectorEmptyState(props: { onNewSession?: () => void }) {
 }
 
 function InspectorTaskDetail(props: { task: WorkflowTask; onOpenSession: (session: Session) => void }) {
-  const language = useLanguage()
-
   return (
-    <div class="flex min-h-0 flex-1 flex-col justify-between gap-5">
-      <div class="flex min-w-0 flex-col gap-5">
-        <InspectorMetrics task={props.task} />
-        <InspectorProgress task={props.task} />
-        <InspectorSignals task={props.task} />
-        <InspectorContext task={props.task} />
-      </div>
-      <ButtonV2 variant="contrast" size="normal" icon="edit" onClick={() => props.onOpenSession(props.task.session)}>
-        {language.t("home.tasks.detail.open")}
-      </ButtonV2>
+    <div class="flex min-h-0 flex-1 flex-col gap-4">
+      <InspectorMetrics task={props.task} />
+      <InspectorProgress task={props.task} />
+      <InspectorSignals task={props.task} />
+      <InspectorContext task={props.task} />
     </div>
   )
 }
@@ -122,17 +123,17 @@ function InspectorMetrics(props: { task: WorkflowTask }) {
   })
 
   return (
-    <div class="grid min-w-0 grid-cols-3 gap-2">
-      <InspectorMetric label={language.t("home.tasks.detail.status")}>
+    <div class={`flex min-w-0 flex-col gap-px overflow-hidden ${WORKFLOW_SURFACE_CARD}`}>
+      <InspectorRow label={language.t("home.tasks.detail.status")}>
         <span class="inline-flex min-w-0 items-center gap-1.5">
           <span class={`size-1.5 shrink-0 rounded-full ${STATUS_DOT_CLASS[props.task.status]}`} />
           <span class="min-w-0 overflow-hidden text-ellipsis whitespace-nowrap">
             {language.t(workflowStatusTitleKey(props.task.status))}
           </span>
         </span>
-      </InspectorMetric>
-      <InspectorMetric label={language.t("home.tasks.detail.updated")}>{updated()}</InspectorMetric>
-      <InspectorMetric label={language.t("home.tasks.detail.progress")}>{progress()}</InspectorMetric>
+      </InspectorRow>
+      <InspectorRow label={language.t("home.tasks.detail.updated")}>{updated()}</InspectorRow>
+      <InspectorRow label={language.t("home.tasks.detail.progress")}>{progress()}</InspectorRow>
     </div>
   )
 }
@@ -218,17 +219,6 @@ function InspectorRow(props: { label: string; children: JSX.Element }) {
     <div class="grid min-w-0 grid-cols-[88px_minmax(0,1fr)] items-center gap-3 px-3 py-2 text-[13px] leading-5">
       <div class="text-v2-text-text-muted [font-weight:440]">{props.label}</div>
       <div class="min-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-v2-text-text-base [font-weight:530]">
-        {props.children}
-      </div>
-    </div>
-  )
-}
-
-function InspectorMetric(props: { label: string; children: JSX.Element }) {
-  return (
-    <div class={`flex min-w-0 flex-col gap-1 px-3 py-2 ${WORKFLOW_SURFACE_CARD}`}>
-      <div class="text-[11px] leading-4 text-v2-text-text-muted [font-weight:440]">{props.label}</div>
-      <div class="min-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-[13px] leading-5 text-v2-text-text-base [font-weight:560]">
         {props.children}
       </div>
     </div>

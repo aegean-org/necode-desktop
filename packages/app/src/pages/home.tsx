@@ -1249,14 +1249,14 @@ function HomeWorkflowTaskRow(props: {
         rowID={props.task.id}
         selected={props.selected}
         title={<HomeWorkflowTaskTitle task={props.task} />}
-        subtitle={<HomeWorkflowTaskSubtitle projectName={props.task.projectName} metadata={metadata()} />}
+        subtitle={<HomeWorkflowTaskSubtitle task={props.task} metadata={metadata()} />}
         icon={<HomeWorkflowTaskIcon task={props.task} server={props.server} activeServer={props.activeServer} />}
-        badge={<HomeWorkflowTaskBadge task={props.task} />}
         trailing={<HomeWorkflowTaskTrailing task={props.task} />}
         actions={
-          <ButtonV2 variant="ghost-muted" size="normal" icon="edit" onClick={() => props.openSession(props.task.session)}>
-            {language.t("home.tasks.detail.open")}
-          </ButtonV2>
+          <HomeWorkflowTaskOpenAction
+            label={language.t("home.tasks.detail.open")}
+            onOpen={() => props.openSession(props.task.session)}
+          />
         }
         onSelect={props.previewTask}
         class="home-workflow-task-row"
@@ -1271,25 +1271,29 @@ function HomeWorkflowTaskTitle(props: { task: WorkflowTask }) {
   const title = createMemo(() => sessionTitle(props.task.title) || props.task.id)
 
   return (
-    <span class="flex min-w-0 items-center gap-2">
-      <span class="min-w-0 overflow-hidden text-ellipsis whitespace-nowrap">{title()}</span>
-      <HomeWorkflowTaskStatusDot status={props.task.status} />
-    </span>
+    <span class="min-w-0 overflow-hidden text-ellipsis whitespace-nowrap">{title()}</span>
   )
 }
 
-function HomeWorkflowTaskSubtitle(props: { projectName: string; metadata: HomeWorkflowTaskMetadata }) {
+function HomeWorkflowTaskSubtitle(props: { task: WorkflowTask; metadata: HomeWorkflowTaskMetadata }) {
   const language = useLanguage()
-
-  return [
-    props.projectName,
+  const metadata = createMemo(() => [
+    props.task.projectName,
     ...props.metadata.flatMap((meta) => {
       if (meta.id === "status" || meta.id === "updated") return []
       return meta.id === "todo" ? language.t(meta.i18nKey, meta.values) : language.t(meta.i18nKey)
     }),
-  ]
-    .filter(Boolean)
-    .join(" / ")
+  ].filter(Boolean))
+
+  return (
+    <span class="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5">
+      <span class="inline-flex min-w-0 items-center gap-1.5">
+        <HomeWorkflowTaskStatusDot status={props.task.status} class="size-1.5" />
+        <span>{language.t(workflowStatusTitleKey(props.task.status))}</span>
+      </span>
+      <For each={metadata()}>{(item) => <span class="min-w-0 overflow-hidden text-ellipsis whitespace-nowrap">{item}</span>}</For>
+    </span>
+  )
 }
 
 function HomeWorkflowTaskIcon(props: {
@@ -1307,14 +1311,20 @@ function HomeWorkflowTaskIcon(props: {
   )
 }
 
-function HomeWorkflowTaskBadge(props: { task: WorkflowTask }) {
-  const language = useLanguage()
-
+function HomeWorkflowTaskOpenAction(props: { label: string; onOpen: () => void }) {
   return (
-    <span class="inline-flex items-center gap-1.5 text-v2-text-text-base">
-      <HomeWorkflowTaskStatusDot status={props.task.status} class="size-1.5" />
-      {language.t(workflowStatusTitleKey(props.task.status))}
-    </span>
+    <IconButtonV2
+      aria-label={props.label}
+      title={props.label}
+      variant="ghost-muted"
+      size="small"
+      class="size-7 rounded-[7px]"
+      icon={<IconV2 name="edit" />}
+      onClick={(event) => {
+        event.stopPropagation()
+        props.onOpen()
+      }}
+    />
   )
 }
 
