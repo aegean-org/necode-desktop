@@ -29,7 +29,7 @@
     },
     "packages/app": {
       "name": "@opencode-ai/app",
-      "version": "1.17.7",
+      "version": "0.0.1",
       "dependencies": {
         "@kobalte/core": "catalog:",
         "@opencode-ai/core": "workspace:*",
@@ -240,7 +240,7 @@
     },
     "packages/core": {
       "name": "@opencode-ai/core",
-      "version": "1.17.7",
+      "version": "0.0.1",
       "bin": {
         "opencode": "./bin/opencode",
       },
@@ -331,7 +331,7 @@
     },
     "packages/desktop": {
       "name": "@necode-ai/desktop",
-      "version": "1.17.7",
+      "version": "0.0.1",
       "dependencies": {
         "@zip.js/zip.js": "2.7.62",
         "effect": "catalog:",
@@ -495,7 +495,7 @@
     },
     "packages/opencode": {
       "name": "opencode",
-      "version": "1.17.7",
+      "version": "0.0.1",
       "bin": {
         "opencode": "./bin/opencode",
       },

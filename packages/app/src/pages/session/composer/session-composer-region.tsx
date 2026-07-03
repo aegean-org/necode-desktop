@@ -132,6 +132,7 @@ export function SessionComposerRegion(props: {
   const parentID = createMemo(() => info()?.parentID)
   const child = createMemo(() => !!parentID())
   const showComposer = createMemo(() => !props.state.blocked() || child())
+  const workflowDock = createMemo(() => props.placement === "dock" && settings.general.newLayoutDesigns())
 
   const previewPrompt = () =>
     prompt
@@ -217,13 +218,12 @@ export function SessionComposerRegion(props: {
       data-component="session-prompt-dock"
       classList={{
         "w-full flex flex-col justify-center items-center pointer-events-none": true,
-        "shrink-0 pb-3 bg-background-stronger": props.placement !== "inline",
+        "shrink-0 pb-3 bg-background-stronger": props.placement !== "inline" && !workflowDock(),
       }}
     >
       <div
         classList={{
           "w-full pointer-events-auto": true,
-          // "px-3": props.placement !== "inline",
           [NEW_SESSION_CONTENT_WIDTH]: props.placement === "inline",
           "md:max-w-200 md:mx-auto 2xl:max-w-[1000px]": props.centered,
         }}

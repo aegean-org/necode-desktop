@@ -265,6 +265,9 @@ const createPlatform = (): Platform => {
       return window.api.checkAppExists(appName)
     },
 
+    listSystemFonts:
+      typeof window.api.listSystemFonts === "function" ? () => window.api.listSystemFonts() : undefined,
+
     async readClipboardImage() {
       const image = await window.api.readClipboardImage().catch(() => null)
       if (!image) return null

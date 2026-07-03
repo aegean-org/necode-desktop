@@ -1,4 +1,4 @@
-import { Component } from "solid-js"
+import type { Component } from "solid-js"
 import { Dialog } from "@opencode-ai/ui/v2/dialog-v2"
 import { TabsV2 } from "@opencode-ai/ui/v2/tabs-v2"
 import { Icon } from "@opencode-ai/ui/icon"
@@ -14,13 +14,15 @@ import { SettingsMcpV2 } from "./mcp"
 import { SettingsSkillsV2 } from "./skills"
 import { SettingsPermissionsV2 } from "./permissions"
 
-export const DialogSettings: Component = () => {
+export type SettingsV2Tab = "general" | "shortcuts" | "servers" | "providers" | "models" | "mcp" | "skills" | "permissions"
+
+export const DialogSettings: Component<{ defaultTab?: SettingsV2Tab }> = (props) => {
   const language = useLanguage()
   const platform = usePlatform()
 
   return (
     <Dialog size="x-large" variant="settings" class="settings-v2-dialog">
-      <TabsV2 orientation="vertical" variant="settings" defaultValue="general" class="settings-v2">
+      <TabsV2 orientation="vertical" variant="settings" defaultValue={props.defaultTab ?? "general"} class="settings-v2">
         <TabsV2.List>
           <div class="flex flex-col justify-between h-full w-full">
             <div class="flex flex-col gap-3 w-full">

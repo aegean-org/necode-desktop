@@ -1,12 +1,20 @@
 import type { Session } from "@opencode-ai/sdk/v2/client"
-import { ButtonV2 } from "@opencode-ai/ui/v2/button-v2"
+import { Icon } from "@opencode-ai/ui/v2/icon"
+import { IconButtonV2 } from "@opencode-ai/ui/v2/icon-button-v2"
 import { ScrollView } from "@opencode-ai/ui/scroll-view"
 import { DateTime } from "luxon"
 import { For, Show, createMemo } from "solid-js"
 import { WORKFLOW_BADGE, WorkflowEntityList, WorkflowEntityRow, WorkflowPanelHeader } from "@/components/workflow-ui"
 import { useLanguage } from "@/context/language"
 import { sessionTitle } from "@/utils/session-title"
-import { workflowStatusTitleKey, workflowTaskMeta, type WorkflowTask } from "../home/workflow-task"
+import { workflowStatusTitleKey, workflowTaskMeta, type WorkflowTask, type WorkflowTaskStatus } from "../home/workflow-task"
+
+const SESSION_STATUS_DOT_CLASS = {
+  needs_action: "bg-icon-critical-base",
+  running: "bg-icon-info-base",
+  ready: "bg-icon-weak-base",
+  done: "bg-icon-success-base",
+} satisfies Record<WorkflowTaskStatus, string>
 
 /** Craft-style navigator kept beside the session detail panel. */
 export function WorkflowSessionNavigator(props: {
@@ -44,16 +52,17 @@ function WorkflowSessionNavigatorHeader(props: { count: number; onNewSession: ()
       title={language.t("session.workflow.title")}
       badge={props.count}
       actions={
-        <ButtonV2
+        <IconButtonV2
           type="button"
           variant="ghost-muted"
           size="small"
-          icon="plus"
-          class="h-7 px-2"
+          icon={<Icon name="plus" />}
+          class="size-7 rounded-[7px]"
           onClick={props.onNewSession}
+          aria-label={language.t("command.session.new")}
+          title={language.t("command.session.new")}
         >
-          {language.t("command.session.new")}
-        </ButtonV2>
+        </IconButtonV2>
       }
     />
   )
@@ -107,7 +116,6 @@ function WorkflowSessionRow(props: {
       selected={props.selected}
       title={sessionTitle(props.task.title) || props.task.id}
       subtitle={<WorkflowSessionSubtitle task={props.task} />}
-      badge={language.t(workflowStatusTitleKey(props.task.status))}
       trailing={DateTime.fromMillis(props.task.updatedAt).toRelative() ?? undefined}
       onSelect={() => props.onOpenSession(props.task.session)}
       class="workflow-session-row"
@@ -120,7 +128,11 @@ function WorkflowSessionSubtitle(props: { task: WorkflowTask }) {
   const metadata = createMemo(() => workflowTaskMeta(props.task).filter((meta) => meta.id !== "status" && meta.id !== "updated"))
 
   return (
-    <span class="flex min-w-0 flex-wrap items-center gap-1.5">
+    <span class="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5">
+      <span class="inline-flex min-w-0 items-center gap-1.5">
+        <span class={`size-1.5 shrink-0 rounded-full ${SESSION_STATUS_DOT_CLASS[props.task.status]}`} />
+        <span>{language.t(workflowStatusTitleKey(props.task.status))}</span>
+      </span>
       <span class="min-w-0 overflow-hidden text-ellipsis whitespace-nowrap">{props.task.projectName}</span>
       <For each={metadata()}>
         {(meta) => (

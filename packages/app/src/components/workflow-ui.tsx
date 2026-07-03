@@ -14,7 +14,7 @@ export const WORKFLOW_NAV_ROW =
 
 /** Shared class for selectable workflow entity rows. */
 export const WORKFLOW_ENTITY_ROW =
-  "min-w-0 cursor-default rounded-[8px] border-0 bg-transparent text-left transition-[background-color,color,box-shadow] duration-[120ms] ease-in-out hover:bg-[var(--workflow-row-hover)] data-[selected]:bg-[var(--workflow-row-selected)] data-[selected]:[box-shadow:inset_2px_0_0_var(--v2-icon-icon-accent)] focus-within:bg-[var(--workflow-row-hover)] focus-within:outline-none focus-within:[box-shadow:inset_0_0_0_0.5px_var(--v2-border-border-focus)]"
+  "min-w-0 cursor-default rounded-[8px] border-0 bg-transparent text-left transition-[background-color,color,box-shadow] duration-[120ms] ease-in-out hover:bg-[var(--workflow-row-hover)] data-[selected]:bg-[var(--workflow-row-selected)] data-[selected]:[box-shadow:var(--workflow-elevation-minimal)] focus-within:bg-[var(--workflow-row-hover)] focus-within:outline-none focus-within:[box-shadow:inset_0_0_0_0.5px_var(--v2-border-border-focus)]"
 
 /** Shared class for muted workflow surfaces. */
 export const WORKFLOW_SURFACE_CARD =

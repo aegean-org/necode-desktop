@@ -18,6 +18,8 @@ export const WORKFLOW_SHELL_LIMITS = {
   innerRadius: 10,
   stackVerticalOverflow: 8,
   stackRightOverflow: 8,
+  sashHitWidth: 8,
+  sashLineWidth: 2,
 } as const
 
 type WorkflowShellStyle = Record<string, string | number>

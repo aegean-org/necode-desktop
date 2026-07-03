@@ -1,12 +1,11 @@
 import { createResizeObserver } from "@solid-primitives/resize-observer"
-import { ResizeHandle } from "@opencode-ai/ui/resize-handle"
 import { Show, createEffect, createMemo, type JSX } from "solid-js"
 import { createStore } from "solid-js/store"
 import { Persist, persisted } from "@/utils/persist"
+import { WorkflowResizeSash } from "./workflow-resize-sash"
 import {
   WORKFLOW_SHELL_LIMITS,
   clampWorkflowPanelWidth,
-  panelLimit,
   parseWorkflowPanelWidth,
   workflowPanelWidthAfterPropSync,
   workflowPanelChromeStyle,
@@ -67,21 +66,30 @@ export function WorkflowShell(props: WorkflowShellProps) {
             side="left"
             content={props.left}
             width={sizing.leftWidth()}
-            max={sizing.leftMax()}
             atLeftEdge
             atRightEdge={false}
-            onResize={(width) => sizing.resizePanel("left", width)}
           />
+
+          <Show when={hasLeft()}>
+            <WorkflowResize side="left" size={sizing.leftWidth()} max={sizing.leftMax()} onResize={sizing.resizePanel} />
+          </Show>
 
           <WorkflowSidePanel
             side="navigator"
             content={props.navigator}
             width={sizing.navigatorWidth()}
-            max={sizing.navigatorMax()}
             atLeftEdge={!hasLeft()}
             atRightEdge={false}
-            onResize={(width) => sizing.resizePanel("navigator", width)}
           />
+
+          <Show when={hasNavigator()}>
+            <WorkflowResize
+              side="navigator"
+              size={sizing.navigatorWidth()}
+              max={sizing.navigatorMax()}
+              onResize={sizing.resizePanel}
+            />
+          </Show>
 
           <section
             data-panel-role="content"
@@ -96,14 +104,16 @@ export function WorkflowShell(props: WorkflowShellProps) {
         </div>
       </div>
 
+      <Show when={hasRight()}>
+        <WorkflowResize side="right" size={sizing.rightWidth()} max={sizing.rightMax()} onResize={sizing.resizePanel} />
+      </Show>
+
       <WorkflowSidePanel
         side="right"
         content={props.right}
         width={sizing.rightWidth()}
-        max={sizing.rightMax()}
         atLeftEdge={false}
         atRightEdge
-        onResize={(width) => sizing.resizePanel("right", width)}
       />
     </div>
   )
@@ -246,10 +256,8 @@ function WorkflowSidePanel(props: {
   side: WorkflowShellPanelSide
   content?: JSX.Element
   width: number
-  max: number
   atLeftEdge: boolean
   atRightEdge: boolean
-  onResize: (width: number) => void
 }) {
   const usesChrome = () => workflowPanelUsesChrome(props.side)
   return (
@@ -265,13 +273,7 @@ function WorkflowSidePanel(props: {
             width: `${props.width}px`,
           }}
         >
-          <Show when={props.side === "right"}>
-            <WorkflowResize side="right" width={props.width} max={props.max} onResize={props.onResize} />
-          </Show>
           {content()}
-          <Show when={props.side !== "right"}>
-            <WorkflowResize side={props.side} width={props.width} max={props.max} onResize={props.onResize} />
-          </Show>
         </section>
       )}
     </Show>
@@ -280,18 +282,16 @@ function WorkflowSidePanel(props: {
 
 function WorkflowResize(props: {
   side: WorkflowShellPanelSide
-  width: number
+  size: number
   max: number
-  onResize: (width: number) => void
+  onResize: (side: WorkflowShellPanelSide, width: number) => void
 }) {
   return (
-    <ResizeHandle
-      direction="horizontal"
-      edge={props.side === "right" ? "start" : "end"}
-      size={props.width}
-      min={panelLimit(props.side, "min")}
+    <WorkflowResizeSash
+      side={props.side}
+      size={props.size}
       max={props.max}
-      onResize={props.onResize}
+      onResize={(width) => props.onResize(props.side, width)}
     />
   )
 }

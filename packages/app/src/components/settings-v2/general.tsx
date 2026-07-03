@@ -2,7 +2,6 @@ import { Component, Show, createMemo, createResource, onMount } from "solid-js"
 import { ButtonV2 } from "@opencode-ai/ui/v2/button-v2"
 import { SelectV2 } from "@opencode-ai/ui/v2/select-v2"
 import { Switch } from "@opencode-ai/ui/v2/switch-v2"
-import { TextInputV2 } from "@opencode-ai/ui/v2/text-input-v2"
 import { useTheme, type ColorScheme } from "@opencode-ai/ui/theme/context"
 import { useDialog } from "@opencode-ai/ui/context/dialog"
 import { useParams } from "@solidjs/router"
@@ -27,6 +26,7 @@ import {
 import { decode64 } from "@/utils/base64"
 import { playSoundById, SOUND_OPTIONS } from "@/utils/sound"
 import { Link } from "../link"
+import { SettingsFontSelectV2 } from "../settings-font-select"
 import { SettingsListV2 } from "./parts/list"
 import { SettingsRowV2 } from "./parts/row"
 import "./settings-v2.css"
@@ -469,19 +469,13 @@ export const SettingsGeneralV2: Component = () => {
           description={language.t("settings.general.row.uiFont.description")}
         >
           <div class="w-full sm:w-[220px]">
-            <TextInputV2
+            <SettingsFontSelectV2
               data-action="settings-ui-font"
-              type="text"
-              appearance="base"
+              title={language.t("settings.general.row.uiFont.title")}
               value={sans()}
-              onInput={(event) => settings.appearance.setUIFont(event.currentTarget.value)}
-              placeholder={sansDefault}
-              spellcheck={false}
-              autocorrect="off"
-              autocomplete="off"
-              autocapitalize="off"
-              aria-label={language.t("settings.general.row.uiFont.title")}
-              style={{ "font-family": sansFontFamily(settings.appearance.uiFont()) }}
+              defaultLabel={sansDefault}
+              fontFamily={sansFontFamily(settings.appearance.uiFont())}
+              onSelect={settings.appearance.setUIFont}
             />
           </div>
         </SettingsRowV2>
@@ -491,19 +485,13 @@ export const SettingsGeneralV2: Component = () => {
           description={language.t("settings.general.row.font.description")}
         >
           <div class="w-full sm:w-[220px]">
-            <TextInputV2
+            <SettingsFontSelectV2
               data-action="settings-code-font"
-              type="text"
-              appearance="base"
+              title={language.t("settings.general.row.font.title")}
               value={mono()}
-              onInput={(event) => settings.appearance.setFont(event.currentTarget.value)}
-              placeholder={monoDefault}
-              spellcheck={false}
-              autocorrect="off"
-              autocomplete="off"
-              autocapitalize="off"
-              aria-label={language.t("settings.general.row.font.title")}
-              style={{ "font-family": monoFontFamily(settings.appearance.font()) }}
+              defaultLabel={monoDefault}
+              fontFamily={monoFontFamily(settings.appearance.font())}
+              onSelect={settings.appearance.setFont}
             />
           </div>
         </SettingsRowV2>
@@ -513,19 +501,13 @@ export const SettingsGeneralV2: Component = () => {
           description={language.t("settings.general.row.terminalFont.description")}
         >
           <div class="w-full sm:w-[220px]">
-            <TextInputV2
+            <SettingsFontSelectV2
               data-action="settings-terminal-font"
-              type="text"
-              appearance="base"
+              title={language.t("settings.general.row.terminalFont.title")}
               value={terminal()}
-              onInput={(event) => settings.appearance.setTerminalFont(event.currentTarget.value)}
-              placeholder={terminalDefault}
-              spellcheck={false}
-              autocorrect="off"
-              autocomplete="off"
-              autocapitalize="off"
-              aria-label={language.t("settings.general.row.terminalFont.title")}
-              style={{ "font-family": terminalFontFamily(settings.appearance.terminalFont()) }}
+              defaultLabel={terminalDefault}
+              fontFamily={terminalFontFamily(settings.appearance.terminalFont())}
+              onSelect={settings.appearance.setTerminalFont}
             />
           </div>
         </SettingsRowV2>

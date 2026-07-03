@@ -103,6 +103,16 @@ export function terminalFontFamily(font: string | undefined) {
   return stack(font, terminalBase)
 }
 
+/** Applies appearance font settings to every CSS variable family used by app shells. */
+export function applyAppearanceFontVariables(root: HTMLElement, appearance: { mono?: string; sans?: string }) {
+  const mono = monoFontFamily(appearance.mono)
+  const sans = sansFontFamily(appearance.sans)
+  root.style.setProperty("--font-family-mono", mono)
+  root.style.setProperty("--font-family-sans", sans)
+  root.style.setProperty("--font-family-text", sans)
+  root.style.setProperty("--v2-font-family-sans", sans)
+}
+
 const defaultSettings: Settings = {
   general: {
     autoSave: true,
@@ -165,9 +175,10 @@ export const { use: useSettings, provider: SettingsProvider } = createSimpleCont
 
     createEffect(() => {
       if (typeof document === "undefined") return
-      const root = document.documentElement
-      root.style.setProperty("--font-family-mono", monoFontFamily(store.appearance?.mono))
-      root.style.setProperty("--font-family-sans", sansFontFamily(store.appearance?.sans))
+      applyAppearanceFontVariables(document.documentElement, {
+        mono: store.appearance?.mono,
+        sans: store.appearance?.sans,
+      })
     })
 
     createEffect(() => {

@@ -16,6 +16,9 @@ import {
 
 const homeSource = await Bun.file(new URL("../home.tsx", import.meta.url)).text()
 const inspectorSource = await Bun.file(new URL("./workflow-inspector.tsx", import.meta.url)).text()
+const v2IconSource = await Bun.file(new URL("../../../../ui/src/v2/components/icon.tsx", import.meta.url)).text()
+const enSource = await Bun.file(new URL("../../i18n/en.ts", import.meta.url)).text()
+const zhSource = await Bun.file(new URL("../../i18n/zh.ts", import.meta.url)).text()
 const HOME_SOURCE_FUNCTION_LINE_LIMIT = 50
 
 const project = (name = "App") =>
@@ -243,6 +246,122 @@ describe("buildWorkflowTasks", () => {
 
     expect(rowSource).toContain("HomeWorkflowTaskOpenAction")
     expect(rowSource).not.toContain('>{language.t("home.tasks.detail.open")}</ButtonV2>')
+  })
+
+  test("uses open-task icon semantics instead of edit semantics", () => {
+    const openActionSource = homeSource.slice(
+      homeSource.indexOf("function HomeWorkflowTaskOpenAction"),
+      homeSource.indexOf("function HomeWorkflowTaskTrailing"),
+    )
+    const headerSource = inspectorSource.slice(
+      inspectorSource.indexOf("function InspectorHeader"),
+      inspectorSource.indexOf("function InspectorEmptyState"),
+    )
+
+    expect(v2IconSource).toContain('"arrow-right":')
+    expect(openActionSource).toContain('icon={<IconV2 name="arrow-right" />}')
+    expect(headerSource).toContain('icon={<IconV2 name="arrow-right" />}')
+    expect(openActionSource).not.toContain('name="edit"')
+    expect(headerSource).not.toContain('name="edit"')
+  })
+
+  test("uses create-session icon semantics instead of edit semantics", () => {
+    const taskHeaderSource = homeSource.slice(
+      homeSource.indexOf("function HomeTaskNavigatorHeader"),
+      homeSource.indexOf("function HomeTaskSearch"),
+    )
+    const projectRowSource = homeSource.slice(
+      homeSource.indexOf("function HomeProjectRow"),
+      homeSource.indexOf("function HomeProjectAvatar"),
+    )
+    const groupHeaderSource = homeSource.slice(
+      homeSource.indexOf("function HomeSessionGroupHeader"),
+      homeSource.indexOf("function HomeWorkflowTaskRow"),
+    )
+    const emptyStateSource = inspectorSource.slice(
+      inspectorSource.indexOf("function InspectorEmptyState"),
+      inspectorSource.indexOf("function InspectorTaskDetail"),
+    )
+
+    expect(v2IconSource).toContain("plus:")
+    expect(taskHeaderSource).toContain('icon="plus"')
+    expect(projectRowSource).toContain('icon={<IconV2 name="plus" />}')
+    expect(groupHeaderSource).toContain('icon="plus"')
+    expect(emptyStateSource).toContain('icon="plus"')
+    expect(taskHeaderSource).not.toContain('icon="edit"')
+    expect(projectRowSource).not.toContain('name="edit"')
+    expect(groupHeaderSource).not.toContain('icon="edit"')
+    expect(emptyStateSource).not.toContain('icon="edit"')
+  })
+
+  test("shows selected-project empty workflow state instead of a bare no-results row", () => {
+    const groupsContentSource = homeSource.slice(
+      homeSource.indexOf("function HomeTaskGroupsContent"),
+      homeSource.indexOf("function HomeTaskGroup(props"),
+    )
+    const emptyStateSource = homeSource.slice(
+      homeSource.indexOf("function HomeProjectEmptyState"),
+      homeSource.indexOf("function HomeTaskGroup(props"),
+    )
+    const shellSource = homeSource.slice(
+      homeSource.indexOf("function HomeWorkflowShell"),
+      homeSource.indexOf("function HomeWorkflowProjectColumn"),
+    )
+
+    expect(groupsContentSource).toContain("HomeProjectEmptyState")
+    expect(groupsContentSource).not.toContain("title={controller.context.language.t(\"home.tasks.empty\")}")
+    expect(emptyStateSource).toContain("project: LocalProject | undefined")
+    expect(emptyStateSource).toContain("props.project?.worktree")
+    expect(emptyStateSource).toContain("home.tasks.empty.projectTitle")
+    expect(emptyStateSource).toContain("home.tasks.empty.projectDescription")
+    expect(emptyStateSource).toContain("command.session.new")
+    expect(shellSource).toContain("project={controller.selection.newSessionProject()}")
+  })
+
+  test("shows selected-project context in the empty inspector state", () => {
+    const inspectorPropsSource = inspectorSource.slice(
+      inspectorSource.indexOf("export function HomeWorkflowInspector"),
+      inspectorSource.indexOf("function InspectorHeader"),
+    )
+    const emptyStateSource = inspectorSource.slice(
+      inspectorSource.indexOf("function InspectorEmptyState"),
+      inspectorSource.indexOf("function InspectorTaskDetail"),
+    )
+
+    expect(inspectorPropsSource).toContain("project: LocalProject | undefined")
+    expect(inspectorPropsSource).toContain("project={props.project}")
+    expect(emptyStateSource).toContain("props.project?.worktree")
+    expect(emptyStateSource).toContain("home.tasks.detail.emptyProjectTitle")
+    expect(emptyStateSource).toContain("home.tasks.detail.emptyProjectDescription")
+  })
+
+  test("exposes project-empty workflow copy in English and Chinese", () => {
+    for (const key of [
+      "home.tasks.empty.projectTitle",
+      "home.tasks.empty.projectDescription",
+      "home.tasks.detail.emptyProjectTitle",
+      "home.tasks.detail.emptyProjectDescription",
+      "home.tasks.detail.emptyProjectPath",
+    ]) {
+      expect(enSource).toContain(`"${key}"`)
+      expect(zhSource).toContain(`"${key}"`)
+    }
+  })
+
+  test("exposes OpenCode-native system entries without Craft-only categories", () => {
+    expect(homeSource).toContain("HomeWorkflowSystemNav")
+    expect(homeSource).toContain('data-component="home-workflow-system-entry"')
+    expect(homeSource).toContain('tab: "providers"')
+    expect(homeSource).toContain('tab: "models"')
+    expect(homeSource).toContain('tab: "mcp"')
+    expect(homeSource).toContain('tab: "skills"')
+    expect(homeSource).toContain('tab: "permissions"')
+    expect(homeSource).toContain('tab: "servers"')
+    expect(homeSource).toContain("DialogSettings defaultTab={tab}")
+    expect(enSource).toContain('"home.system.title"')
+    expect(zhSource).toContain('"home.system.title"')
+    expect(homeSource).not.toContain("Sources")
+    expect(homeSource).not.toContain("Automations")
   })
 
   test("keeps the home inspector from regressing to dashboard cards", () => {

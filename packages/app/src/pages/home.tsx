@@ -46,6 +46,7 @@ import { useCommand } from "@/context/command"
 import { useSettings } from "@/context/settings"
 import { ServerRowMenu } from "@/components/server/server-row-menu"
 import { ServerHealthIndicator } from "@/components/server/server-row"
+import { PRODUCT_FEEDBACK_URL } from "@/product"
 import { WorkflowShell } from "@/components/workflow-shell"
 import {
   WORKFLOW_ENTITY_ROW,
@@ -162,6 +163,16 @@ type HomeWorkflowContext = ReturnType<typeof createHomeWorkflowContext>
 type HomeWorkflowSelection = ReturnType<typeof createHomeWorkflowSelection>
 type HomeWorkflowTasks = ReturnType<typeof createHomeWorkflowTasks>
 type HomeWorkflowActions = ReturnType<typeof createHomeWorkflowActions>
+type HomeSettingsTab = "servers" | "providers" | "models" | "mcp" | "skills" | "permissions"
+
+const HOME_WORKFLOW_SYSTEM_ENTRIES = [
+  { tab: "providers", label: "settings.providers.title", icon: "status" },
+  { tab: "models", label: "settings.models.title", icon: "grid-plus" },
+  { tab: "mcp", label: "settings.mcp.title", icon: "status" },
+  { tab: "skills", label: "settings.skills.title", icon: "status-active" },
+  { tab: "permissions", label: "settings.permissions.title", icon: "settings-gear" },
+  { tab: "servers", label: "status.popover.tab.servers", icon: "sidebar-right" },
+] as const satisfies readonly { tab: HomeSettingsTab; label: string; icon: string }[]
 
 function createHomeWorkflowContext() {
   const sync = useServerSync()
@@ -384,10 +395,10 @@ function createHomeProjectActions(input: {
         0,
       )
     },
-    openSettings: () => void import("@/components/settings-v2").then((x) => {
-      input.context.dialog.show(() => <x.DialogSettings />)
+    openSettings: (tab?: HomeSettingsTab) => void import("@/components/settings-v2").then((x) => {
+      input.context.dialog.show(() => <x.DialogSettings defaultTab={tab} />)
     }),
-    openHelp: () => input.context.platform.openLink("https://opencode.ai/desktop-feedback"),
+    openHelp: () => input.context.platform.openLink(PRODUCT_FEEDBACK_URL),
   }
 }
 
@@ -435,6 +446,7 @@ function HomeWorkflowShell(props: { controller: HomeWorkflowController }) {
       center={
         <HomeWorkflowInspector
           task={controller.tasks.activeTask()}
+          project={controller.selection.newSessionProject()}
           onOpenSession={controller.actions.openSession}
           onNewSession={controller.selection.newSessionProject() ? controller.actions.openNewSession : undefined}
         />
@@ -499,7 +511,7 @@ function HomeTaskNavigatorHeader(props: { controller: HomeWorkflowController }) 
             data-action="home-new-session"
             variant="ghost-muted"
             size="normal"
-            icon="edit"
+            icon="plus"
             class="h-7 px-2 [font-weight:530]"
             onClick={controller.actions.openNewSession}
           >
@@ -555,18 +567,56 @@ function HomeTaskGroupsContent(props: { controller: HomeWorkflowController }) {
     <Show
       when={controller.tasks.workflowGroups().length > 0}
       fallback={
-        <div class="flex min-w-0 flex-col gap-4">
-          <HomeSessionGroupHeader
-            title={controller.context.language.t("home.tasks.empty")}
-            onNewSession={controller.selection.newSessionProject() ? controller.actions.openNewSession : undefined}
-          />
-        </div>
+        <HomeProjectEmptyState
+          project={controller.selection.newSessionProject()}
+          onNewSession={controller.selection.newSessionProject() ? controller.actions.openNewSession : undefined}
+        />
       }
     >
       <For each={controller.tasks.workflowGroups()}>
         {(group) => <HomeTaskGroup group={group} controller={controller} />}
       </For>
     </Show>
+  )
+}
+
+function HomeProjectEmptyState(props: { project: LocalProject | undefined; onNewSession?: () => void }) {
+  const language = useLanguage()
+  const title = createMemo(() => {
+    if (!props.project) return language.t("home.tasks.empty")
+    return language.t("home.tasks.empty.projectTitle", { project: displayName(props.project) })
+  })
+
+  return (
+    <div data-component="home-project-empty-state" class="flex min-w-0 flex-col gap-4 rounded-[8px] border border-v2-border-border-muted bg-v2-background-bg-layer-02 px-4 py-4">
+      <div class="flex min-w-0 items-start gap-3">
+        <Show when={props.project}>
+          {(project) => <HomeProjectAvatar project={project()} />}
+        </Show>
+        <div class="flex min-w-0 flex-1 flex-col gap-1">
+          <div class="min-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-[15px] leading-5 text-v2-text-text-base [font-weight:560]">
+            {title()}
+          </div>
+          <p class="text-[13px] leading-5 text-v2-text-text-muted [font-weight:440]">
+            {language.t("home.tasks.empty.projectDescription")}
+          </p>
+          <Show when={props.project?.worktree}>
+            {(directory) => (
+              <div class="min-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-[12px] leading-4 text-v2-text-text-faint">
+                {directory()}
+              </div>
+            )}
+          </Show>
+        </div>
+      </div>
+      <Show when={props.onNewSession}>
+        {(onNewSession) => (
+          <ButtonV2 variant="neutral" size="normal" icon="plus" class="self-start" onClick={onNewSession()}>
+            {language.t("command.session.new")}
+          </ButtonV2>
+        )}
+      </Show>
+    </div>
   )
 }
 
@@ -613,7 +663,7 @@ type HomeProjectColumnProps = {
   workflowTasks: WorkflowTask[]
   workflowFilter: WorkflowTaskFilter
   setWorkflowFilter: (filter: WorkflowTaskFilter) => void
-  openSettings: () => void
+  openSettings: (tab?: HomeSettingsTab) => void
   openHelp: () => void
   language: ReturnType<typeof useLanguage>
 }
@@ -636,6 +686,7 @@ function HomeProjectColumn(props: HomeProjectColumnProps) {
       aria-label={props.language.t("home.projects")}
     >
       <HomeWorkflowNav tasks={props.workflowTasks} filter={props.workflowFilter} onFilter={props.setWorkflowFilter} />
+      <HomeWorkflowSystemNav openSettings={props.openSettings} />
       <div class="mx-1 h-px bg-v2-border-border-muted" aria-hidden="true" />
       <HomeProjectColumnHeader column={props} global={global} />
       <HomeProjectColumnBody column={props} context={context} />
@@ -711,9 +762,33 @@ function HomeServerProjectGroup(props: {
 function HomeProjectColumnFooter(props: { column: HomeProjectColumnProps }) {
   return (
     <div class="mt-4 flex min-w-0 flex-col gap-1">
-      <HomeProjectFooterButton icon="settings-gear" label={props.column.language.t("sidebar.settings")} onClick={props.column.openSettings} />
+      <HomeProjectFooterButton icon="settings-gear" label={props.column.language.t("sidebar.settings")} onClick={() => props.column.openSettings()} />
       <HomeProjectFooterButton icon="help" label={props.column.language.t("sidebar.help")} onClick={props.column.openHelp} />
     </div>
+  )
+}
+
+function HomeWorkflowSystemNav(props: { openSettings: (tab: HomeSettingsTab) => void }) {
+  const language = useLanguage()
+  return (
+    <section class="flex min-w-0 flex-col gap-2" aria-label={language.t("home.system.title")}>
+      <WorkflowSectionHeader class="!h-7 !px-1.5" title={language.t("home.system.title")} />
+      <div class="flex min-w-0 flex-col gap-1">
+        <For each={HOME_WORKFLOW_SYSTEM_ENTRIES}>
+          {(entry) => (
+            <button
+              type="button"
+              data-component="home-workflow-system-entry"
+              class={WORKFLOW_NAV_ROW}
+              onClick={() => props.openSettings(entry.tab)}
+            >
+              <IconV2 name={entry.icon} size="small" />
+              <span class={HOME_PROJECT_NAV_LABEL}>{language.t(entry.label)}</span>
+            </button>
+          )}
+        </For>
+      </div>
+    </section>
   )
 }
 
@@ -860,7 +935,7 @@ function HomeProjectRow(props: {
           data-action="home-project-new-session"
           variant="ghost-muted"
           size="small"
-          icon={<IconV2 name="edit" />}
+          icon={<IconV2 name="plus" />}
           aria-label={props.language.t("command.session.new")}
           onClick={() => props.openNewSession(props.server, props.project.worktree)}
         />
@@ -1214,7 +1289,7 @@ function HomeSessionGroupHeader(props: { title: string; count?: number; onNewSes
             data-action="home-new-session"
             variant="ghost-muted"
             size="normal"
-            icon="edit"
+            icon="plus"
             class="h-7 px-2 [font-weight:530]"
             onClick={props.onNewSession}
           >
@@ -1319,7 +1394,7 @@ function HomeWorkflowTaskOpenAction(props: { label: string; onOpen: () => void }
       variant="ghost-muted"
       size="small"
       class="size-7 rounded-[7px]"
-      icon={<IconV2 name="edit" />}
+      icon={<IconV2 name="arrow-right" />}
       onClick={(event) => {
         event.stopPropagation()
         props.onOpen()

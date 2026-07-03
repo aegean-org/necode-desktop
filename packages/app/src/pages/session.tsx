@@ -39,6 +39,7 @@ import { useLanguage } from "@/context/language"
 import { useLayout } from "@/context/layout"
 import { usePrompt } from "@/context/prompt"
 import { usePlatform } from "@/context/platform"
+import { PRODUCT_FEEDBACK_URL } from "@/product"
 import { useSDK } from "@/context/sdk"
 import { useServerSDK } from "@/context/server-sdk"
 import { useSettings } from "@/context/settings"
@@ -292,7 +293,7 @@ export default function Page() {
     })
   }
   const openWorkflowHelp = () => {
-    platform.openLink("https://opencode.ai/desktop-feedback")
+    platform.openLink(PRODUCT_FEEDBACK_URL)
   }
   const isChildSession = createMemo(() => !!info()?.parentID)
   const diffs = createMemo(() => (params.id ? list(sync().data.session_diff[params.id]) : []))

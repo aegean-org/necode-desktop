@@ -22,6 +22,8 @@ describe("workflow shell sizing", () => {
     expect(WORKFLOW_SHELL_LIMITS.edgeRadius).toBe(8)
     expect(WORKFLOW_SHELL_LIMITS.centerMin).toBe(440)
     expect(WORKFLOW_SHELL_LIMITS.stackVerticalOverflow).toBe(8)
+    expect(WORKFLOW_SHELL_LIMITS.sashHitWidth).toBe(8)
+    expect(WORKFLOW_SHELL_LIMITS.sashLineWidth).toBe(2)
   })
 
   test("keeps workflow surface variables scoped to the shell contract", () => {
@@ -49,6 +51,8 @@ describe("workflow shell sizing", () => {
     expect(WORKFLOW_SHELL_LIMITS.innerRadius).toBe(10)
     expect(WORKFLOW_SHELL_LIMITS.centerMin).toBe(440)
     expect(WORKFLOW_SHELL_LIMITS.stackVerticalOverflow).toBe(8)
+    expect(WORKFLOW_SHELL_LIMITS.sashHitWidth).toBe(8)
+    expect(WORKFLOW_SHELL_LIMITS.sashLineWidth).toBe(2)
   })
 
   test("describes the Craft desktop panel stack styles", () => {

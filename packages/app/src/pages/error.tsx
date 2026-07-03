@@ -7,6 +7,7 @@ import { createStore } from "solid-js/store"
 import { usePlatform } from "@/context/platform"
 import { useLanguage } from "@/context/language"
 import { Icon } from "@opencode-ai/ui/icon"
+import { PRODUCT_FEEDBACK_URL } from "@/product"
 import { errorDescriptionKey } from "./error-description"
 
 export type InitError = {
@@ -351,10 +352,10 @@ export const ErrorPage: Component<ErrorPageProps> = (props) => {
             <button
               type="button"
               class="flex items-center text-text-interactive-base gap-1"
-              onClick={() => platform.openLink("https://opencode.ai/desktop-feedback")}
+              onClick={() => platform.openLink(PRODUCT_FEEDBACK_URL)}
             >
-              <div>{language.t("error.page.report.discord")}</div>
-              <Icon name="discord" class="text-text-interactive-base" />
+              <div>{language.t("error.page.report.feedback")}</div>
+              <Icon name="square-arrow-top-right" class="text-text-interactive-base" />
             </button>
           </div>
           <Show when={platform.version}>

@@ -3,7 +3,6 @@ import { Button } from "@opencode-ai/ui/button"
 import { Icon } from "@opencode-ai/ui/icon"
 import { Select } from "@opencode-ai/ui/select"
 import { Switch } from "@opencode-ai/ui/switch"
-import { TextField } from "@opencode-ai/ui/text-field"
 import { Tooltip } from "@opencode-ai/ui/tooltip"
 import { useTheme, type ColorScheme } from "@opencode-ai/ui/theme/context"
 import { useDialog } from "@opencode-ai/ui/context/dialog"
@@ -29,6 +28,7 @@ import {
 import { decode64 } from "@/utils/base64"
 import { playSoundById, SOUND_OPTIONS } from "@/utils/sound"
 import { Link } from "./link"
+import { SettingsFontSelect } from "./settings-font-select"
 import { SettingsList } from "./settings-list"
 
 let demoSoundState = {
@@ -499,20 +499,13 @@ export const SettingsGeneral: Component = () => {
           description={language.t("settings.general.row.uiFont.description")}
         >
           <div class="w-full sm:w-[220px]">
-            <TextField
+            <SettingsFontSelect
               data-action="settings-ui-font"
-              label={language.t("settings.general.row.uiFont.title")}
-              hideLabel
-              type="text"
+              title={language.t("settings.general.row.uiFont.title")}
               value={sans()}
-              onChange={(value) => settings.appearance.setUIFont(value)}
-              placeholder={sansDefault}
-              spellcheck={false}
-              autocorrect="off"
-              autocomplete="off"
-              autocapitalize="off"
-              class="text-12-regular"
-              style={{ "font-family": sansFontFamily(settings.appearance.uiFont()) }}
+              defaultLabel={sansDefault}
+              fontFamily={sansFontFamily(settings.appearance.uiFont())}
+              onSelect={settings.appearance.setUIFont}
             />
           </div>
         </SettingsRow>
@@ -522,20 +515,13 @@ export const SettingsGeneral: Component = () => {
           description={language.t("settings.general.row.font.description")}
         >
           <div class="w-full sm:w-[220px]">
-            <TextField
+            <SettingsFontSelect
               data-action="settings-code-font"
-              label={language.t("settings.general.row.font.title")}
-              hideLabel
-              type="text"
+              title={language.t("settings.general.row.font.title")}
               value={mono()}
-              onChange={(value) => settings.appearance.setFont(value)}
-              placeholder={monoDefault}
-              spellcheck={false}
-              autocorrect="off"
-              autocomplete="off"
-              autocapitalize="off"
-              class="text-12-regular"
-              style={{ "font-family": monoFontFamily(settings.appearance.font()) }}
+              defaultLabel={monoDefault}
+              fontFamily={monoFontFamily(settings.appearance.font())}
+              onSelect={settings.appearance.setFont}
             />
           </div>
         </SettingsRow>
@@ -545,20 +531,13 @@ export const SettingsGeneral: Component = () => {
           description={language.t("settings.general.row.terminalFont.description")}
         >
           <div class="w-full sm:w-[220px]">
-            <TextField
+            <SettingsFontSelect
               data-action="settings-terminal-font"
-              label={language.t("settings.general.row.terminalFont.title")}
-              hideLabel
-              type="text"
+              title={language.t("settings.general.row.terminalFont.title")}
               value={terminal()}
-              onChange={(value) => settings.appearance.setTerminalFont(value)}
-              placeholder={terminalDefault}
-              spellcheck={false}
-              autocorrect="off"
-              autocomplete="off"
-              autocapitalize="off"
-              class="text-12-regular"
-              style={{ "font-family": terminalFontFamily(settings.appearance.terminalFont()) }}
+              defaultLabel={terminalDefault}
+              fontFamily={terminalFontFamily(settings.appearance.terminalFont())}
+              onSelect={settings.appearance.setTerminalFont}
             />
           </div>
         </SettingsRow>

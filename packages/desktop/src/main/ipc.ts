@@ -32,6 +32,7 @@ type Deps = {
   parseMarkdown: (markdown: string) => Promise<string> | string
   checkAppExists: (appName: string) => Promise<boolean> | boolean
   resolveAppPath: (appName: string) => Promise<string | null>
+  listSystemFonts: () => Promise<string[]>
   updater: UpdaterController
   showUpdater: () => Promise<void> | void
   setBackgroundColor: (color: string) => void
@@ -57,6 +58,7 @@ export function registerIpcHandlers(deps: Deps) {
   ipcMain.handle("parse-markdown", (_event: IpcMainInvokeEvent, markdown: string) => deps.parseMarkdown(markdown))
   ipcMain.handle("check-app-exists", (_event: IpcMainInvokeEvent, appName: string) => deps.checkAppExists(appName))
   ipcMain.handle("resolve-app-path", (_event: IpcMainInvokeEvent, appName: string) => deps.resolveAppPath(appName))
+  ipcMain.handle("list-system-fonts", () => deps.listSystemFonts())
   ipcMain.handle("updater-subscribe", (event) => {
     const id = event.sender.id
     updaterSubscriptions.set(

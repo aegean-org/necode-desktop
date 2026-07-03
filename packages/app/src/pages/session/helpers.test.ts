@@ -41,6 +41,31 @@ describe("session page initialization", () => {
     expect(source).not.toContain("WORKFLOW_ENTITY_ROW")
   })
 
+  test("keeps workflow navigator rows aligned with compact entity metadata", async () => {
+    const source = await Bun.file(new URL("./workflow-session-navigator.tsx", import.meta.url)).text()
+    const rowSource = source.slice(source.indexOf("function WorkflowSessionRow"), source.indexOf("function WorkflowSessionSubtitle"))
+    const headerSource = source.slice(source.indexOf("function WorkflowSessionNavigatorHeader"), source.indexOf("function WorkflowSessionNavigatorBody"))
+
+    expect(rowSource).not.toContain("badge={")
+    expect(headerSource).toContain("IconButtonV2")
+    expect(headerSource).not.toContain('>{language.t("command.session.new")}</ButtonV2>')
+  })
+
+  test("keeps workflow side panel headers on v2 compact actions", async () => {
+    const source = await Bun.file(new URL("./session-side-panel.tsx", import.meta.url)).text()
+    const headerSource = source.slice(source.indexOf("function SessionWorkflowPanelHeader"), source.indexOf("function ReviewTabContent"))
+
+    expect(headerSource).toContain("WorkflowOpenFileButton")
+    expect(headerSource).not.toContain("actions={<OpenFileButton")
+  })
+
+  test("keeps workflow composer dock from nesting legacy dock chrome", async () => {
+    const source = await Bun.file(new URL("./composer/session-composer-region.tsx", import.meta.url)).text()
+
+    expect(source).toContain("const workflowDock = createMemo")
+    expect(source).toContain('"shrink-0 pb-3 bg-background-stronger": props.placement !== "inline" && !workflowDock()')
+  })
+
   test("gates review panel chrome through side panel mode", async () => {
     const source = await Bun.file(new URL("../session.tsx", import.meta.url)).text()
 

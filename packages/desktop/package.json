@@ -1,7 +1,7 @@
 {
   "name": "@necode-ai/desktop",
   "private": true,
-  "version": "1.17.7",
+  "version": "0.0.1",
   "type": "module",
   "license": "MIT",
   "homepage": "https://necode.ai",

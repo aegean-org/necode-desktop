@@ -316,6 +316,32 @@ it.live("InstanceState dedupes concurrent lookups", () =>
   }),
 )
 
+it.live("InstanceState retries after an interrupted lookup", () =>
+  Effect.gen(function* () {
+    const dir = yield* tmpdirScoped()
+    const started = yield* Deferred.make<void>()
+    let attempts = 0
+    const state = yield* InstanceState.make(() =>
+      Effect.gen(function* () {
+        attempts += 1
+        yield* Deferred.succeed(started, undefined)
+        if (attempts === 1) yield* Effect.never
+        return { attempts }
+      }),
+    )
+
+    const first = yield* access(state, dir).pipe(Effect.forkScoped)
+    yield* Deferred.await(started)
+    yield* Fiber.interrupt(first)
+
+    const second = yield* access(state, dir).pipe(Effect.exit)
+
+    expect(Exit.isSuccess(second)).toBe(true)
+    if (Exit.isSuccess(second)) expect(second.value.attempts).toBe(2)
+    expect(attempts).toBe(2)
+  }),
+)
+
 it.live("InstanceState survives deferred resume from the same instance context", () =>
   Effect.gen(function* () {
     const dir = yield* tmpdirScoped({ git: true })

@@ -103,6 +103,9 @@ type PlatformBase = {
   /** Check if an editor app exists (desktop only) */
   checkAppExists?(appName: string): Promise<boolean>
 
+  /** Enumerate installed system font families (desktop only) */
+  listSystemFonts?(): Promise<string[]>
+
   /** Read image from clipboard (desktop only) */
   readClipboardImage?(): Promise<File | null>
 

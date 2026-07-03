@@ -65,6 +65,7 @@ const api: ElectronAPI = {
   parseMarkdownCommand: (markdown) => ipcRenderer.invoke("parse-markdown", markdown),
   checkAppExists: (appName) => ipcRenderer.invoke("check-app-exists", appName),
   resolveAppPath: (appName) => ipcRenderer.invoke("resolve-app-path", appName),
+  listSystemFonts: () => ipcRenderer.invoke("list-system-fonts"),
   storeGet: (name, key) => ipcRenderer.invoke("store-get", name, key),
   storeSet: (name, key, value) => ipcRenderer.invoke("store-set", name, key, value),
   storeDelete: (name, key) => ipcRenderer.invoke("store-delete", name, key),

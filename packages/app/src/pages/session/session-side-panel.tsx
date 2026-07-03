@@ -6,6 +6,8 @@ import { IconButton } from "@opencode-ai/ui/icon-button"
 import { TooltipKeybind } from "@opencode-ai/ui/tooltip"
 import { ResizeHandle } from "@opencode-ai/ui/resize-handle"
 import { Mark } from "@opencode-ai/ui/logo"
+import { Icon as IconV2 } from "@opencode-ai/ui/v2/icon"
+import { IconButtonV2 } from "@opencode-ai/ui/v2/icon-button-v2"
 import { DragDropProvider, DragDropSensors, DragOverlay, SortableProvider, closestCenter } from "@thisbeyond/solid-dnd"
 import type { DragEvent } from "@thisbeyond/solid-dnd"
 import type { SnapshotFileDiff, VcsFileDiff } from "@opencode-ai/sdk/v2"
@@ -428,12 +430,33 @@ function OpenFileButton(props: { label: string; keybind: string; onOpen: () => v
   )
 }
 
+function WorkflowOpenFileButton(props: { label: string; keybind: string; onOpen: () => void }) {
+  return (
+    <TooltipKeybind title={props.label} keybind={props.keybind} class="flex items-center">
+      <IconButtonV2
+        variant="ghost-muted"
+        size="small"
+        class="size-7 rounded-[7px]"
+        icon={<IconV2 name="plus" />}
+        onClick={props.onOpen}
+        aria-label={props.label}
+      />
+    </TooltipKeybind>
+  )
+}
+
 function SessionWorkflowPanelHeader(props: { title: JSX.Element; openFileLabel: string; openFileKeybind: string; onOpenFile: () => void }) {
   return (
     <WorkflowPanelHeader
       class="bg-[var(--workflow-panel-base)]"
       title={props.title}
-      actions={<OpenFileButton label={props.openFileLabel} keybind={props.openFileKeybind} onOpen={props.onOpenFile} />}
+      actions={
+        <WorkflowOpenFileButton
+          label={props.openFileLabel}
+          keybind={props.openFileKeybind}
+          onOpen={props.onOpenFile}
+        />
+      }
     />
   )
 }

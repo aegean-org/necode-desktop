@@ -1,4 +1,5 @@
 import type { Session } from "@opencode-ai/sdk/v2/client"
+import type { LocalProject } from "@/context/layout"
 import { ButtonV2 } from "@opencode-ai/ui/v2/button-v2"
 import { IconButtonV2 } from "@opencode-ai/ui/v2/icon-button-v2"
 import { Icon as IconV2 } from "@opencode-ai/ui/v2/icon"
@@ -6,6 +7,7 @@ import { DateTime } from "luxon"
 import { createMemo, For, Show, type JSX } from "solid-js"
 import { WORKFLOW_BADGE, WORKFLOW_SURFACE_CARD } from "@/components/workflow-ui"
 import { useLanguage } from "@/context/language"
+import { displayName } from "@/pages/layout/helpers"
 import { sessionTitle } from "@/utils/session-title"
 import {
   workflowStatusTitleKey,
@@ -22,9 +24,10 @@ const STATUS_DOT_CLASS = {
   done: "bg-icon-success-base",
 } satisfies Record<WorkflowTaskStatus, string>
 
-/** Right-side task context panel for the OpenCode home workflow. */
+/** Right-side task context panel for the NeCode home workflow. */
 export function HomeWorkflowInspector(props: {
   task: WorkflowTask | undefined
+  project: LocalProject | undefined
   onOpenSession: (session: Session) => void
   onNewSession?: () => void
 }) {
@@ -39,7 +42,7 @@ export function HomeWorkflowInspector(props: {
         <InspectorHeader task={props.task} onOpenSession={props.onOpenSession} />
         <Show
           when={props.task}
-          fallback={<InspectorEmptyState onNewSession={props.onNewSession} />}
+          fallback={<InspectorEmptyState project={props.project} onNewSession={props.onNewSession} />}
         >
           {(task) => <InspectorTaskDetail task={task()} onOpenSession={props.onOpenSession} />}
         </Show>
@@ -75,7 +78,7 @@ function InspectorHeader(props: {
             variant="ghost-muted"
             size="small"
             class="size-7 rounded-[7px]"
-            icon={<IconV2 name="edit" />}
+            icon={<IconV2 name="arrow-right" />}
             onClick={() => props.onOpenSession(task().session)}
           />
         )}
@@ -84,17 +87,38 @@ function InspectorHeader(props: {
   )
 }
 
-function InspectorEmptyState(props: { onNewSession?: () => void }) {
+function InspectorEmptyState(props: { project: LocalProject | undefined; onNewSession?: () => void }) {
   const language = useLanguage()
+  const title = createMemo(() => {
+    if (!props.project) return language.t("home.tasks.detail.emptyTitle")
+    return language.t("home.tasks.detail.emptyProjectTitle", { project: displayName(props.project) })
+  })
 
   return (
-    <div class="flex min-h-0 flex-1 flex-col justify-between gap-4">
-      <p class="text-[13px] leading-5 text-v2-text-text-muted [font-weight:440]">
-        {language.t("home.tasks.detail.emptyDescription")}
-      </p>
+    <div class="flex min-h-0 flex-1 flex-col justify-between gap-4 rounded-[8px] border border-v2-border-border-muted bg-v2-background-bg-layer-02 px-4 py-4">
+      <div class="flex min-w-0 flex-col gap-2">
+        <div class="text-[15px] leading-5 text-v2-text-text-base [font-weight:560]">{title()}</div>
+        <p class="text-[13px] leading-5 text-v2-text-text-muted [font-weight:440]">
+          {props.project
+            ? language.t("home.tasks.detail.emptyProjectDescription")
+            : language.t("home.tasks.detail.emptyDescription")}
+        </p>
+        <Show when={props.project?.worktree}>
+          {(directory) => (
+            <div class="flex min-w-0 flex-col gap-1 pt-2">
+              <div class="text-[12px] leading-4 text-v2-text-text-muted [font-weight:440]">
+                {language.t("home.tasks.detail.emptyProjectPath")}
+              </div>
+              <div class="min-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-[12px] leading-4 text-v2-text-text-faint">
+                {directory()}
+              </div>
+            </div>
+          )}
+        </Show>
+      </div>
       <Show when={props.onNewSession}>
         {(onNewSession) => (
-          <ButtonV2 variant="neutral" size="normal" icon="edit" onClick={onNewSession()}>
+          <ButtonV2 variant="neutral" size="normal" icon="plus" onClick={onNewSession()}>
             {language.t("command.session.new")}
           </ButtonV2>
         )}

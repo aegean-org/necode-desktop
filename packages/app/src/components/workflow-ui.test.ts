@@ -18,7 +18,9 @@ describe("workflow UI primitives", () => {
   test("keeps entity rows using the workflow selected treatment", () => {
     expect(WORKFLOW_ENTITY_ROW).toContain("data-[selected]")
     expect(WORKFLOW_ENTITY_ROW).toContain("--workflow-row-hover")
-    expect(WORKFLOW_ENTITY_ROW).toContain("--v2-icon-icon-accent")
+    expect(WORKFLOW_ENTITY_ROW).toContain("--workflow-elevation-minimal")
+    expect(WORKFLOW_ENTITY_ROW).not.toContain("inset_2px_0_0")
+    expect(WORKFLOW_ENTITY_ROW).not.toContain("--v2-icon-icon-accent")
   })
 
   test("keeps navigation rows compact and selectable", () => {
