@@ -27,8 +27,6 @@ import {
   Prompt,
   usePrompt,
   ImageAttachmentPart,
-  AgentPart,
-  FileAttachmentPart,
 } from "@/context/prompt"
 import { useLayout } from "@/context/layout"
 import { useSDK } from "@/context/sdk"
@@ -49,7 +47,12 @@ import { usePermission } from "@/context/permission"
 import { useLanguage } from "@/context/language"
 import { usePlatform } from "@/context/platform"
 import { createSessionTabs } from "@/pages/session/helpers"
-import { createTextFragment, getCursorPosition, setCursorPosition, setRangeEdge } from "./prompt-input/editor-dom"
+import {
+  createTextFragment,
+  getCursorPosition,
+  setCursorPosition,
+  setRangeEdge,
+} from "./prompt-input/editor-dom"
 import { createPromptAttachments } from "./prompt-input/attachments"
 import { ACCEPTED_FILE_TYPES, pickAttachmentFiles } from "./prompt-input/files"
 import {
@@ -67,6 +70,8 @@ import { PromptContextItems } from "./prompt-input/context-items"
 import { PromptImageAttachments } from "./prompt-input/image-attachments"
 import { PromptDragOverlay } from "./prompt-input/drag-overlay"
 import { promptPlaceholder } from "./prompt-input/placeholder"
+import { createRagAtOptions } from "./prompt-input/rag-options"
+import { createPromptPill, isPromptPillElement, readPromptPill } from "./prompt-input/prompt-pill"
 import { showToast } from "@/utils/toast"
 import { ImagePreview } from "@opencode-ai/ui/image-preview"
 import { pathKey } from "@/utils/path-key"
@@ -663,19 +668,42 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
       .filter((agent) => !agent.hidden && agent.mode !== "primary")
       .map((agent): AtOption => ({ type: "agent", name: agent.name, display: agent.name })),
   )
+  const ragList = async () => {
+    const status = await sdk().client.rag.status()
+    if (!status.data) throw new Error("NE RAG status response did not include data.")
+    return createRagAtOptions({
+      documents: status.data.documents,
+      title: language.t("settings.rag.title"),
+      allDocuments: language.t("settings.rag.allDocuments"),
+      allDocumentsDescription: language.t("settings.rag.allDocumentsDescription"),
+    })
+  }
 
   const handleAtSelect = (option: AtOption | undefined) => {
     if (!option) return
     if (option.type === "agent") {
       addPart({ type: "agent", name: option.name, content: "@" + option.name, start: 0, end: 0 })
-    } else {
-      addPart({ type: "file", path: option.path, content: "@" + option.path, start: 0, end: 0 })
+      return
     }
+    if (option.type === "rag") {
+      addPart({
+        type: "rag",
+        name: "doc",
+        title: option.title,
+        content: option.insertText.trim(),
+        start: 0,
+        end: 0,
+      })
+      return
+    }
+    addPart({ type: "file", path: option.path, content: "@" + option.path, start: 0, end: 0 })
   }
 
   const atKey = (x: AtOption | undefined) => {
     if (!x) return ""
-    return x.type === "agent" ? `agent:${x.name}` : `file:${x.path}`
+    if (x.type === "agent") return `agent:${x.name}`
+    if (x.type === "rag") return `rag:${x.name}:${x.title ?? ""}`
+    return `file:${x.path}`
   }
 
   const {
@@ -687,29 +715,32 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
   } = useFilteredList<AtOption>({
     items: async (query) => {
       const agents = agentList()
+      const rag = await ragList()
       const open = recent()
       const seen = new Set(open)
       const pinned: AtOption[] = open.map((path) => ({ type: "file", path, display: path, recent: true }))
-      if (!query.trim()) return [...agents, ...pinned]
+      if (!query.trim()) return [...agents, ...rag, ...pinned]
       const paths = await files.searchFilesAndDirectories(query)
       const fileOptions: AtOption[] = paths
         .filter((path) => !seen.has(path))
         .map((path) => ({ type: "file", path, display: path }))
-      return [...agents, ...pinned, ...fileOptions]
+      return [...agents, ...rag, ...pinned, ...fileOptions]
     },
     key: atKey,
     filterKeys: ["display"],
     skipFilter: (item) => item.type === "file" && !item.recent,
     groupBy: (item) => {
       if (item.type === "agent") return "agent"
+      if (item.type === "rag") return "rag"
       if (item.recent) return "recent"
       return "file"
     },
     sortGroupsBy: (a, b) => {
       const rank = (category: string) => {
         if (category === "agent") return 0
-        if (category === "recent") return 1
-        return 2
+        if (category === "rag") return 1
+        if (category === "recent") return 2
+        return 3
       }
       return rank(a.category) - rank(b.category)
     },
@@ -771,18 +802,6 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
     onSelect: handleSlashSelect,
   })
 
-  const createPill = (part: FileAttachmentPart | AgentPart) => {
-    const pill = document.createElement("span")
-    pill.textContent = part.content
-    pill.setAttribute("data-type", part.type)
-    if (part.type === "file") pill.setAttribute("data-path", part.path)
-    if (part.type === "agent") pill.setAttribute("data-name", part.name)
-    pill.setAttribute("contenteditable", "false")
-    pill.style.userSelect = "text"
-    pill.style.cursor = "default"
-    return pill
-  }
-
   const isNormalizedEditor = () =>
     Array.from(editorRef.childNodes).every((node) => {
       if (node.nodeType === Node.TEXT_NODE) {
@@ -797,8 +816,7 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
       }
       if (node.nodeType !== Node.ELEMENT_NODE) return false
       const el = node as HTMLElement
-      if (el.dataset.type === "file") return true
-      if (el.dataset.type === "agent") return true
+      if (isPromptPillElement(el)) return true
       return el.tagName === "BR"
     })
 
@@ -809,8 +827,8 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
         editorRef.appendChild(createTextFragment(part.content))
         continue
       }
-      if (part.type === "file" || part.type === "agent") {
-        editorRef.appendChild(createPill(part))
+      if (part.type === "file" || part.type === "agent" || part.type === "rag") {
+        editorRef.appendChild(createPromptPill(part))
       }
     }
 
@@ -889,30 +907,6 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
       position += content.length
     }
 
-    const pushFile = (file: HTMLElement) => {
-      const content = file.textContent ?? ""
-      parts.push({
-        type: "file",
-        path: file.dataset.path!,
-        content,
-        start: position,
-        end: position + content.length,
-      })
-      position += content.length
-    }
-
-    const pushAgent = (agent: HTMLElement) => {
-      const content = agent.textContent ?? ""
-      parts.push({
-        type: "agent",
-        name: agent.dataset.name!,
-        content,
-        start: position,
-        end: position + content.length,
-      })
-      position += content.length
-    }
-
     const visit = (node: Node) => {
       if (node.nodeType === Node.TEXT_NODE) {
         buffer += node.textContent ?? ""
@@ -921,14 +915,12 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
       if (node.nodeType !== Node.ELEMENT_NODE) return
 
       const el = node as HTMLElement
-      if (el.dataset.type === "file") {
+      if (isPromptPillElement(el)) {
         flushText()
-        pushFile(el)
-        return
-      }
-      if (el.dataset.type === "agent") {
-        flushText()
-        pushAgent(el)
+        const part = readPromptPill(el, position)
+        if (!part) return
+        parts.push(part)
+        position = part.end
         return
       }
       if (el.tagName === "BR") {
@@ -1022,7 +1014,7 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
     const range = selection.getRangeAt(0)
     if (!editorRef.contains(range.startContainer)) return false
 
-    if (part.type === "file" || part.type === "agent") {
+    if (part.type === "file" || part.type === "agent" || part.type === "rag") {
       const cursorPosition = getCursorPosition(editorRef)
       const rawText = prompt
         .current()
@@ -1030,7 +1022,7 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
         .join("")
       const textBeforeCursor = rawText.substring(0, cursorPosition)
       const atMatch = textBeforeCursor.match(/@(\S*)$/)
-      const pill = createPill(part)
+      const pill = createPromptPill(part)
       const gap = document.createTextNode(" ")
 
       if (atMatch) {
@@ -1586,6 +1578,7 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
                       "min-h-[52px] w-full px-4 pt-4 pb-2 focus:outline-none whitespace-pre-wrap leading-5 text-[13px] font-[440] text-v2-text-text-base": true,
                       "[&_[data-type=file]]:text-syntax-property": true,
                       "[&_[data-type=agent]]:text-syntax-type": true,
+                      "[&_[data-type=rag]]:text-icon-info-active": true,
                       "font-mono!": store.mode === "shell",
                     }}
                   />
@@ -1765,6 +1758,7 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
                     "w-full pl-3 pr-2 pt-2 text-14-regular text-text-strong focus:outline-none whitespace-pre-wrap": true,
                     "[&_[data-type=file]]:text-syntax-property": true,
                     "[&_[data-type=agent]]:text-syntax-type": true,
+                    "[&_[data-type=rag]]:text-icon-info-active": true,
                     "font-mono!": store.mode === "shell",
                   }}
                   style={{ "padding-bottom": space }}

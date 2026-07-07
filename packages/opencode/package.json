@@ -26,6 +26,11 @@
       "bun": "./src/storage/db.bun.ts",
       "node": "./src/storage/db.node.ts",
       "default": "./src/storage/db.bun.ts"
+    },
+    "#ne-rag-sqlite": {
+      "bun": "./src/ne/rag/sqlite.bun.ts",
+      "node": "./src/ne/rag/sqlite.node.ts",
+      "default": "./src/ne/rag/sqlite.bun.ts"
     }
   },
   "devDependencies": {
@@ -125,6 +130,7 @@
     "ignore": "7.0.5",
     "immer": "11.1.4",
     "jsonc-parser": "3.3.1",
+    "markit-ai": "0.5.3",
     "mime-types": "3.0.2",
     "minimatch": "10.0.3",
     "npm-package-arg": "13.0.2",

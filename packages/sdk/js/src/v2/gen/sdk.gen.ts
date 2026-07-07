@@ -169,6 +169,10 @@ import type {
   QuestionReplyErrors,
   QuestionReplyResponses,
   QuestionV2Reply,
+  RagImportErrors,
+  RagImportResponses,
+  RagStatusErrors,
+  RagStatusResponses,
   SessionAbortErrors,
   SessionAbortResponses,
   SessionChildrenErrors,
@@ -4342,6 +4346,44 @@ export class Part extends HeyApiClient {
   }
 }
 
+export class Rag extends HeyApiClient {
+  /**
+   * Get RAG status
+   *
+   * Get local NE RAG index status for the desktop app.
+   */
+  public status<ThrowOnError extends boolean = false>(options?: Options<never, ThrowOnError>) {
+    return (options?.client ?? this.client).get<RagStatusResponses, RagStatusErrors, ThrowOnError>({
+      url: "/rag/status",
+      ...options,
+    })
+  }
+
+  /**
+   * Import RAG documents
+   *
+   * Import local PDF, Markdown, or text files into the NE RAG index.
+   */
+  public import<ThrowOnError extends boolean = false>(
+    parameters?: {
+      path?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams([parameters], [{ args: [{ in: "body", key: "path" }] }])
+    return (options?.client ?? this.client).post<RagImportResponses, RagImportErrors, ThrowOnError>({
+      url: "/rag/import",
+      ...options,
+      ...params,
+      headers: {
+        "Content-Type": "application/json",
+        ...options?.headers,
+        ...params.headers,
+      },
+    })
+  }
+}
+
 export class History extends HeyApiClient {
   /**
    * List sync events
@@ -6774,6 +6816,11 @@ export class OpencodeClient extends HeyApiClient {
   private _part?: Part
   get part(): Part {
     return (this._part ??= new Part({ client: this.client }))
+  }
+
+  private _rag?: Rag
+  get rag(): Rag {
+    return (this._rag ??= new Rag({ client: this.client }))
   }
 
   private _sync?: Sync

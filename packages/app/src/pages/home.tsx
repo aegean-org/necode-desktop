@@ -46,7 +46,6 @@ import { useCommand } from "@/context/command"
 import { useSettings } from "@/context/settings"
 import { ServerRowMenu } from "@/components/server/server-row-menu"
 import { ServerHealthIndicator } from "@/components/server/server-row"
-import { PRODUCT_FEEDBACK_URL } from "@/product"
 import { WorkflowShell } from "@/components/workflow-shell"
 import {
   WORKFLOW_ENTITY_ROW,
@@ -163,15 +162,13 @@ type HomeWorkflowContext = ReturnType<typeof createHomeWorkflowContext>
 type HomeWorkflowSelection = ReturnType<typeof createHomeWorkflowSelection>
 type HomeWorkflowTasks = ReturnType<typeof createHomeWorkflowTasks>
 type HomeWorkflowActions = ReturnType<typeof createHomeWorkflowActions>
-type HomeSettingsTab = "servers" | "providers" | "models" | "mcp" | "skills" | "permissions"
+type HomeSettingsTab = "general" | "shortcuts" | "servers" | "providers" | "models" | "mcp" | "skills" | "permissions"
 
 const HOME_WORKFLOW_SYSTEM_ENTRIES = [
   { tab: "providers", label: "settings.providers.title", icon: "status" },
   { tab: "models", label: "settings.models.title", icon: "grid-plus" },
   { tab: "mcp", label: "settings.mcp.title", icon: "status" },
   { tab: "skills", label: "settings.skills.title", icon: "status-active" },
-  { tab: "permissions", label: "settings.permissions.title", icon: "settings-gear" },
-  { tab: "servers", label: "status.popover.tab.servers", icon: "sidebar-right" },
 ] as const satisfies readonly { tab: HomeSettingsTab; label: string; icon: string }[]
 
 function createHomeWorkflowContext() {
@@ -193,6 +190,7 @@ function createHomeWorkflowContext() {
     searchFocused: false,
     activeTask: "",
     filter: "all" as WorkflowTaskFilter,
+    activeSettingsTab: undefined as HomeSettingsTab | undefined,
   })
 
   return { sync, layout, platform, pickDirectory, dialog, navigate, server, language, global, command, notification, focusSessionSearch, state, setState }
@@ -395,10 +393,12 @@ function createHomeProjectActions(input: {
         0,
       )
     },
-    openSettings: (tab?: HomeSettingsTab) => void import("@/components/settings-v2").then((x) => {
-      input.context.dialog.show(() => <x.DialogSettings defaultTab={tab} />)
-    }),
-    openHelp: () => input.context.platform.openLink(PRODUCT_FEEDBACK_URL),
+    openSettings: (tab?: HomeSettingsTab) => {
+      input.context.setState("activeSettingsTab", tab)
+      void import("@/components/settings-v2").then((x) => {
+        input.context.dialog.show(() => <x.DialogSettings defaultTab={tab} />)
+      })
+    },
   }
 }
 
@@ -457,24 +457,25 @@ function HomeWorkflowShell(props: { controller: HomeWorkflowController }) {
 }
 
 function HomeWorkflowProjectColumn(props: { controller: HomeWorkflowController }) {
+  const controller = props.controller
   return (
     <HomeProjectColumn
-      projects={props.controller.selection.projects()}
-      selected={props.controller.context.state.selection}
-      focusServer={props.controller.actions.focusServer}
-      selectProject={props.controller.actions.selectProject}
-      openNewSession={props.controller.actions.openProjectNewSession}
-      chooseProject={(conn) => void props.controller.actions.chooseProject(conn)}
-      editProject={props.controller.actions.editProject}
-      closeProject={props.controller.actions.closeProject}
-      clearNotifications={props.controller.actions.clearNotifications}
-      unseenCount={props.controller.actions.unseenCount}
-      workflowTasks={props.controller.tasks.workflowTasks()}
-      workflowFilter={props.controller.context.state.filter}
-      setWorkflowFilter={props.controller.actions.setWorkflowFilter}
-      openSettings={props.controller.actions.openSettings}
-      openHelp={props.controller.actions.openHelp}
-      language={props.controller.context.language}
+      projects={controller.selection.projects()}
+      selected={controller.context.state.selection}
+      focusServer={controller.actions.focusServer}
+      selectProject={controller.actions.selectProject}
+      openNewSession={controller.actions.openProjectNewSession}
+      chooseProject={(conn) => void controller.actions.chooseProject(conn)}
+      editProject={controller.actions.editProject}
+      closeProject={controller.actions.closeProject}
+      clearNotifications={controller.actions.clearNotifications}
+      unseenCount={controller.actions.unseenCount}
+      workflowTasks={controller.tasks.workflowTasks()}
+      workflowFilter={controller.context.state.filter}
+      setWorkflowFilter={controller.actions.setWorkflowFilter}
+      activeTab={controller.context.state.activeSettingsTab}
+      openSettings={controller.actions.openSettings}
+      language={controller.context.language}
     />
   )
 }
@@ -663,8 +664,8 @@ type HomeProjectColumnProps = {
   workflowTasks: WorkflowTask[]
   workflowFilter: WorkflowTaskFilter
   setWorkflowFilter: (filter: WorkflowTaskFilter) => void
+  activeTab?: HomeSettingsTab
   openSettings: (tab?: HomeSettingsTab) => void
-  openHelp: () => void
   language: ReturnType<typeof useLanguage>
 }
 
@@ -686,11 +687,18 @@ function HomeProjectColumn(props: HomeProjectColumnProps) {
       aria-label={props.language.t("home.projects")}
     >
       <HomeWorkflowNav tasks={props.workflowTasks} filter={props.workflowFilter} onFilter={props.setWorkflowFilter} />
-      <HomeWorkflowSystemNav openSettings={props.openSettings} />
+      <HomeWorkflowSystemNav activeTab={props.activeTab} openSettings={props.openSettings} />
       <div class="mx-1 h-px bg-v2-border-border-muted" aria-hidden="true" />
-      <HomeProjectColumnHeader column={props} global={global} />
-      <HomeProjectColumnBody column={props} context={context} />
-      <HomeProjectColumnFooter column={props} />
+      <div data-component="home-project-section" class="flex min-h-0 min-w-0 flex-1 flex-col gap-3">
+        <HomeProjectColumnHeader column={props} global={global} />
+        <div
+          data-component="home-project-scroll"
+          class="min-h-0 flex-1 overflow-y-auto"
+        >
+          <HomeProjectColumnBody column={props} context={context} />
+        </div>
+      </div>
+      <HomeProjectColumnFooter language={props.language} openSettings={props.openSettings} />
     </aside>
   )
 }
@@ -759,16 +767,15 @@ function HomeServerProjectGroup(props: {
   )
 }
 
-function HomeProjectColumnFooter(props: { column: HomeProjectColumnProps }) {
+function HomeProjectColumnFooter(props: { language: ReturnType<typeof useLanguage>; openSettings: () => void }) {
   return (
-    <div class="mt-4 flex min-w-0 flex-col gap-1">
-      <HomeProjectFooterButton icon="settings-gear" label={props.column.language.t("sidebar.settings")} onClick={() => props.column.openSettings()} />
-      <HomeProjectFooterButton icon="help" label={props.column.language.t("sidebar.help")} onClick={props.column.openHelp} />
+    <div class="flex shrink-0 min-w-0 flex-col gap-1">
+      <HomeProjectFooterButton icon="settings-gear" label={props.language.t("sidebar.settings")} onClick={() => props.openSettings()} />
     </div>
   )
 }
 
-function HomeWorkflowSystemNav(props: { openSettings: (tab: HomeSettingsTab) => void }) {
+function HomeWorkflowSystemNav(props: { activeTab?: HomeSettingsTab; openSettings: (tab: HomeSettingsTab) => void }) {
   const language = useLanguage()
   return (
     <section class="flex min-w-0 flex-col gap-2" aria-label={language.t("home.system.title")}>
@@ -779,6 +786,7 @@ function HomeWorkflowSystemNav(props: { openSettings: (tab: HomeSettingsTab) => 
             <button
               type="button"
               data-component="home-workflow-system-entry"
+              data-selected={props.activeTab === entry.tab ? "" : undefined}
               class={WORKFLOW_NAV_ROW}
               onClick={() => props.openSettings(entry.tab)}
             >
@@ -792,7 +800,7 @@ function HomeWorkflowSystemNav(props: { openSettings: (tab: HomeSettingsTab) => 
   )
 }
 
-function HomeProjectFooterButton(props: { icon: "settings-gear" | "help"; label: string; onClick: () => void }) {
+function HomeProjectFooterButton(props: { icon: "settings-gear"; label: string; onClick: () => void }) {
   return (
     <button
       type="button"

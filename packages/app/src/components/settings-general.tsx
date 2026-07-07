@@ -27,6 +27,7 @@ import {
 } from "@/context/settings"
 import { decode64 } from "@/utils/base64"
 import { playSoundById, SOUND_OPTIONS } from "@/utils/sound"
+import { PRODUCT_THEME_DOCS_URL } from "@/product"
 import { Link } from "./link"
 import { SettingsFontSelect } from "./settings-font-select"
 import { SettingsList } from "./settings-list"
@@ -469,7 +470,7 @@ export const SettingsGeneral: Component = () => {
           description={
             <>
               {language.t("settings.general.row.theme.description")}{" "}
-              <Link href="https://opencode.ai/docs/themes/">{language.t("common.learnMore")}</Link>
+              <Link href={PRODUCT_THEME_DOCS_URL}>{language.t("common.learnMore")}</Link>
             </>
           }
         >

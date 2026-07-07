@@ -1,5 +1,12 @@
 import { describe, expect, test } from "bun:test"
-import { createTextFragment, getCursorPosition, getNodeLength, getTextLength, setCursorPosition } from "./editor-dom"
+import {
+  createTextFragment,
+  getCursorPosition,
+  getNodeLength,
+  getTextLength,
+  insertTextReplacingActiveAtToken,
+  setCursorPosition,
+} from "./editor-dom"
 
 describe("prompt-input editor dom", () => {
   test("createTextFragment preserves newlines with consecutive br nodes", () => {
@@ -95,5 +102,18 @@ describe("prompt-input editor dom", () => {
     expect(getCursorPosition(container)).toBe(3)
 
     container.remove()
+  })
+
+  test("text mention insertion replaces the active @ token", () => {
+    const editor = document.createElement("div")
+    editor.appendChild(createTextFragment("ask @d"))
+    document.body.appendChild(editor)
+    setCursorPosition(editor, 6)
+
+    expect(insertTextReplacingActiveAtToken(editor, "@doc ")).toBe(true)
+    expect(editor.textContent).toBe("ask @doc ")
+    expect(getCursorPosition(editor)).toBe(9)
+
+    editor.remove()
   })
 })

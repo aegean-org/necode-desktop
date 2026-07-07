@@ -146,3 +146,27 @@ export function setRangeEdge(parent: HTMLElement, range: Range, edge: "start" | 
     remaining -= length
   }
 }
+
+export function insertTextReplacingActiveAtToken(
+  parent: HTMLElement,
+  content: string,
+  options?: { rawText?: string; cursorPosition?: number },
+) {
+  const selection = window.getSelection()
+  if (!selection || selection.rangeCount === 0) return false
+  const cursor = options?.cursorPosition ?? getCursorPosition(parent)
+  const rawText = options?.rawText ?? (parent.textContent ?? "").replace(/\u200B/g, "")
+  const atMatch = rawText.substring(0, cursor).match(/@(\S*)$/)
+  if (!atMatch) return false
+
+  const range = selection.getRangeAt(0)
+  if (!parent.contains(range.startContainer)) return false
+
+  const start = atMatch.index ?? cursor - atMatch[0].length
+  setRangeEdge(parent, range, "start", start)
+  setRangeEdge(parent, range, "end", cursor)
+  range.deleteContents()
+  range.insertNode(createTextFragment(content))
+  setCursorPosition(parent, start + content.length)
+  return true
+}

@@ -163,6 +163,15 @@ const createPlatform = (): Platform => {
       }
     },
 
+    async openFilePathPickerDialog(opts) {
+      return window.api.openFilePathPicker({
+        multiple: opts?.multiple ?? false,
+        title: opts?.title ?? t("desktop.dialog.chooseFile"),
+        defaultPath: opts?.defaultPath,
+        extensions: opts?.extensions ?? ACCEPTED_FILE_EXTENSIONS,
+      })
+    },
+
     getPathForFile(file) {
       return attachmentPaths.get(file) ?? window.api.getPathForFile(file)
     },

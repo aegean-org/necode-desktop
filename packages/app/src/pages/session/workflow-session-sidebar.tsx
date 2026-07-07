@@ -21,7 +21,6 @@ export function WorkflowSessionSidebar(props: {
   onOpenProject: (directory: string) => void
   onNewSession: (directory: string) => void
   onOpenSettings: () => void
-  onOpenHelp: () => void
 }) {
   const language = useLanguage()
   return (
@@ -34,7 +33,7 @@ export function WorkflowSessionSidebar(props: {
         onOpenProject={props.onOpenProject}
         onNewSession={props.onNewSession}
       />
-      <WorkflowSessionFooterActions onOpenSettings={props.onOpenSettings} onOpenHelp={props.onOpenHelp} />
+      <WorkflowSessionFooterActions onOpenSettings={props.onOpenSettings} />
     </aside>
   )
 }
@@ -86,7 +85,7 @@ function WorkflowSessionProjectSection(props: {
   )
 }
 
-function WorkflowSessionFooterActions(props: { onOpenSettings: () => void; onOpenHelp: () => void }) {
+function WorkflowSessionFooterActions(props: { onOpenSettings: () => void }) {
   const language = useLanguage()
 
   return (
@@ -94,10 +93,6 @@ function WorkflowSessionFooterActions(props: { onOpenSettings: () => void; onOpe
       <button type="button" class={`${WORKFLOW_NAV_ROW} text-v2-text-text-faint`} onClick={props.onOpenSettings}>
         <Icon name="settings-gear" size="small" class="text-v2-icon-icon-muted" />
         <span class={PROJECT_LABEL}>{language.t("sidebar.settings")}</span>
-      </button>
-      <button type="button" class={`${WORKFLOW_NAV_ROW} text-v2-text-text-faint`} onClick={props.onOpenHelp}>
-        <Icon name="help" size="small" class="text-v2-icon-icon-muted" />
-        <span class={PROJECT_LABEL}>{language.t("sidebar.help")}</span>
       </button>
     </div>
   )

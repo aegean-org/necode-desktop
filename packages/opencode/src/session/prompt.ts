@@ -16,6 +16,7 @@ import { SessionCompaction } from "./compaction"
 import { SystemPrompt } from "./system"
 import { Instruction } from "./instruction"
 import { Plugin } from "../plugin"
+import { Auth } from "@/auth"
 import MAX_STEPS from "../session/prompt/max-steps.txt"
 import { ToolRegistry } from "@/tool/registry"
 import { MCP } from "../mcp"
@@ -60,6 +61,9 @@ import { SessionTable } from "@opencode-ai/core/session/sql"
 import { SessionReminders } from "./reminders"
 import { SessionTools } from "./tools"
 import { LLMEvent } from "@opencode-ai/llm"
+import { NE_PROVIDER_ID, NE_PROVIDER_NAME } from "@/ne/constants"
+import { loadNeRagPromptContext } from "@/ne/rag/context"
+import { parseNeRagMentions } from "@/ne/rag/mentions"
 
 // @ts-ignore
 globalThis.AI_SDK_LOG_WARNINGS = false
@@ -83,6 +87,15 @@ function isOrphanedInterruptedTool(part: SessionV1.ToolPart) {
   return part.state.status === "error" && part.state.metadata?.interrupted === true
 }
 
+function getLastUserPromptText(messages: SessionV1.WithParts[]) {
+  const user = messages.findLast((message) => message.info.role === "user")
+  if (!user) return ""
+  return user.parts
+    .filter((part): part is SessionV1.TextPart => part.type === "text" && !part.synthetic && !part.ignored)
+    .map((part) => part.text)
+    .join("\n")
+}
+
 export interface Interface {
   readonly cancel: (sessionID: SessionID) => Effect.Effect<void>
   readonly prompt: (input: PromptInput) => Effect.Effect<SessionV1.WithParts, Image.Error>
@@ -104,6 +117,7 @@ export const layer = Layer.effect(
     const processor = yield* SessionProcessor.Service
     const compaction = yield* SessionCompaction.Service
     const plugin = yield* Plugin.Service
+    const auth = yield* Auth.Service
     const commands = yield* Command.Service
     const config = yield* Config.Service
     const permission = yield* Permission.Service
@@ -136,6 +150,22 @@ export const layer = Layer.effect(
     const cancel = Effect.fn("SessionPrompt.cancel")(function* (sessionID: SessionID) {
       yield* Effect.logInfo("cancel", { "session.id": sessionID })
       yield* state.cancel(sessionID)
+    })
+
+    const resolveNeRagSystemPrompt = Effect.fn("SessionPrompt.resolveNeRagSystemPrompt")(function* (
+      messages: SessionV1.WithParts[],
+    ) {
+      const promptText = getLastUserPromptText(messages)
+      if (!parseNeRagMentions(promptText).enabled) return undefined
+      const credential = yield* auth.get(NE_PROVIDER_ID).pipe(Effect.orDie)
+      if (!credential || credential.type !== "api") {
+        throw new Error(`NE RAG requires ${NE_PROVIDER_NAME} credentials before using @doc or @文献.`)
+      }
+      const context = yield* Effect.tryPromise({
+        try: () => loadNeRagPromptContext({ prompt: promptText, apiKey: credential.key }),
+        catch: (error) => (error instanceof Error ? error : new Error(String(error))),
+      })
+      return context.systemPromptAppend
     })
 
     const resolvePromptParts = Effect.fn("SessionPrompt.resolvePromptParts")(function* (template: string) {
@@ -1324,13 +1354,14 @@ export const layer = Layer.effect(
 
             yield* plugin.trigger("experimental.chat.messages.transform", {}, { messages: msgs })
 
-            const [skills, env, instructions, modelMsgs] = yield* Effect.all([
+            const [skills, env, instructions, neRag, modelMsgs] = yield* Effect.all([
               sys.skills(agent),
               sys.environment(model),
               instruction.system().pipe(Effect.orDie),
+              resolveNeRagSystemPrompt(msgs).pipe(Effect.orDie),
               MessageV2.toModelMessagesEffect(msgs, model),
             ])
-            const system = [...env, ...instructions, ...(skills ? [skills] : [])]
+            const system = [...env, ...instructions, ...(skills ? [skills] : []), ...(neRag ? [neRag] : [])]
             const format = lastUser.format ?? { type: "text" as const }
             if (format.type === "json_schema") system.push(STRUCTURED_OUTPUT_SYSTEM_PROMPT)
             const result = yield* handle.process({
@@ -1576,6 +1607,7 @@ export const defaultLayer = Layer.suspend(() =>
     Layer.provide(
       Layer.mergeAll(
         Agent.defaultLayer,
+        Auth.defaultLayer,
         Database.defaultLayer,
         SystemPrompt.defaultLayer,
         LLM.defaultLayer,
@@ -1698,6 +1730,7 @@ export const node = LayerNode.make(layer, [
   SessionProcessor.node,
   SessionCompaction.node,
   Plugin.node,
+  Auth.node,
   Command.node,
   Config.node,
   Permission.node,

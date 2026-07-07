@@ -5,6 +5,7 @@ export const WORKFLOW_SHELL_LIMITS = {
   leftDefault: 280,
   navigatorDefault: 360,
   rightDefault: 360,
+  compactBreakpoint: 1120,
   leftMin: 220,
   leftMax: 420,
   navigatorMin: 300,
@@ -21,6 +22,8 @@ export const WORKFLOW_SHELL_LIMITS = {
   sashHitWidth: 8,
   sashLineWidth: 2,
 } as const
+
+export type WorkflowShellLayoutMode = "desktop" | "compact"
 
 type WorkflowShellStyle = Record<string, string | number>
 
@@ -90,6 +93,13 @@ export function workflowPanelWidthAfterPropSync(input: {
 }) {
   if (input.previousPropWidth === input.nextPropWidth) return input.currentWidth
   return input.nextPropWidth
+}
+
+/** Returns the shell mode after the root has a measured width. */
+export function workflowShellLayoutMode(width: number): WorkflowShellLayoutMode {
+  if (width <= 0) return "desktop"
+  if (width < WORKFLOW_SHELL_LIMITS.compactBreakpoint) return "compact"
+  return "desktop"
 }
 
 /** Returns the outer shell spacing that separates the stack from the app edge. */

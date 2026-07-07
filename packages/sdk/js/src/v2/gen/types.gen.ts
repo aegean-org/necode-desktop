@@ -2633,6 +2633,54 @@ export type SessionBusyError = {
   message: string
 }
 
+export type RagDocument = {
+  id: number | "NaN" | "Infinity" | "-Infinity" | "Infinity" | "-Infinity" | "NaN"
+  filePath: string
+  title: string
+  chunks: number | "NaN" | "Infinity" | "-Infinity" | "Infinity" | "-Infinity" | "NaN"
+}
+
+export type RagStatus = {
+  enabled: boolean
+  storePath: string
+  documents: Array<RagDocument>
+  chunks: number | "NaN" | "Infinity" | "-Infinity" | "Infinity" | "-Infinity" | "NaN"
+}
+
+export type RagRequestError = {
+  _tag: "RagRequestError"
+  message: string
+}
+
+export type RagIndexFailure = {
+  filePath: string
+  error: string
+}
+
+export type RagIndexResult = {
+  files: number | "NaN" | "Infinity" | "-Infinity" | "Infinity" | "-Infinity" | "NaN"
+  indexedFiles: number | "NaN" | "Infinity" | "-Infinity" | "Infinity" | "-Infinity" | "NaN"
+  failedFiles: number | "NaN" | "Infinity" | "-Infinity" | "Infinity" | "-Infinity" | "NaN"
+  chunks: number | "NaN" | "Infinity" | "-Infinity" | "Infinity" | "-Infinity" | "NaN"
+  failures: Array<RagIndexFailure>
+}
+
+export type RagImportResponse = {
+  importResult: RagIndexResult
+  status: RagStatus
+}
+
+export type RagCredentialRequiredError = {
+  _tag: "RagCredentialRequiredError"
+  message: string
+}
+
+export type RagImportFailedError = {
+  _tag: "RagImportFailedError"
+  message: string
+  failures: Array<RagIndexFailure>
+}
+
 export type EventTuiPromptAppend = {
   type: "tui.prompt.append"
   properties: {
@@ -8517,6 +8565,58 @@ export type PartUpdateResponses = {
 }
 
 export type PartUpdateResponse = PartUpdateResponses[keyof PartUpdateResponses]
+
+export type RagStatusData = {
+  body?: never
+  path?: never
+  query?: never
+  url: "/rag/status"
+}
+
+export type RagStatusErrors = {
+  /**
+   * RagRequestError | InvalidRequestError
+   */
+  400: RagRequestError | InvalidRequestError
+}
+
+export type RagStatusError = RagStatusErrors[keyof RagStatusErrors]
+
+export type RagStatusResponses = {
+  /**
+   * Local NE RAG index status
+   */
+  200: RagStatus
+}
+
+export type RagStatusResponse = RagStatusResponses[keyof RagStatusResponses]
+
+export type RagImportData = {
+  body?: {
+    path: string
+  }
+  path?: never
+  query?: never
+  url: "/rag/import"
+}
+
+export type RagImportErrors = {
+  /**
+   * RagCredentialRequiredError | RagImportFailedError | RagRequestError | InvalidRequestError
+   */
+  400: RagCredentialRequiredError | RagImportFailedError | RagRequestError | InvalidRequestError
+}
+
+export type RagImportError = RagImportErrors[keyof RagImportErrors]
+
+export type RagImportResponses = {
+  /**
+   * Documents imported into the local NE RAG index
+   */
+  200: RagImportResponse
+}
+
+export type RagImportResponse2 = RagImportResponses[keyof RagImportResponses]
 
 export type SyncStartData = {
   body?: never

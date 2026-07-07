@@ -1,5 +1,5 @@
 import { createResizeObserver } from "@solid-primitives/resize-observer"
-import { Show, createEffect, createMemo, type JSX } from "solid-js"
+import { Show, createEffect, createMemo, onCleanup, onMount, type JSX } from "solid-js"
 import { createStore } from "solid-js/store"
 import { Persist, persisted } from "@/utils/persist"
 import { WorkflowResizeSash } from "./workflow-resize-sash"
@@ -14,6 +14,7 @@ import {
   workflowPanelStackStyle,
   workflowPanelSurfaceClass,
   workflowPanelUsesChrome,
+  workflowShellLayoutMode,
   workflowShellOuterStyle,
   type WorkflowShellPanelSide,
 } from "./workflow-shell-state"
@@ -41,14 +42,15 @@ type SetPanelSize = (side: WorkflowShellPanelSide, width: number) => void
 /** Craft-style resizable workflow shell shared by home and session pages. */
 export function WorkflowShell(props: WorkflowShellProps) {
   const sizing = createWorkflowShellSizing(props)
-  const hasLeft = createMemo(() => !!props.left)
-  const hasNavigator = createMemo(() => !!props.navigator)
-  const hasRight = createMemo(() => !!props.right)
+  const leftVisible = sizing.leftVisible
+  const navigatorVisible = sizing.navigatorVisible
+  const rightVisible = sizing.rightVisible
 
   return (
     <div
       ref={sizing.setRoot}
       data-component="workflow-shell"
+      data-layout-mode={sizing.layoutMode()}
       class="flex min-h-0 flex-1 items-stretch self-stretch overflow-hidden"
       style={workflowShellOuterStyle()}
     >
@@ -60,29 +62,29 @@ export function WorkflowShell(props: WorkflowShellProps) {
         <div
           data-component="workflow-panel-stack"
           class="flex h-full min-w-0"
-          style={workflowPanelStackStyle({ hasLeft: hasLeft() })}
+          style={workflowPanelStackStyle({ hasLeft: leftVisible() })}
         >
           <WorkflowSidePanel
             side="left"
-            content={props.left}
+            content={leftVisible() ? props.left : undefined}
             width={sizing.leftWidth()}
             atLeftEdge
             atRightEdge={false}
           />
 
-          <Show when={hasLeft()}>
+          <Show when={leftVisible() && sizing.layoutMode() === "desktop"}>
             <WorkflowResize side="left" size={sizing.leftWidth()} max={sizing.leftMax()} onResize={sizing.resizePanel} />
           </Show>
 
           <WorkflowSidePanel
             side="navigator"
-            content={props.navigator}
+            content={navigatorVisible() ? props.navigator : undefined}
             width={sizing.navigatorWidth()}
-            atLeftEdge={!hasLeft()}
+            atLeftEdge={!leftVisible()}
             atRightEdge={false}
           />
 
-          <Show when={hasNavigator()}>
+          <Show when={navigatorVisible() && sizing.layoutMode() === "desktop"}>
             <WorkflowResize
               side="navigator"
               size={sizing.navigatorWidth()}
@@ -95,7 +97,7 @@ export function WorkflowShell(props: WorkflowShellProps) {
             data-panel-role="content"
             class={`${PANEL_CHROME} ${workflowPanelSurfaceClass("content")} flex flex-1 flex-col`}
             style={{
-              ...workflowPanelChromeStyle({ atLeftEdge: !hasLeft() && !hasNavigator(), atRightEdge: !hasRight() }),
+              ...workflowPanelChromeStyle({ atLeftEdge: !leftVisible() && !navigatorVisible(), atRightEdge: !rightVisible() }),
               "min-width": `${WORKFLOW_SHELL_LIMITS.centerMin}px`,
             }}
           >
@@ -104,13 +106,13 @@ export function WorkflowShell(props: WorkflowShellProps) {
         </div>
       </div>
 
-      <Show when={hasRight()}>
+      <Show when={rightVisible() && sizing.layoutMode() === "desktop"}>
         <WorkflowResize side="right" size={sizing.rightWidth()} max={sizing.rightMax()} onResize={sizing.resizePanel} />
       </Show>
 
       <WorkflowSidePanel
         side="right"
-        content={props.right}
+        content={rightVisible() ? props.right : undefined}
         width={sizing.rightWidth()}
         atLeftEdge={false}
         atRightEdge
@@ -123,7 +125,8 @@ function createWorkflowShellSizing(props: WorkflowShellProps) {
   let root: HTMLDivElement | undefined
   const [metrics, setMetrics] = createStore({ width: 0 })
   const [sizes, setSizes] = createWorkflowPanelSizeStore(props)
-  const visible = createWorkflowPanelVisibility(props)
+  const layoutMode = createMemo(() => workflowShellLayoutMode(metrics.width))
+  const visible = createWorkflowPanelVisibility(props, layoutMode)
   syncWorkflowPanelWidthProps(props, sizes, (side, width) => setSizes(side, width))
   const fixedPanelCount = createMemo(() => workflowFixedPanelCount(visible))
   const panelContext = (side: WorkflowShellPanelSide) =>
@@ -137,16 +140,24 @@ function createWorkflowShellSizing(props: WorkflowShellProps) {
   const leftWidth = createMemo(() => clampWorkflowPanelWidth(panelContext("left")))
   const navigatorWidth = createMemo(() => clampWorkflowPanelWidth(panelContext("navigator")))
   const rightWidth = createMemo(() => clampWorkflowPanelWidth(panelContext("right")))
+  const syncRootWidth = () => setMetrics("width", root?.clientWidth ?? 0)
 
-  createResizeObserver(
-    () => root,
-    () => setMetrics("width", root?.clientWidth ?? 0),
-  )
+  createResizeObserver(() => root, syncRootWidth)
+  onMount(() => {
+    syncRootWidth()
+    window.addEventListener("resize", syncRootWidth)
+  })
+  onCleanup(() => window.removeEventListener("resize", syncRootWidth))
 
   return {
     setRoot: (el: HTMLDivElement) => {
       root = el
+      syncRootWidth()
     },
+    layoutMode,
+    leftVisible: visible.left,
+    navigatorVisible: visible.navigator,
+    rightVisible: visible.right,
     leftWidth,
     navigatorWidth,
     rightWidth,
@@ -211,11 +222,11 @@ function syncWorkflowPanelWidthProp(input: {
   })
 }
 
-function createWorkflowPanelVisibility(props: WorkflowShellProps): PanelVisibility {
+function createWorkflowPanelVisibility(props: WorkflowShellProps, layoutMode: () => string): PanelVisibility {
   return {
     left: createMemo(() => !!props.left),
     navigator: createMemo(() => !!props.navigator),
-    right: createMemo(() => !!props.right),
+    right: createMemo(() => layoutMode() === "desktop" && !!props.right),
   }
 }
 

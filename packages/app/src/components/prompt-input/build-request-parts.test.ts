@@ -149,6 +149,31 @@ describe("buildRequestParts", () => {
     expect(files.some((part) => part.type === "file" && part.url === "file:///repo/src/shared.ts")).toBe(true)
   })
 
+  test("does not convert NE RAG mentions inside comments into file parts", () => {
+    const result = buildRequestParts({
+      prompt: [{ type: "text", content: "look", start: 0, end: 4 }],
+      context: [
+        {
+          key: "ctx:rag-comment",
+          type: "file",
+          path: "src/review.ts",
+          comment: 'Compare @doc and @文献:"Paper One" with @src/shared.ts.',
+        },
+      ],
+      images: [],
+      text: "look",
+      messageID: "msg_rag_comment_mentions",
+      sessionID: "ses_rag_comment_mentions",
+      sessionDirectory: "/repo",
+    })
+
+    const fileUrls = result.requestParts
+      .filter((part) => part.type === "file")
+      .map((part) => (part.type === "file" ? part.url : ""))
+
+    expect(fileUrls).toEqual(["file:///repo/src/review.ts", "file:///repo/src/shared.ts"])
+  })
+
   test("handles Windows paths correctly (simulated on macOS)", () => {
     const prompt: Prompt = [{ type: "file", path: "src\\foo.ts", content: "@src\\foo.ts", start: 0, end: 11 }]
 

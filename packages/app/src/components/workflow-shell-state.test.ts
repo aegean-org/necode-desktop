@@ -10,6 +10,7 @@ import {
   workflowPanelScrollStyle,
   workflowPanelStackStyle,
   workflowPanelResizeMax,
+  workflowShellLayoutMode,
   workflowShellSurfaceStyle,
   workflowShellOuterStyle,
 } from "./workflow-shell-state"
@@ -24,6 +25,12 @@ describe("workflow shell sizing", () => {
     expect(WORKFLOW_SHELL_LIMITS.stackVerticalOverflow).toBe(8)
     expect(WORKFLOW_SHELL_LIMITS.sashHitWidth).toBe(8)
     expect(WORKFLOW_SHELL_LIMITS.sashLineWidth).toBe(2)
+  })
+
+  test("switches to compact navigator/detail mode before panels get squeezed", () => {
+    expect(workflowShellLayoutMode(0)).toBe("desktop")
+    expect(workflowShellLayoutMode(1280)).toBe("desktop")
+    expect(workflowShellLayoutMode(900)).toBe("compact")
   })
 
   test("keeps workflow surface variables scoped to the shell contract", () => {

@@ -15,6 +15,13 @@ type OpenAttachmentPickerOptions = {
   extensions?: string[]
   defaultPath?: string
 }
+type OpenFilePathPickerOptions = {
+  title?: string
+  multiple?: boolean
+  extensions?: string[]
+  defaultPath?: string
+}
+type PickedFilePath = { readonly path: string; readonly name: string; readonly size: number }
 type SaveFilePickerOptions = { title?: string; defaultPath?: string }
 type PlatformName = "web" | "desktop"
 type DesktopOS = "macos" | "windows" | "linux"
@@ -54,6 +61,9 @@ type PlatformBase = {
     opts: OpenAttachmentPickerOptions,
     onFile: (file: File) => Promise<unknown>,
   ): Promise<void>
+
+  /** Open a native file picker and return selected local paths without reading contents. */
+  openFilePathPickerDialog?(opts: OpenFilePathPickerOptions): Promise<PickedFilePath[] | null>
 
   /** Resolve the native source path for a desktop File. */
   getPathForFile?(file: File): string

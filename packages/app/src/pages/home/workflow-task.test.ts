@@ -17,6 +17,7 @@ import {
 const homeSource = await Bun.file(new URL("../home.tsx", import.meta.url)).text()
 const inspectorSource = await Bun.file(new URL("./workflow-inspector.tsx", import.meta.url)).text()
 const v2IconSource = await Bun.file(new URL("../../../../ui/src/v2/components/icon.tsx", import.meta.url)).text()
+const indexCssSource = await Bun.file(new URL("../../index.css", import.meta.url)).text()
 const enSource = await Bun.file(new URL("../../i18n/en.ts", import.meta.url)).text()
 const zhSource = await Bun.file(new URL("../../i18n/zh.ts", import.meta.url)).text()
 const HOME_SOURCE_FUNCTION_LINE_LIMIT = 50
@@ -348,20 +349,72 @@ describe("buildWorkflowTasks", () => {
     }
   })
 
-  test("exposes OpenCode-native system entries without Craft-only categories", () => {
+  test("exposes NeCode-backed system entries without Craft-only categories", () => {
+    const systemEntriesSource = homeSource.slice(
+      homeSource.indexOf("const HOME_WORKFLOW_SYSTEM_ENTRIES"),
+      homeSource.indexOf("function createHomeWorkflowContext"),
+    )
+
     expect(homeSource).toContain("HomeWorkflowSystemNav")
     expect(homeSource).toContain('data-component="home-workflow-system-entry"')
-    expect(homeSource).toContain('tab: "providers"')
-    expect(homeSource).toContain('tab: "models"')
-    expect(homeSource).toContain('tab: "mcp"')
-    expect(homeSource).toContain('tab: "skills"')
-    expect(homeSource).toContain('tab: "permissions"')
-    expect(homeSource).toContain('tab: "servers"')
+    expect(systemEntriesSource).toContain('tab: "providers"')
+    expect(systemEntriesSource).toContain('tab: "models"')
+    expect(systemEntriesSource).toContain('tab: "mcp"')
+    expect(systemEntriesSource).toContain('tab: "skills"')
+    expect(systemEntriesSource).not.toContain('tab: "general"')
+    expect(systemEntriesSource).not.toContain('tab: "shortcuts"')
+    expect(systemEntriesSource).not.toContain('tab: "permissions"')
+    expect(systemEntriesSource).not.toContain('tab: "servers"')
     expect(homeSource).toContain("DialogSettings defaultTab={tab}")
     expect(enSource).toContain('"home.system.title"')
     expect(zhSource).toContain('"home.system.title"')
     expect(homeSource).not.toContain("Sources")
     expect(homeSource).not.toContain("Automations")
+  })
+
+  test("keeps the active system settings entry visibly selected", () => {
+    expect(homeSource).toContain("activeSettingsTab")
+    expect(homeSource).toContain("activeTab={controller.context.state.activeSettingsTab}")
+    expect(homeSource).toContain('data-selected={props.activeTab === entry.tab ? "" : undefined}')
+    expect(homeSource).toContain('input.context.setState("activeSettingsTab", tab)')
+  })
+
+  test("hides the home sidebar help entry until a real help destination exists", () => {
+    const footerSource = homeSource.slice(
+      homeSource.indexOf("function HomeProjectColumnFooter"),
+      homeSource.indexOf("function HomeWorkflowSystemNav"),
+    )
+
+    expect(footerSource).not.toContain("sidebar.help")
+    expect(footerSource).not.toContain("openHelp")
+    expect(homeSource).not.toContain("openHelp")
+    expect(homeSource).not.toContain("PRODUCT_FEEDBACK_URL")
+  })
+
+  test("keeps project list scrollable without hiding the settings footer", () => {
+    const columnSource = homeSource.slice(
+      homeSource.indexOf("function HomeProjectColumn"),
+      homeSource.indexOf("function HomeProjectColumnHeader"),
+    )
+    const scrollSource = homeSource.slice(
+      homeSource.indexOf('data-component="home-project-scroll"'),
+      homeSource.indexOf("function HomeProjectColumnHeader"),
+    )
+    const footerSource = homeSource.slice(
+      homeSource.indexOf("function HomeProjectColumnFooter"),
+      homeSource.indexOf("function HomeWorkflowSystemNav"),
+    )
+
+    expect(columnSource).toContain('data-component="home-project-section"')
+    expect(columnSource).toContain('data-component="home-project-scroll"')
+    expect(scrollSource).toContain("overflow-y-auto")
+    expect(scrollSource).toContain("flex-1")
+    expect(scrollSource).not.toContain("[scrollbar-width:none]")
+    expect(scrollSource).not.toContain("[&::-webkit-scrollbar]:hidden")
+    expect(indexCssSource).toContain('[data-component="home-project-scroll"]:hover')
+    expect(indexCssSource).toContain('[data-component="home-project-scroll"]:focus-within')
+    expect(footerSource).toContain("shrink-0")
+    expect(footerSource).toContain("sidebar.settings")
   })
 
   test("keeps the home inspector from regressing to dashboard cards", () => {

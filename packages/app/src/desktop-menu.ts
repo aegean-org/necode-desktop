@@ -1,4 +1,4 @@
-import { PRODUCT_FEEDBACK_URL, PRODUCT_HOME_URL } from "./product"
+import { PRODUCT_HOME_URL } from "./product"
 
 export type DesktopMenuPlatform = "macos" | "windows"
 
@@ -202,19 +202,8 @@ export const DESKTOP_MENU: DesktopMenu[] = [
     id: "help",
     label: "Help",
     items: [
-      { type: "item", label: "NeCode Website", href: PRODUCT_HOME_URL },
+      // { type: "item", label: "NeCode Website", href: PRODUCT_HOME_URL },
       { type: "item", label: "Export Logs...", command: "logs.export" },
-      { type: "separator" },
-      {
-        type: "item",
-        label: "Share Feedback",
-        href: PRODUCT_FEEDBACK_URL,
-      },
-      {
-        type: "item",
-        label: "Report a Bug",
-        href: PRODUCT_FEEDBACK_URL,
-      },
     ],
   },
 ]

@@ -11,10 +11,20 @@ import { SettingsModelsV2 } from "./models"
 import "./settings-v2.css"
 import { SettingsServersV2 } from "./servers"
 import { SettingsMcpV2 } from "./mcp"
+import { SettingsRagV2 } from "./rag"
 import { SettingsSkillsV2 } from "./skills"
 import { SettingsPermissionsV2 } from "./permissions"
 
-export type SettingsV2Tab = "general" | "shortcuts" | "servers" | "providers" | "models" | "mcp" | "skills" | "permissions"
+export type SettingsV2Tab =
+  | "general"
+  | "shortcuts"
+  | "servers"
+  | "providers"
+  | "models"
+  | "mcp"
+  | "rag"
+  | "skills"
+  | "permissions"
 
 export const DialogSettings: Component<{ defaultTab?: SettingsV2Tab }> = (props) => {
   const language = useLanguage()
@@ -60,6 +70,10 @@ export const DialogSettings: Component<{ defaultTab?: SettingsV2Tab }> = (props)
                       <Icon name="mcp" />
                       {language.t("settings.mcp.title")}
                     </TabsV2.Trigger>
+                    <TabsV2.Trigger value="rag">
+                      <Icon name="archive" />
+                      {language.t("settings.rag.title")}
+                    </TabsV2.Trigger>
                     <TabsV2.Trigger value="skills">
                       <Icon name="brain" />
                       {language.t("settings.skills.title")}
@@ -95,6 +109,9 @@ export const DialogSettings: Component<{ defaultTab?: SettingsV2Tab }> = (props)
         </TabsV2.Content>
         <TabsV2.Content value="mcp" class="settings-v2-panel">
           <SettingsMcpV2 />
+        </TabsV2.Content>
+        <TabsV2.Content value="rag" class="settings-v2-panel">
+          <SettingsRagV2 />
         </TabsV2.Content>
         <TabsV2.Content value="skills" class="settings-v2-panel">
           <SettingsSkillsV2 />

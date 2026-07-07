@@ -45,8 +45,21 @@ const parseCommentMentions = (comment: string) => {
   return Array.from(comment.matchAll(mention)).flatMap((match) => {
     const path = (match[2] ?? "").replace(/[.,!?;:)}\]"']+$/, "")
     if (!path) return []
+    if (isNeRagMentionPath(path)) return []
     return [path]
   })
+}
+
+const isNeRagMentionPath = (path: string) => {
+  const lower = path.toLowerCase()
+  return (
+    lower === "doc" ||
+    lower.startsWith("doc:") ||
+    lower.startsWith("doc：") ||
+    path === "文献" ||
+    path.startsWith("文献:") ||
+    path.startsWith("文献：")
+  )
 }
 
 const isFileAttachment = (part: Prompt[number]): part is FileAttachmentPart => part.type === "file"

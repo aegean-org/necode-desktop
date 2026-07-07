@@ -56,6 +56,7 @@ import { reply, TestLLMServer } from "../lib/llm-server"
 import { RuntimeFlags } from "@/effect/runtime-flags"
 import { ProviderV2 } from "@opencode-ai/core/provider"
 import { ModelV2 } from "@opencode-ai/core/model"
+import { Auth } from "../../src/auth"
 
 const summary = Layer.succeed(
   SessionSummary.Service,
@@ -175,6 +176,7 @@ function makePrompt(input?: { processor?: "blocking" }) {
     Plugin.defaultLayer,
     Config.defaultLayer,
     ProviderSvc.defaultLayer,
+    Auth.defaultLayer,
     lsp,
     mcp,
     FSUtil.defaultLayer,

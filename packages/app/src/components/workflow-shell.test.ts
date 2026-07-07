@@ -8,4 +8,16 @@ describe("workflow shell resize sash", () => {
     expect(workflowShellSource).toContain("WorkflowResizeSash")
     expect(workflowShellSource).toContain('data-component="workflow-panel-stack"')
   })
+
+  test("marks compact layout and hides secondary chrome in compact mode", () => {
+    expect(workflowShellSource).toContain("data-layout-mode={sizing.layoutMode()}")
+    expect(workflowShellSource).toContain("leftVisible")
+    expect(workflowShellSource).toContain("rightVisible")
+    expect(workflowShellSource).toContain("layoutMode() === \"desktop\"")
+  })
+
+  test("refreshes measured width on browser window resize", () => {
+    expect(workflowShellSource).toContain('window.addEventListener("resize", syncRootWidth)')
+    expect(workflowShellSource).toContain('onCleanup(() => window.removeEventListener("resize", syncRootWidth))')
+  })
 })

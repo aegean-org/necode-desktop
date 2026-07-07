@@ -411,6 +411,22 @@ Options:
       --format      Output format                 [string] [choices: "json", "tsv"] [default: "tsv"]"
 `;
 
+exports[`opencode CLI help-text snapshots every documented command emits stable help text: opencode rag --help 1`] = `
+"opencode rag
+
+manage the local NE RAG index
+
+Commands:
+  opencode rag import <path>  index .pdf, .md, and .txt documents with NE embeddings
+
+Options:
+  -h, --help        show help                                                              [boolean]
+  -v, --version     show version number                                                    [boolean]
+      --print-logs  print logs to stderr                                                   [boolean]
+      --log-level   log level                   [string] [choices: "DEBUG", "INFO", "WARN", "ERROR"]
+      --pure        run without external plugins                                           [boolean]"
+`;
+
 exports[`opencode CLI help-text snapshots every documented command emits stable help text: opencode mcp list --help 1`] = `
 "opencode mcp list
 
@@ -621,6 +637,22 @@ exports[`opencode CLI help-text snapshots every documented command emits stable 
 "opencode db path
 
 print the database path
+
+Options:
+  -h, --help        show help                                                              [boolean]
+  -v, --version     show version number                                                    [boolean]
+      --print-logs  print logs to stderr                                                   [boolean]
+      --log-level   log level                   [string] [choices: "DEBUG", "INFO", "WARN", "ERROR"]
+      --pure        run without external plugins                                           [boolean]"
+`;
+
+exports[`opencode CLI help-text snapshots every documented command emits stable help text: opencode rag import --help 1`] = `
+"opencode rag import <path>
+
+index .pdf, .md, and .txt documents with NE embeddings
+
+Positionals:
+  path  file or directory to index                                               [string] [required]
 
 Options:
   -h, --help        show help                                                              [boolean]

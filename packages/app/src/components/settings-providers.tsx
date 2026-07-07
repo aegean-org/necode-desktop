@@ -8,6 +8,7 @@ import { createMemo, type Component, For, Show } from "solid-js"
 import { useLanguage } from "@/context/language"
 import { useServerSDK } from "@/context/server-sdk"
 import { useServerSync } from "@/context/server-sync"
+import { productProviderName } from "@/product"
 import { DialogConnectProvider } from "./dialog-connect-provider"
 import { DialogSelectProvider } from "./dialog-select-provider"
 import { DialogCustomProvider } from "./dialog-custom-provider"
@@ -82,6 +83,7 @@ const SettingsProvidersContent: Component = () => {
   const canDisconnect = (item: ProviderItem) => source(item) !== "env"
 
   const note = (id: string) => PROVIDER_NOTES.find((item) => item.match(id))?.key
+  const providerName = (item: ProviderItem) => productProviderName(item.id, item.name)
 
   const isConfigCustom = (providerID: string) => {
     const provider = serverSync().data.config.provider?.[providerID]
@@ -166,7 +168,7 @@ const SettingsProvidersContent: Component = () => {
                       <ProviderIcon id={item.id} class="size-5 shrink-0 icon-strong-base" />
                       <div class="flex flex-col min-w-0">
                         <div class="flex items-center gap-3 min-w-0">
-                          <span class="text-14-medium text-text-strong truncate">{item.name}</span>
+                          <span class="text-14-medium text-text-strong truncate">{providerName(item)}</span>
                           <Tag>{type(item)}</Tag>
                         </div>
                         <Show when={providerAccountDescription(item, language.t)}>
@@ -182,7 +184,7 @@ const SettingsProvidersContent: Component = () => {
                         </span>
                       }
                     >
-                      <Button size="large" variant="ghost" onClick={() => void disconnect(item.id, item.name)}>
+                      <Button size="large" variant="ghost" onClick={() => void disconnect(item.id, providerName(item))}>
                         {providerDisconnectLabel(item.id, language.t)}
                       </Button>
                     </Show>
@@ -202,7 +204,7 @@ const SettingsProvidersContent: Component = () => {
                   <div class="flex flex-col min-w-0">
                     <div class="flex items-center gap-x-3">
                       <ProviderIcon id={item.id} class="size-5 shrink-0 icon-strong-base" />
-                      <span class="text-14-medium text-text-strong">{item.name}</span>
+                      <span class="text-14-medium text-text-strong">{providerName(item)}</span>
                       <Show when={item.id === "opencode"}>
                         <Tag>{language.t("dialog.provider.tag.recommended")}</Tag>
                       </Show>

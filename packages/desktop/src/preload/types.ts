@@ -39,6 +39,7 @@ export type FatalRendererError = {
   platform: string
   os?: string
 }
+export type PickedFilePath = { path: string; name: string; size: number }
 
 export type ElectronAPI = {
   killSidecar: () => Promise<void>
@@ -76,7 +77,13 @@ export type ElectronAPI = {
     title?: string
     defaultPath?: string
     extensions?: string[]
-  }) => Promise<{ token: string; files: { path: string; name: string; size: number }[] } | null>
+  }) => Promise<{ token: string; files: PickedFilePath[] } | null>
+  openFilePathPicker: (opts?: {
+    multiple?: boolean
+    title?: string
+    defaultPath?: string
+    extensions?: string[]
+  }) => Promise<PickedFilePath[] | null>
   readPickedFile: (token: string, path: string) => Promise<ArrayBuffer>
   releasePickedFiles: (token: string) => Promise<void>
   getPathForFile: (file: File) => string

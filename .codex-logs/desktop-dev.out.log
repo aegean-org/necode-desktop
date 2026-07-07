@@ -1,0 +1,90 @@
+Copied dev icons from ./icons/dev to resources/icons
+opencode script {
+  "channel": "dev",
+  "version": "0.0.0-dev-202607070747",
+  "preview": true,
+  "release": false,
+  "team": [
+    "adamdotdevin",
+    "Brendonovich",
+    "fwang",
+    "Hona",
+    "iamdavidhill",
+    "jayair",
+    "jlongster",
+    "kitlangton",
+    "kommander",
+    "MrMushrooooom",
+    "nexxeln",
+    "R44VC0RP",
+    "rekram1-node",
+    "thdxr",
+    "simonklee",
+    "vimtor",
+    "starptech",
+    "actions-user",
+    "opencode",
+    "opencode-agent[bot]"
+  ]
+}
+Loaded models.dev snapshot
+Build complete
+[36mvite v7.1.4 [32mbuilding SSR bundle for development...[36m[39m
+transforming...
+[32m✓[39m 40 modules transformed.
+rendering chunks...
+[2mout/main/[22m[36msidecar.js               [39m[1m[2m     3.20 kB[22m[1m[22m
+[2mout/main/[22m[36mindex.js                 [39m[1m[2m   133.54 kB[22m[1m[22m
+[2mout/main/[22m[36mchunks/node-CHejDzG-.js  [39m[1m[33m21,283.95 kB[39m[22m
+[32m✓ built in 29.61s[39m
+[32m
+electron main process built successfully[39m
+[90m
+-----
+[39m
+[36mvite v7.1.4 [32mbuilding SSR bundle for development...[36m[39m
+transforming...
+[32m✓[39m 1 modules transformed.
+rendering chunks...
+[2mout/preload/[22m[36mindex.js  [39m[1m[2m6.99 kB[22m[1m[22m
+[32m✓ built in 33ms[39m
+[32m
+electron preload scripts built successfully[39m
+[90m
+-----
+[39m
+[2m下午3:48:01[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m Re-optimizing dependencies because lockfile has changed
+[32mdev server running for the electron renderer process at:
+[39m
+  [32m➜[39m  [1mLocal[22m:   [36mhttp://localhost:[1m5173[22m/[39m
+[2m  [32m➜[39m  [1mNetwork[22m[2m: use [22m[1m--host[22m[2m to expose[22m
+[32m
+starting electron app...
+[39m
+
+15:48:08.208 (crash) > crash reporter started {
+  path: 'C:\\Users\\11250\\AppData\\Roaming\\ai.necode.desktop.dev\\Crashpad'
+}
+15:48:08.247         > app starting { version: '0.0.1', packaged: false, onboardingTest: false }
+15:48:08.305         > tauri migration: already done, skipping
+15:48:08.311         > auto updater configured {
+  channel: 'latest',
+  allowPrerelease: false,
+  allowDowngrade: true,
+  currentVersion: '0.0.1'
+}
+15:48:08.361 (network) > net log started {
+  path: 'C:\\Users\\11250\\AppData\\Roaming\\ai.necode.desktop.dev\\logs\\20260707T074808\\network.netlog'
+}
+15:48:08.385           > sidecar connection started { url: 'http://127.0.0.1:65476' }
+15:48:08.386           > spawning sidecar { url: 'http://127.0.0.1:65476' }
+15:48:09.447           > loading task finished
+15:48:10.164           > [vite] connecting...
+15:48:10.204           > [vite] connected.
+15:48:17.558           > awaiting server ready
+15:48:17.559           > server ready { url: 'http://127.0.0.1:65476' }
+15:48:22.409           > Slow network is detected. See https://www.chromestatus.com/feature/5636954674692096 for more details. Fallback font will be used while loading: http://localhost:5173/assets/JetBrainsMonoNerdFontMono-Regular.woff2
+15:48:53.450           > Slow network is detected. See https://www.chromestatus.com/feature/5636954674692096 for more details. Fallback font will be used while loading: http://localhost:5173/assets/Inter.ttf
+15:51:00.565           > awaiting server ready
+15:51:00.566           > server ready { url: 'http://127.0.0.1:65476' }
+16:00:34.218 (server)  > stdout { message: '[16:00:34.196] INFO (#9807): global event disconnected' }

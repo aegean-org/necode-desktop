@@ -5,6 +5,7 @@ import { getDirectory, getFilename } from "@opencode-ai/core/util/path"
 
 export type AtOption =
   | { type: "agent"; name: string; display: string }
+  | { type: "rag"; name: "doc"; display: string; insertText: string; label?: string; description?: string; title?: string }
   | { type: "file"; path: string; display: string; recent?: boolean }
 
 export interface SlashCommand {
@@ -31,6 +32,19 @@ type PromptPopoverProps = {
   onSlashSelect: (item: SlashCommand) => void
   commandKeybind: (id: string) => string | undefined
   t: (key: string) => string
+}
+
+export function describeAtOption(item: AtOption) {
+  if (item.type === "rag") {
+    return {
+      label: item.label ?? item.insertText.trim(),
+      description: item.description,
+    }
+  }
+
+  return {
+    label: item.type === "agent" ? `@${item.name}` : item.display,
+  }
 }
 
 export const PromptPopover: Component<PromptPopoverProps> = (props) => {
@@ -65,6 +79,24 @@ export const PromptPopover: Component<PromptPopoverProps> = (props) => {
                       >
                         <Icon name="brain" size="small" class="text-icon-info-active shrink-0" />
                         <span class="text-14-regular text-text-strong whitespace-nowrap">@{item.name}</span>
+                      </button>
+                    )
+                  }
+
+                  if (item.type === "rag") {
+                    const details = describeAtOption(item)
+                    return (
+                      <button
+                        class="w-full flex items-center gap-x-2 rounded-md px-2 py-0.5"
+                        classList={{ "bg-surface-raised-base-hover": props.atActive === key }}
+                        onClick={() => props.onAtSelect(item)}
+                        onMouseEnter={() => props.setAtActive(key)}
+                      >
+                        <Icon name="status" size="small" class="text-icon-info-active shrink-0" />
+                        <span class="text-14-regular text-text-strong whitespace-nowrap">{details.label}</span>
+                        <Show when={details.description}>
+                          <span class="text-14-regular text-text-weak truncate">{details.description}</span>
+                        </Show>
                       </button>
                     )
                   }
