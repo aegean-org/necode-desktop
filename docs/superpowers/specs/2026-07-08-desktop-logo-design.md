@@ -9,7 +9,7 @@ Replace the remaining OpenCode visual mark in the desktop product with the NeCod
 - Desktop package icons for `dev`, `beta`, and `prod` channels.
 - Electron runtime window, taskbar, dock, installer, and Linux icon resources.
 - Renderer favicon assets copied from `packages/app/public`.
-- In-app logo components used by startup, login gate, home, and empty-session views.
+- In-app logo components used by startup loading, connection loading, login gate, home, and empty-session views.
 
 Out of scope:
 
@@ -39,7 +39,7 @@ The source of truth must remain `packages/desktop/icons/<channel>`, not `resourc
    - Windows Store-sized `StoreLogo.png` and `Square*Logo.png`
    - iOS and Android nested icon folders already carried by the desktop icon set
 2. Apply the same NeCode icon to `dev`, `beta`, and `prod` so local development and packaged production match.
-3. Replace `Mark`, `Splash`, and `Logo` in `packages/ui/src/components/logo.tsx` with NeCode-style marks.
+3. Replace `Mark`, `Splash`, and `Logo` in `packages/ui/src/components/logo.tsx` with NeCode-style marks. This includes the centered loading indicator shown while the desktop renderer and server connection initialize.
 4. Populate renderer favicon files in `packages/app/public` so Electron HTML references no longer point to empty files.
 
 ## Verification
@@ -49,4 +49,3 @@ The source of truth must remain `packages/desktop/icons/<channel>`, not `resourc
 - Run `bun typecheck` in `packages/ui`, `packages/app`, and `packages/desktop` if the logo component code changes.
 - Run `bun run build` and `bun run package:win:dir` in `packages/desktop`.
 - Inspect the packaged output to confirm `resources/icons/icon.ico` and renderer favicon assets are present and non-empty.
-

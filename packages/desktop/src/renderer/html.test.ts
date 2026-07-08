@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test"
 import { join, dirname, resolve } from "node:path"
-import { existsSync } from "node:fs"
+import { existsSync, statSync } from "node:fs"
 import { fileURLToPath } from "node:url"
 
 const dir = dirname(fileURLToPath(import.meta.url))
@@ -37,6 +37,27 @@ describe("electron renderer html", () => {
       test("no web manifest link (not applicable in Electron)", async () => {
         const content = await html(name)
         expect(content).not.toContain('rel="manifest"')
+      })
+
+      test("favicon links resolve to non-empty bundled public files", async () => {
+        const content = await html(name)
+        const config = await Bun.file(join(root, "electron.vite.config.ts")).text()
+        const pub = config.match(/publicDir:\s*["']([^"']+)["']/)
+        const rendererRoot = config.match(/root:\s*["']([^"']+)["']/)
+        expect(pub).not.toBeNull()
+        expect(rendererRoot).not.toBeNull()
+
+        const publicDir = resolve(root, rendererRoot![1], pub![1])
+        const hrefs = [...content.matchAll(/<link[^>]+href=["']([^"']+)["']/g)]
+          .map((m) => m[1])
+          .filter((href) => href.includes("favicon") || href.includes("apple-touch-icon"))
+
+        expect(hrefs.length).toBeGreaterThan(0)
+        for (const href of hrefs) {
+          const file = resolve(publicDir, href.replace(/^\.\//, ""))
+          expect(existsSync(file)).toBe(true)
+          expect(statSync(file).size).toBeGreaterThan(0)
+        }
       })
     })
   }

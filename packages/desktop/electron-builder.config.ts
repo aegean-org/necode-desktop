@@ -9,6 +9,7 @@ const execFileAsync = promisify(execFile)
 const packageDir = path.dirname(fileURLToPath(import.meta.url))
 const rootDir = path.resolve(packageDir, "../..")
 const signScript = path.join(rootDir, "script", "sign-windows.ps1")
+const shouldSkipCodeSigning = process.env.NECODE_SKIP_CODE_SIGNING === "true"
 
 async function signWindows(configuration: { path: string }) {
   if (process.platform !== "win32") return
@@ -62,11 +63,11 @@ const getBase = (appId: string): Configuration => ({
     gatekeeperAssess: false,
     entitlements: "resources/entitlements.plist",
     entitlementsInherit: "resources/entitlements.plist",
-    notarize: true,
+    notarize: shouldSkipCodeSigning ? false : true,
     target: ["dmg", "zip"],
   },
   dmg: {
-    sign: true,
+    sign: shouldSkipCodeSigning ? false : true,
   },
   protocols: {
     name: "NeCode",
@@ -74,7 +75,7 @@ const getBase = (appId: string): Configuration => ({
   },
   win: {
     icon: `resources/icons/icon.ico`,
-    signtoolOptions: {
+    signtoolOptions: shouldSkipCodeSigning ? undefined : {
       sign: signWindows,
     },
     target: ["nsis"],

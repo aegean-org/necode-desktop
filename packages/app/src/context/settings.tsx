@@ -52,7 +52,8 @@ export interface Settings {
 export const monoDefault = "System Mono"
 export const sansDefault = "System Sans"
 export const terminalDefault = "JetBrainsMono Nerd Font Mono"
-export const newLayoutDesignsDefault = import.meta.env.VITE_OPENCODE_CHANNEL !== "prod"
+/** Defaults fresh installs to the workflow shell in every release channel. */
+export const newLayoutDesignsDefault = true
 
 const monoFallback =
   'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace'

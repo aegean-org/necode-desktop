@@ -1,5 +1,9 @@
 import { expect, test } from "bun:test"
-import { applyAppearanceFontVariables } from "./settings"
+import { applyAppearanceFontVariables, newLayoutDesignsDefault } from "./settings"
+
+test("new layout is enabled by default in packaged builds", () => {
+  expect(newLayoutDesignsDefault).toBe(true)
+})
 
 test("applyAppearanceFontVariables updates legacy and v2 font variables", () => {
   const element = document.createElement("div")

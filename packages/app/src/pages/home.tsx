@@ -632,7 +632,7 @@ function HomeTaskGroup(props: {
         title={controller.context.language.t(workflowGroupTitleKey(props.group.id))}
         count={props.group.tasks.length}
       />
-      <WorkflowEntityList class="px-2">
+      <WorkflowEntityList>
         <For each={props.group.tasks}>
           {(task) => (
             <HomeWorkflowTaskRow

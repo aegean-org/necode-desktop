@@ -1,0 +1,104 @@
+name: desktop-package
+
+on:
+  workflow_dispatch:
+    inputs:
+      platform:
+        description: "Desktop platform to package"
+        required: true
+        type: choice
+        default: all
+        options:
+          - all
+          - windows
+          - macos
+
+permissions:
+  contents: read
+
+concurrency:
+  group: desktop-package-${{ github.ref }}-${{ inputs.platform }}
+  cancel-in-progress: false
+
+jobs:
+  package-windows:
+    name: Package Windows
+    if: ${{ inputs.platform == 'all' || inputs.platform == 'windows' }}
+    runs-on: windows-latest
+    env:
+      NECODE_SKIP_CODE_SIGNING: "true"
+      CSC_IDENTITY_AUTO_DISCOVERY: "false"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - name: Setup Bun
+        uses: ./.github/actions/setup-bun
+
+      - name: Write desktop environment
+        working-directory: packages/desktop
+        shell: pwsh
+        run: Set-Content -Path .env.prod -Value "OPENCODE_CHANNEL=prod"
+
+      - name: Build desktop
+        working-directory: packages/desktop
+        run: bun run build
+
+      - name: Package Windows
+        working-directory: packages/desktop
+        run: bun run package:win
+
+      - name: Upload Windows package
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: necode-desktop-windows
+          path: |
+            packages/desktop/dist/*.exe
+            packages/desktop/dist/*.blockmap
+            packages/desktop/dist/latest*.yml
+            packages/desktop/dist/win-unpacked/**
+          if-no-files-found: error
+          retention-days: 14
+
+  package-macos:
+    name: Package macOS
+    if: ${{ inputs.platform == 'all' || inputs.platform == 'macos' }}
+    runs-on: macos-latest
+    env:
+      NECODE_SKIP_CODE_SIGNING: "true"
+      CSC_IDENTITY_AUTO_DISCOVERY: "false"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - name: Setup Bun
+        uses: ./.github/actions/setup-bun
+
+      - name: Write desktop environment
+        working-directory: packages/desktop
+        run: printf 'OPENCODE_CHANNEL=prod\n' > .env.prod
+
+      - name: Build desktop
+        working-directory: packages/desktop
+        run: bun run build
+
+      - name: Package macOS
+        working-directory: packages/desktop
+        run: >
+          bun x --no-install electron-builder --mac --publish never --config electron-builder.config.ts
+          -c.mac.identity=null
+          -c.mac.notarize=false
+          -c.dmg.sign=false
+
+      - name: Upload macOS package
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: necode-desktop-macos
+          path: |
+            packages/desktop/dist/*.dmg
+            packages/desktop/dist/*.zip
+            packages/desktop/dist/*.blockmap
+            packages/desktop/dist/latest*.yml
+            packages/desktop/dist/mac*/**
+          if-no-files-found: error
+          retention-days: 14
