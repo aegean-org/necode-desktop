@@ -12,6 +12,14 @@ on:
           - all
           - windows
           - macos
+      mac_signing:
+        description: "macOS signing mode"
+        required: true
+        type: choice
+        default: unsigned
+        options:
+          - unsigned
+          - signed
 
 permissions:
   contents: read
@@ -64,9 +72,6 @@ jobs:
     name: Package macOS
     if: ${{ inputs.platform == 'all' || inputs.platform == 'macos' }}
     runs-on: macos-latest
-    env:
-      NECODE_SKIP_CODE_SIGNING: "true"
-      CSC_IDENTITY_AUTO_DISCOVERY: "false"
     steps:
       - name: Checkout
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
@@ -82,13 +87,79 @@ jobs:
         working-directory: packages/desktop
         run: bun run build
 
-      - name: Package macOS
+      - name: Validate Apple signing secrets
+        if: ${{ inputs.mac_signing == 'signed' }}
+        shell: bash
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_API_KEY_CONTENT: ${{ secrets.APPLE_API_KEY_CONTENT }}
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+        run: |
+          missing=0
+          for name in APPLE_CERTIFICATE APPLE_CERTIFICATE_PASSWORD APPLE_API_KEY_CONTENT APPLE_API_KEY_ID APPLE_API_ISSUER; do
+            if [ -z "${!name}" ]; then
+              echo "::error::${name} is required for signed macOS packaging"
+              missing=1
+            fi
+          done
+          exit "$missing"
+
+      - name: Write Apple notarization API key
+        if: ${{ inputs.mac_signing == 'signed' }}
+        shell: bash
+        env:
+          APPLE_API_KEY_CONTENT: ${{ secrets.APPLE_API_KEY_CONTENT }}
+        run: |
+          printf '%s' "$APPLE_API_KEY_CONTENT" > "$RUNNER_TEMP/apple-api-key.p8"
+          chmod 600 "$RUNNER_TEMP/apple-api-key.p8"
+
+      - name: Package macOS unsigned
+        if: ${{ inputs.mac_signing == 'unsigned' }}
         working-directory: packages/desktop
+        env:
+          NECODE_SKIP_CODE_SIGNING: "true"
+          CSC_IDENTITY_AUTO_DISCOVERY: "false"
         run: >
           bun x --no-install electron-builder --mac --publish never --config electron-builder.config.ts
           -c.mac.identity=null
           -c.mac.notarize=false
           -c.dmg.sign=false
+
+      - name: Package macOS signed
+        if: ${{ inputs.mac_signing == 'signed' }}
+        working-directory: packages/desktop
+        env:
+          NECODE_SKIP_CODE_SIGNING: "false"
+          CSC_LINK: ${{ secrets.APPLE_CERTIFICATE }}
+          CSC_KEY_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_API_KEY: ${{ runner.temp }}/apple-api-key.p8
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+        run: bun x --no-install electron-builder --mac --publish never --config electron-builder.config.ts
+
+      - name: Verify signed macOS package
+        if: ${{ inputs.mac_signing == 'signed' }}
+        working-directory: packages/desktop
+        shell: bash
+        run: |
+          app_path="$(find dist -maxdepth 3 -name '*.app' -type d | head -n 1)"
+          if [ -z "$app_path" ]; then
+            echo "::error::No .app bundle found in packages/desktop/dist"
+            exit 1
+          fi
+          codesign --verify --deep --strict --verbose=2 "$app_path"
+          spctl --assess --type execute --verbose "$app_path"
+          shopt -s nullglob
+          dmgs=(dist/*.dmg)
+          if [ "${#dmgs[@]}" -eq 0 ]; then
+            echo "::error::No dmg artifact found in packages/desktop/dist"
+            exit 1
+          fi
+          for dmg in "${dmgs[@]}"; do
+            xcrun stapler validate "$dmg"
+          done
 
       - name: Upload macOS package
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
