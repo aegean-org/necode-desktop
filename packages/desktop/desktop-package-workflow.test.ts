@@ -13,7 +13,9 @@ const expectIncludes = (text: string, values: readonly string[]) => {
 }
 
 test("desktop package workflow builds unsigned Windows and macOS artifacts manually", async () => {
-  expectIncludes(await workflowText(), [
+  const text = await workflowText()
+
+  expectIncludes(text, [
     "name: desktop-package",
     "workflow_dispatch:",
     "platform:",
@@ -23,6 +25,8 @@ test("desktop package workflow builds unsigned Windows and macOS artifacts manua
     "mac_signing:",
     "- unsigned",
     "- signed",
+    "release_tag:",
+    "release_prerelease:",
     "package-windows:",
     "runs-on: windows-latest",
     "NECODE_SKIP_CODE_SIGNING: \"true\"",
@@ -54,7 +58,22 @@ test("desktop package workflow builds unsigned Windows and macOS artifacts manua
     "spctl --assess --type execute --verbose",
     "xcrun stapler validate",
     "name: necode-desktop-macos",
+    "publish-release:",
+    "contents: write",
+    "actions/download-artifact",
+    "pattern: necode-desktop-*",
+    "merge-multiple: true",
+    "gh release create",
+    "gh release upload",
   ])
+
+  expectIncludes(text, ["packages/desktop/dist/*.exe", "packages/desktop/dist/*.dmg"])
+  expectIncludes(text, ["release-assets/*.exe", "release-assets/*.dmg"])
+  expect(text).not.toContain("packages/desktop/dist/*.blockmap")
+  expect(text).not.toContain("packages/desktop/dist/latest*.yml")
+  expect(text).not.toContain("packages/desktop/dist/win-unpacked/**")
+  expect(text).not.toContain("packages/desktop/dist/*.zip")
+  expect(text).not.toContain("packages/desktop/dist/mac*/**")
 })
 
 test("electron builder exposes an explicit unsigned CI switch", async () => {
@@ -62,6 +81,8 @@ test("electron builder exposes an explicit unsigned CI switch", async () => {
     "const shouldSkipCodeSigning = process.env.NECODE_SKIP_CODE_SIGNING === \"true\"",
     "notarize: shouldSkipCodeSigning ? false : true",
     "sign: shouldSkipCodeSigning ? false : true",
+    "target: [\"dmg\"]",
     "signtoolOptions: shouldSkipCodeSigning ? undefined : {",
   ])
+  expect(await builderConfigText()).not.toContain("target: [\"dmg\", \"zip\"]")
 })

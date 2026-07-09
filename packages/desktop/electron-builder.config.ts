@@ -64,7 +64,7 @@ const getBase = (appId: string): Configuration => ({
     entitlements: "resources/entitlements.plist",
     entitlementsInherit: "resources/entitlements.plist",
     notarize: shouldSkipCodeSigning ? false : true,
-    target: ["dmg", "zip"],
+    target: ["dmg"],
   },
   dmg: {
     sign: shouldSkipCodeSigning ? false : true,
