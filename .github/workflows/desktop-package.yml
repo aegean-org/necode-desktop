@@ -119,6 +119,7 @@ jobs:
         if: ${{ inputs.mac_signing == 'unsigned' }}
         working-directory: packages/desktop
         env:
+          OPENCODE_CHANNEL: "prod"
           NECODE_SKIP_CODE_SIGNING: "true"
           CSC_IDENTITY_AUTO_DISCOVERY: "false"
         run: >
@@ -131,6 +132,7 @@ jobs:
         if: ${{ inputs.mac_signing == 'signed' }}
         working-directory: packages/desktop
         env:
+          OPENCODE_CHANNEL: "prod"
           NECODE_SKIP_CODE_SIGNING: "false"
           CSC_LINK: ${{ secrets.APPLE_CERTIFICATE }}
           CSC_KEY_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
@@ -138,6 +140,30 @@ jobs:
           APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
           APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
         run: bun x --no-install electron-builder --mac --publish never --config electron-builder.config.ts
+
+      - name: Notarize and staple macOS DMG
+        if: ${{ inputs.mac_signing == 'signed' }}
+        working-directory: packages/desktop
+        shell: bash
+        env:
+          APPLE_API_KEY: ${{ runner.temp }}/apple-api-key.p8
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+        run: |
+          shopt -s nullglob
+          dmgs=(dist/*.dmg)
+          if [ "${#dmgs[@]}" -eq 0 ]; then
+            echo "::error::No dmg artifact found in packages/desktop/dist"
+            exit 1
+          fi
+          for dmg in "${dmgs[@]}"; do
+            xcrun notarytool submit "$dmg" \
+              --key "$APPLE_API_KEY" \
+              --key-id "$APPLE_API_KEY_ID" \
+              --issuer "$APPLE_API_ISSUER" \
+              --wait
+            xcrun stapler staple "$dmg"
+          done
 
       - name: Verify signed macOS package
         if: ${{ inputs.mac_signing == 'signed' }}
