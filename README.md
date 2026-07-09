@@ -6,10 +6,10 @@ NeCode Desktop 是面向开发者的 AI Coding Agent 桌面端工作台。它基
 
 请从 GitHub Releases 下载最新测试版：
 
-- Windows：[necode-desktop-win-x64.exe](https://github.com/liangwei/opencode/releases/download/v0.0.1/necode-desktop-win-x64.exe)
-- macOS Apple Silicon：[necode-desktop-mac-arm64.dmg](https://github.com/liangwei/opencode/releases/download/v0.0.1/necode-desktop-mac-arm64.dmg)
+- Windows：[necode-desktop-win-x64.exe](https://github.com/aegean-org/necodeDesktop/releases/download/v0.0.1/necode-desktop-win-x64.exe)
+- macOS Apple Silicon：[necode-desktop-mac-arm64.dmg](https://github.com/aegean-org/necodeDesktop/releases/download/v0.0.1/necode-desktop-mac-arm64.dmg)
 
-Release 页面：<https://github.com/liangwei/opencode/releases>
+Release 页面：<https://github.com/aegean-org/necodeDesktop/releases>
 
 ## 安装
 
