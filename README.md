@@ -51,7 +51,7 @@ bun run package:win
 bun run package:mac
 ```
 
-GitHub Actions 中的 `desktop-package` 工作流可以生成 Windows 安装包和 macOS DMG。填写 `release_tag` 后，工作流会把 `.exe` 和 `.dmg` 上传到对应 GitHub Release。
+GitHub Actions 中的 `desktop-package` 工作流可以生成 Windows 安装包和 macOS DMG，并把 `.exe` 和 `.dmg` 上传到 GitHub Release。默认发布到 `v<packages/desktop/package.json version>`；填写 `release_tag` 时会使用你填写的 tag。
 
 ## 开源来源
 

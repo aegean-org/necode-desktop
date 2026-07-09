@@ -60,6 +60,10 @@ test("desktop package workflow builds unsigned Windows and macOS artifacts manua
     "name: necode-desktop-macos",
     "publish-release:",
     "contents: write",
+    "Resolve release tag",
+    "RELEASE_TAG_INPUT: ${{ inputs.release_tag }}",
+    "require('./packages/desktop/package.json').version",
+    "RELEASE_TAG=%s\\n",
     "actions/download-artifact",
     "pattern: necode-desktop-*",
     "merge-multiple: true",
@@ -69,6 +73,7 @@ test("desktop package workflow builds unsigned Windows and macOS artifacts manua
 
   expectIncludes(text, ["packages/desktop/dist/*.exe", "packages/desktop/dist/*.dmg"])
   expectIncludes(text, ["release-assets/*.exe", "release-assets/*.dmg"])
+  expect(text).not.toContain("inputs.release_tag != ''")
   expect(text).not.toContain("packages/desktop/dist/*.blockmap")
   expect(text).not.toContain("packages/desktop/dist/latest*.yml")
   expect(text).not.toContain("packages/desktop/dist/win-unpacked/**")
