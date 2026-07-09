@@ -6,9 +6,8 @@ NeCode Desktop 是面向开发者的 AI Coding Agent 桌面端工作台。它基
 
 请从 GitHub Releases 下载最新测试版：
 
-- Windows：下载 `necode-desktop-win-x64.exe`
-- macOS Apple Silicon：下载 `necode-desktop-mac-arm64.dmg`
-- macOS Intel：下载 `necode-desktop-mac-x64.dmg`
+- Windows：[necode-desktop-win-x64.exe](https://github.com/liangwei/opencode/releases/download/v0.0.1/necode-desktop-win-x64.exe)
+- macOS Apple Silicon：[necode-desktop-mac-arm64.dmg](https://github.com/liangwei/opencode/releases/download/v0.0.1/necode-desktop-mac-arm64.dmg)
 
 Release 页面：<https://github.com/liangwei/opencode/releases>
 
@@ -51,7 +50,7 @@ bun run package:win
 bun run package:mac
 ```
 
-GitHub Actions 中的 `desktop-package` 工作流可以生成 Windows 安装包和 macOS DMG，并把 `.exe` 和 `.dmg` 上传到 GitHub Release。默认发布到 `v<packages/desktop/package.json version>`；填写 `release_tag` 时会使用你填写的 tag。
+GitHub Actions 中的 `desktop-package` 工作流可以生成 Windows 安装包和 macOS DMG，并把 `.exe` 和 `.dmg` 上传到 GitHub Release。默认发布到 `v<packages/desktop/package.json version>`；填写 `release_tag` 时会使用你填写的 tag。macOS 默认走签名和公证流程；Windows 只有配置 Azure Trusted Signing 后才会签名。
 
 ## 开源来源
 

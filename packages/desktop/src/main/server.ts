@@ -6,6 +6,7 @@ import { getLogger } from "./logging"
 import { getUserShell, loadShellEnv } from "./shell-env"
 import { getStore } from "./store"
 import { DEFAULT_SERVER_URL_KEY } from "./store-keys"
+import { createDesktopRuntimeEnv, OPENCODE_CONFIG_OVERRIDE_KEYS, sanitizeInheritedOpenCodeEnv } from "./sidecar-env"
 
 export type HealthCheck = { wait: Promise<void> }
 
@@ -43,12 +44,11 @@ export function setDefaultServerUrl(url: string | null) {
 
 export function preferAppEnv(userDataPath: string) {
   const shell = process.platform === "win32" ? null : getUserShell()
+  const shellEnv = shell ? loadShellEnv(shell, getLogger()) : {}
+  for (const key of OPENCODE_CONFIG_OVERRIDE_KEYS) delete process.env[key]
   Object.assign(process.env, {
-    ...(shell ? loadShellEnv(shell, getLogger()) : null),
-    OPENCODE_EXPERIMENTAL_ICON_DISCOVERY: "true",
-    OPENCODE_EXPERIMENTAL_FILEWATCHER: "true",
-    OPENCODE_CLIENT: "desktop",
-    XDG_STATE_HOME: process.env.XDG_STATE_HOME ?? userDataPath,
+    ...sanitizeInheritedOpenCodeEnv(shellEnv ?? {}),
+    ...createDesktopRuntimeEnv({ userDataPath }),
   })
 }
 
@@ -208,9 +208,7 @@ export async function checkHealth(url: string, password?: string | null): Promis
 }
 
 function createSidecarEnv(): Record<string, string> {
-  const env = Object.fromEntries(
-    Object.entries(process.env).flatMap(([key, value]) => (value === undefined ? [] : [[key, String(value)]])),
-  )
+  const env = sanitizeInheritedOpenCodeEnv(process.env)
   delete env.DEBUG
   if (process.platform === "linux") delete env.LD_PRELOAD
   if (!app.isPackaged) env.OPENCODE_DISABLE_CHANNEL_DB = "1"

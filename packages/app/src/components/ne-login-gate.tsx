@@ -1,6 +1,5 @@
 import type { ProviderAuthMethod } from "@opencode-ai/sdk/v2/client"
-import { ProviderIcon } from "@opencode-ai/ui/provider-icon"
-import { Splash } from "@opencode-ai/ui/logo"
+import { Mark, Splash } from "@opencode-ai/ui/logo"
 import { Spinner } from "@opencode-ai/ui/spinner"
 import { createMemo, createResource, Match, type JSX, type ParentProps, Show, Switch } from "solid-js"
 import { createStore } from "solid-js/store"
@@ -10,8 +9,39 @@ import { useServerSDK } from "@/context/server-sdk"
 import { useServerSync } from "@/context/server-sync"
 import { normalizeProviderList } from "@/context/global-sync/utils"
 import { ProviderApiAuthForm } from "./provider-api-auth-form"
+import { loadNeAuthMethods, NE_PROVIDER_ID, translateNeAuthMethod } from "./ne-login-gate-auth"
+import { neLoginSubmitLabel } from "./ne-login-gate-labels"
 
-const NE_PROVIDER_ID = "ne"
+const loginRootClass =
+  "h-dvh w-screen overflow-hidden bg-[color-mix(in_srgb,var(--background-base)_94%,var(--border-base))] text-text-base"
+const loginPanelClass =
+  "w-full max-w-[372px] rounded-[8px] border border-border-weaker-base bg-background-base/95 px-7 py-7 shadow-[0_22px_70px_rgba(15,23,42,0.09),0_1px_0_rgba(255,255,255,0.72)_inset]"
+const loginFormClass = [
+  "mt-8 [app-region:no-drag]",
+  "[--border-selected:#ff6b4a]",
+  "[--border-weak-selected:rgba(255,107,74,0.16)]",
+  "[--button-primary-base:#ff6b4a]",
+  "[--icon-strong-active:#de5034]",
+  "[--icon-strong-disabled:#f2b7aa]",
+  "[--icon-strong-focus:#ef6042]",
+  "[--icon-strong-hover:#ef6042]",
+  "[--input-base:var(--background-base)]",
+  "[&_[data-component=button]]:!h-11",
+  "[&_[data-component=button]]:!w-full",
+  "[&_[data-component=button]]:!rounded-[8px]",
+  "[&_[data-component=button]]:!border-transparent",
+  "[&_[data-component=button]]:shadow-none",
+  "[&_[data-component=input]]:gap-1.5",
+  "[&_[data-slot=input-input]]:!h-11",
+  "[&_[data-slot=input-input]]:!px-3.5",
+  "[&_[data-slot=input-label]]:text-[12px]",
+  "[&_[data-slot=input-label]]:font-medium",
+  "[&_[data-slot=input-label]]:text-text-weak",
+  "[&_[data-slot=input-wrapper]]:!rounded-[8px]",
+  "[&_[data-slot=input-wrapper]]:border-border-weak-base",
+].join(" ")
+const loginErrorClass =
+  "mt-5 flex items-start gap-2 rounded-[8px] border border-border-critical-selected/40 bg-surface-critical-weak px-3 py-2.5 text-13-regular text-text-base [app-region:no-drag]"
 
 /**
  * Blocks app routes until the local server has a real NE API authentication.
@@ -22,18 +52,32 @@ export function NeLoginGate(props: ParentProps) {
   const serverSync = useServerSync()
   const [store, setStore] = createStore({ pending: false, error: undefined as string | undefined })
 
-  const [methods, actions] = createResource(async () => {
-    const cached = serverSync().data.provider_auth[NE_PROVIDER_ID]
-    if (cached) return cached
-    const result = await serverSDK().client.provider.auth()
-    serverSync().set("provider_auth", result.data ?? {})
-    return result.data?.[NE_PROVIDER_ID] ?? []
-  })
-  const connected = createMemo(() => serverSync().data.provider.connected.includes(NE_PROVIDER_ID))
-  const apiMethod = createMemo(() => findApiPromptMethod(methods.latest ?? serverSync().data.provider_auth[NE_PROVIDER_ID]))
-  const error = createMemo(() =>
-    store.error ?? (methods.error ? formatError(methods.error, language.t("common.requestFailed")) : undefined),
+  const [methods, actions] = createResource(() =>
+    loadNeAuthMethods({
+      cached: serverSync().data.provider_auth[NE_PROVIDER_ID],
+      fetchAuth: () => serverSDK().client.provider.auth(),
+      setProviderAuth: (auth) => serverSync().set("provider_auth", auth),
+      formatError: (error) => formatError(error, language.t("common.requestFailed")),
+    }),
   )
+  const connected = createMemo(() => serverSync().data.provider.connected.includes(NE_PROVIDER_ID))
+  const apiMethod = createMemo(() =>
+    findApiPromptMethod(methods.latest?.methods ?? serverSync().data.provider_auth[NE_PROVIDER_ID]),
+  )
+  const localizedApiMethod = createMemo(() => {
+    const item = apiMethod()
+    if (!item) return
+    return {
+      ...item,
+      method: translateNeAuthMethod({
+        method: item.method,
+        accountLabel: language.t("ne.login.account.label"),
+        accountPlaceholder: language.t("ne.login.account.placeholder"),
+        passwordLabel: language.t("ne.login.password.label"),
+      }),
+    }
+  })
+  const error = createMemo(() => store.error ?? methods.latest?.error)
 
   async function authorize(inputs: Record<string, string>) {
     const item = apiMethod()
@@ -63,7 +107,7 @@ export function NeLoginGate(props: ParentProps) {
         <NeLoginView
           error={error()}
           loading={!serverSync().ready || methods.loading}
-          method={apiMethod()?.method}
+          method={localizedApiMethod()?.method}
           pending={store.pending}
           refresh={() => actions.refetch()}
           onSubmit={authorize}
@@ -91,33 +135,42 @@ function NeLoginView(props: {
 }) {
   const language = useLanguage()
   return (
-    <div class="h-dvh w-screen bg-background-base text-text-base">
-      <div class="mx-auto flex h-full w-full max-w-[420px] flex-col justify-center gap-7 px-6">
-        <NeLoginHeader />
-        <Switch>
-          <Match when={props.loading}>
-            <NeLoginStatus icon={<Spinner />} text={language.t("ne.login.loading")} />
-          </Match>
-          <Match when={props.method}>
-            <ProviderApiAuthForm
-              method={props.method}
-              pending={props.pending}
-              submitLabel={props.pending ? language.t("common.saving") : language.t("ne.login.submit")}
-              onSubmit={props.onSubmit}
-            />
-          </Match>
-          <Match when={true}>
-            <button type="button" class="text-left" onClick={props.refresh}>
-              <NeLoginStatus icon={<Splash class="h-10 w-8 opacity-60" />} text={language.t("ne.login.unavailable")} />
-            </button>
-          </Match>
-        </Switch>
-        <Show when={props.error}>
-          <div class="flex items-start gap-2 rounded-md bg-surface-base px-3 py-2 text-13-regular text-text-base shadow-xs-border-base">
-            <Icon name="circle-ban-sign" class="mt-0.5 size-4 shrink-0 text-icon-critical-base" />
-            <span>{language.t("provider.connect.status.failed", { error: props.error ?? "" })}</span>
-          </div>
-        </Show>
+    <div class={loginRootClass} data-tauri-drag-region>
+      <div class="flex h-full w-full items-center justify-center px-6 py-8">
+        <section class={loginPanelClass}>
+          <NeLoginHeader />
+          <Switch>
+            <Match when={props.loading}>
+              <div class="mt-8">
+                <NeLoginStatus icon={<Spinner />} text={language.t("ne.login.loading")} />
+              </div>
+            </Match>
+            <Match when={props.method}>
+              <div class={loginFormClass}>
+                <ProviderApiAuthForm
+                  method={props.method}
+                  pending={props.pending}
+                  submitLabel={neLoginSubmitLabel(props.pending, language.t)}
+                  onSubmit={props.onSubmit}
+                />
+              </div>
+            </Match>
+            <Match when={true}>
+              <button type="button" class="mt-8 text-left [app-region:no-drag]" onClick={props.refresh}>
+                <NeLoginStatus
+                  icon={<Splash class="size-8 opacity-60" />}
+                  text={language.t("ne.login.unavailable")}
+                />
+              </button>
+            </Match>
+          </Switch>
+          <Show when={props.error}>
+            <div class={loginErrorClass}>
+              <Icon name="circle-ban-sign" class="mt-0.5 size-4 shrink-0 text-icon-critical-base" />
+              <span>{language.t("provider.connect.status.failed", { error: props.error ?? "" })}</span>
+            </div>
+          </Show>
+        </section>
       </div>
     </div>
   )
@@ -126,13 +179,13 @@ function NeLoginView(props: {
 function NeLoginHeader() {
   const language = useLanguage()
   return (
-    <div class="flex items-center gap-3">
-      <div class="flex size-10 items-center justify-center rounded-md bg-surface-base shadow-xs-border-base">
-        <ProviderIcon id={NE_PROVIDER_ID} class="size-5 icon-strong-base" />
+    <div class="flex flex-col items-center text-center">
+      <div class="flex size-12 items-center justify-center rounded-[8px] shadow-[0_10px_26px_rgba(255,107,74,0.18)]">
+        <Mark class="size-12" />
       </div>
-      <div>
-        <h1 class="text-20-medium text-text-strong">{language.t("ne.login.title")}</h1>
-        <p class="mt-1 text-13-regular text-text-weak">{language.t("ne.login.description")}</p>
+      <div class="mt-4">
+        <h1 class="text-[21px] font-semibold leading-7 text-text-strong">{language.t("ne.login.title")}</h1>
+        <p class="mt-1.5 text-13-regular text-text-weak">{language.t("ne.login.description")}</p>
       </div>
     </div>
   )

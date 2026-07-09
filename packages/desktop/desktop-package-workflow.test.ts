@@ -23,6 +23,7 @@ test("desktop package workflow builds unsigned Windows and macOS artifacts manua
     "- windows",
     "- macos",
     "mac_signing:",
+    "default: signed",
     "- unsigned",
     "- signed",
     "release_tag:",

@@ -38,7 +38,7 @@ export const { use: useModels, provider: ModelsProvider } = createSimpleContext(
     )
 
     const available = createMemo(() =>
-      providers.connected().flatMap((p) =>
+      providers.enabled().flatMap((p) =>
         Object.values(p.models).map((m) => ({
           ...m,
           provider: p,

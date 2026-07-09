@@ -16,10 +16,10 @@ on:
         description: "macOS signing mode"
         required: true
         type: choice
-        default: unsigned
+        default: signed
         options:
-          - unsigned
           - signed
+          - unsigned
       release_tag:
         description: "Optional GitHub Release tag, for example v0.0.1"
         required: false

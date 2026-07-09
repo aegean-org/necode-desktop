@@ -1,5 +1,6 @@
 import * as http from "node:http"
 import * as tls from "node:tls"
+import { createDesktopRuntimeEnv, OPENCODE_CONFIG_OVERRIDE_KEYS } from "./sidecar-env"
 
 type NodeHttpWithEnvProxy = typeof http & {
   setGlobalProxyFromEnv: () => void
@@ -81,11 +82,8 @@ async function stop() {
 }
 
 function prepareSidecarEnv(password: string, userDataPath: string) {
-  Object.assign(process.env, {
-    OPENCODE_SERVER_USERNAME: "necode",
-    OPENCODE_SERVER_PASSWORD: password,
-    XDG_STATE_HOME: process.env.XDG_STATE_HOME ?? userDataPath,
-  })
+  for (const key of OPENCODE_CONFIG_OVERRIDE_KEYS) delete process.env[key]
+  Object.assign(process.env, createDesktopRuntimeEnv({ password, userDataPath }))
 }
 
 function ensureLoopbackNoProxy() {

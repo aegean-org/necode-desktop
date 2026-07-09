@@ -159,11 +159,15 @@ export const dict = {
   "provider.connect.toast.connected.title": "{{provider}} connected",
   "provider.connect.toast.connected.description": "{{provider}} models are now available to use.",
 
-  "ne.login.title": "Sign in to NE",
-  "ne.login.description": "Use your NE account before entering NeCode.",
+  "ne.login.title": "Sign in to NeCode",
+  "ne.login.description": "Continue with your NE account.",
   "ne.login.loading": "Loading NE authentication...",
   "ne.login.submit": "Sign in",
+  "ne.login.signingIn": "Signing in...",
   "ne.login.unavailable": "NE authentication is not available. Click to retry.",
+  "ne.login.account.label": "Account",
+  "ne.login.account.placeholder": "Email or mobile",
+  "ne.login.password.label": "Password",
 
   "provider.custom.title": "Custom provider",
   "provider.custom.description.prefix": "Configure an OpenAI-compatible provider. See the ",
@@ -204,6 +208,8 @@ export const dict = {
 
   "provider.disconnect.toast.disconnected.title": "{{provider}} disconnected",
   "provider.disconnect.toast.disconnected.description": "{{provider}} models are no longer available.",
+  "provider.disable.toast.disabled.title": "{{provider}} disabled",
+  "provider.disable.toast.disabled.description": "{{provider}} models are hidden from NeCode.",
 
   "model.tag.free": "Free",
   "model.tag.latest": "Latest",
@@ -1007,11 +1013,12 @@ export const dict = {
 
   "settings.providers.title": "Providers",
   "settings.providers.description": "Provider settings will be configurable here.",
-  "settings.providers.section.connected": "Connected providers",
-  "settings.providers.connected.empty": "No connected providers",
+  "settings.providers.section.connected": "Enabled providers",
+  "settings.providers.connected.empty": "No enabled providers",
   "settings.providers.connected.environmentDescription": "Connected from your environment variables",
   "settings.providers.connected.neAccount": "Signed in as {{account}}",
-  "settings.providers.action.switchAccount": "Switch account",
+  "settings.providers.action.disable": "Disable",
+  "settings.providers.action.signOut": "Sign out",
   "settings.providers.section.popular": "Popular providers",
   "settings.providers.custom.description": "Add an OpenAI-compatible provider by base URL.",
   "settings.providers.tag.environment": "Environment",

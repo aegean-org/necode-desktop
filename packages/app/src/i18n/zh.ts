@@ -177,6 +177,16 @@ export const dict = {
   "provider.connect.toast.connected.title": "{{provider}} 已连接",
   "provider.connect.toast.connected.description": "现在可以使用 {{provider}} 模型了。",
 
+  "ne.login.title": "登录 NeCode",
+  "ne.login.description": "使用 NE 账号继续。",
+  "ne.login.loading": "正在加载 NE 认证...",
+  "ne.login.submit": "登录",
+  "ne.login.signingIn": "登录中...",
+  "ne.login.unavailable": "NE 认证暂不可用，点击重试。",
+  "ne.login.account.label": "账号",
+  "ne.login.account.placeholder": "邮箱或手机号",
+  "ne.login.password.label": "密码",
+
   "provider.custom.title": "自定义提供商",
   "provider.custom.description.prefix": "配置与 OpenAI 兼容的提供商。请查看",
   "provider.custom.description.link": "提供商配置文档",
@@ -216,6 +226,8 @@ export const dict = {
 
   "provider.disconnect.toast.disconnected.title": "{{provider}} 已断开连接",
   "provider.disconnect.toast.disconnected.description": "{{provider}} 模型已不再可用。",
+  "provider.disable.toast.disabled.title": "{{provider}} 已停用",
+  "provider.disable.toast.disabled.description": "{{provider}} 模型已从 NeCode 中隐藏。",
 
   "model.tag.free": "免费",
   "model.tag.latest": "最新",
@@ -803,8 +815,11 @@ export const dict = {
 
   "settings.providers.title": "提供商",
   "settings.providers.description": "提供商设置将在此处可配置。",
-  "settings.providers.section.connected": "已连接的提供商",
-  "settings.providers.connected.empty": "没有已连接的提供商",
+  "settings.providers.section.connected": "已启用的提供商",
+  "settings.providers.connected.empty": "没有已启用的提供商",
+  "settings.providers.connected.neAccount": "已登录为 {{account}}",
+  "settings.providers.action.disable": "停用",
+  "settings.providers.action.signOut": "退出登录",
   "settings.providers.section.popular": "热门提供商",
   "settings.providers.tag.environment": "环境",
   "settings.providers.tag.config": "配置",
