@@ -123,7 +123,7 @@ function* decodeDocument(path: string, text: string) {
     return yield* new ParseError({ path, message: `Invalid JSONC: ${message}`, cause: errors })
   }
   if (!isRecord(data)) return yield* invalidStructure(path, "Configuration root must be an object", data)
-  if (data.mcp === undefined) return { path, text, mcp: Object.create(null) as Record<string, ConfigMCPV1.Info> }
+  if (!Object.hasOwn(data, "mcp")) return { path, text, mcp: Object.create(null) as Record<string, ConfigMCPV1.Info> }
   if (!isRecord(data.mcp)) return yield* invalidStructure(path, 'Configuration field "mcp" must be an object', data.mcp)
 
   const tree = parseTree(text)

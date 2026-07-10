@@ -141,4 +141,41 @@ describe("MCPConfigFile", () => {
       expect(Object.hasOwn(after.mcp, "other")).toBe(false)
     }),
   )
+
+  test(
+    "ignores an inherited root mcp and preserves the top-level __proto__ property",
+    Effect.gen(function* () {
+      const fs = yield* FSUtil.Service
+      const tmp = yield* fs.makeTempDirectoryScoped()
+      const source = path.join(tmp, "opencode.jsonc")
+      yield* fs.writeFileString(
+        source,
+        `{
+  "__proto__": {
+    "mcp": {
+      "shadow": { "type": "remote", "url": "https://example.com/shadow" }
+    }
+  },
+  "theme": "necode"
+}`,
+      )
+
+      const before = yield* MCPConfigFile.read({ fs, path: source })
+      expect(Object.keys(before.mcp)).toEqual([])
+
+      yield* MCPConfigFile.set({
+        fs,
+        path: source,
+        name: "remote",
+        config: { type: "remote", url: "https://example.com/mcp" },
+      })
+
+      const text = yield* fs.readFileString(source)
+      expect(text).toContain('"__proto__"')
+      expect(parse(text).theme).toBe("necode")
+      const after = yield* MCPConfigFile.read({ fs, path: source })
+      expect(Object.hasOwn(after.mcp, "remote")).toBe(true)
+      expect(Object.hasOwn(after.mcp, "shadow")).toBe(false)
+    }),
+  )
 })
