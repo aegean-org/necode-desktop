@@ -96,6 +96,48 @@ describe("desktop MCP form model", () => {
     expect(headers.errors.headers).toEqual({ 0: "duplicate", 1: "duplicate" })
   })
 
+  test("preserves special JavaScript property names in environment variables", () => {
+    const result = validateMcpForm(
+      local({
+        environment: [
+          { key: "__proto__", value: "prototype" },
+          { key: "constructor", value: "construct" },
+          { key: "toString", value: "stringify" },
+        ],
+      }),
+      [],
+    )
+    expect(result.errors).toEqual({})
+    const config = result.result?.config
+    expect(config?.type).toBe("local")
+    if (config?.type !== "local") throw new Error("Expected local MCP config")
+    expect(Object.hasOwn(config.environment!, "__proto__")).toBe(true)
+    expect(config.environment?.["__proto__"]).toBe("prototype")
+    expect(config.environment?.["constructor"]).toBe("construct")
+    expect(config.environment?.["toString"]).toBe("stringify")
+  })
+
+  test("preserves special JavaScript property names in remote headers", () => {
+    const result = validateMcpForm(
+      remote({
+        headers: [
+          { key: "__proto__", value: "prototype" },
+          { key: "constructor", value: "construct" },
+          { key: "toString", value: "stringify" },
+        ],
+      }),
+      [],
+    )
+    expect(result.errors).toEqual({})
+    const config = result.result?.config
+    expect(config?.type).toBe("remote")
+    if (config?.type !== "remote") throw new Error("Expected remote MCP config")
+    expect(Object.hasOwn(config.headers!, "__proto__")).toBe(true)
+    expect(config.headers?.["__proto__"]).toBe("prototype")
+    expect(config.headers?.["constructor"]).toBe("construct")
+    expect(config.headers?.["toString"]).toBe("stringify")
+  })
+
   test("validates HTTP URLs, positive timeouts, redirect URIs, and callback ports", () => {
     expect(validateMcpForm(remote({ url: "ftp://example.com" }), []).errors.url).toBe("url")
     expect(validateMcpForm(remote({ timeout: "0" }), []).errors.timeout).toBe("positive_integer")
@@ -131,6 +173,13 @@ describe("desktop MCP form model", () => {
   test("rejects builtin entries as edit forms", () => {
     expect(() => createMcpForm(builtinEntry())).toThrow("Builtin MCP entries cannot be edited")
   })
+
+  test("rejects readonly project and global entries as edit forms", () => {
+    expect(() => createMcpForm(readonlyEntry("project", "noteexpress"))).toThrow(
+      "Readonly MCP entries cannot be edited",
+    )
+    expect(() => createMcpForm(readonlyEntry("global", "qingtibase"))).toThrow("Readonly MCP entries cannot be edited")
+  })
 })
 
 function local(input: Partial<McpForm> = {}): McpForm {
@@ -153,6 +202,17 @@ function builtinEntry() {
     id: "builtin",
     name: "noteexpress",
     scope: "builtin",
+    config: { type: "remote", url: "https://example.com/mcp" } satisfies McpRemoteConfig,
+    effective: true,
+    readonly: true,
+  } satisfies McpConfigEntry
+}
+
+function readonlyEntry(scope: "project" | "global", name: "noteexpress" | "qingtibase") {
+  return {
+    id: `${scope}-${name}`,
+    name,
+    scope,
     config: { type: "remote", url: "https://example.com/mcp" } satisfies McpRemoteConfig,
     effective: true,
     readonly: true,

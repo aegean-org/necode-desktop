@@ -64,6 +64,7 @@ export type McpFormValidation = { readonly errors: McpFormErrors; readonly resul
 /** Creates the complete state object for a new or writable existing MCP entry. */
 export function createMcpForm(entry?: McpConfigEntry): McpForm {
   if (entry?.scope === "builtin") throw new Error("Builtin MCP entries cannot be edited")
+  if (entry?.readonly) throw new Error("Readonly MCP entries cannot be edited")
   const config = entry?.config
   const oauth = config?.type === "remote" && config.oauth && typeof config.oauth === "object" ? config.oauth : undefined
   return {
@@ -161,7 +162,7 @@ function validateOAuth(form: McpForm, errors: McpFormErrors): McpRemoteConfig["o
 
 function readKeyValueRows(rows: readonly KeyValueRow[]) {
   const errors: Record<number, McpKeyValueErrorCode> = {}
-  const values: Record<string, string> = {}
+  const values: [string, string][] = []
   const first = new Map<string, number>()
   rows.forEach((row, index) => {
     const key = row.key.trim()
@@ -178,10 +179,10 @@ function readKeyValueRows(rows: readonly KeyValueRow[]) {
       return
     }
     first.set(key.toLowerCase(), index)
-    values[key] = row.value
+    values.push([key, row.value])
   })
   return {
-    ...(Object.keys(values).length > 0 ? { value: values } : {}),
+    ...(values.length > 0 ? { value: Object.fromEntries(values) } : {}),
     ...(Object.keys(errors).length > 0 ? { errors } : {}),
   }
 }
