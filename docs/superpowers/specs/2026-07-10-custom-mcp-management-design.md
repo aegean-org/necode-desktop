@@ -1,213 +1,213 @@
-# Custom MCP Management Design
+# 自定义 MCP 管理设计
 
-## Objective
+## 目标
 
-Add complete custom MCP management to NeCode Settings so users can persist local-command and remote MCP servers at either the current-project or global scope. The existing NoteExpress and Qingti Base integrations remain product-managed and read-only. Connection, disconnection, and OAuth authentication continue to expose real runtime failures.
+在 NeCode 设置中补齐完整的自定义 MCP 管理能力，让用户能够把本地命令型和远程型 MCP 服务持久化到“当前项目”或“全局”作用域。现有的 NoteExpress、Qingti Base 继续由产品管理并保持只读。连接、断开和 OAuth 认证必须继续暴露真实的运行时错误。
 
-## Current State
+## 当前状态
 
-- Settings v2 reads `/mcp` runtime status and can connect, disconnect, or authenticate configured servers.
-- The runtime supports local commands, working directories, environment variables, remote URLs, headers, OAuth, request timeouts, and startup enablement.
-- `POST /mcp` calls `MCP.add`, which mutates only the current instance state. The entry disappears after restart.
-- The CLI already writes MCP entries with `jsonc-parser`, but that path is embedded in the interactive command and only supports creation.
-- Project configuration is loaded from `opencode.json` / `opencode.jsonc` discovery paths. The generic project `Config.update` writes `config.json`, so it is not a valid persistence boundary for this feature.
-- NoteExpress and Qingti Base are injected by the NeCode plugin and are currently distinguished only by app-side display metadata.
+- 设置 v2 已通过 `/mcp` 读取运行状态，并能连接、断开或认证已经配置的 MCP 服务。
+- 运行时已支持本地命令、工作目录、环境变量、远程 URL、请求头、OAuth、请求超时和启动启用状态。
+- `POST /mcp` 调用 `MCP.add`，只修改当前实例的内存状态，重启后配置会丢失。
+- CLI 已使用 `jsonc-parser` 写入 MCP 配置，但相关逻辑内嵌在交互命令中，而且只支持新增。
+- 项目配置通过 `opencode.json` / `opencode.jsonc` 发现路径加载。通用项目接口 `Config.update` 写入的是 `config.json`，不能作为本功能的持久化边界。
+- NoteExpress 和 Qingti Base 由 NeCode 插件注入，目前只在应用侧通过展示元数据进行区分。
 
-## Product Decisions
+## 产品决策
 
-### Settings layout
+### 设置页布局
 
-The MCP tab header includes an `Add MCP` action. The list keeps product-managed integrations first, followed by user-defined entries sorted by display name.
+MCP 设置页标题区增加“添加 MCP”操作。列表先显示产品内置项，再按展示名称排列用户自定义项。
 
-Each row shows:
+每一行展示：
 
-- display name;
-- scope badge: `Current project`, `Global`, or `Built in`;
-- connection status and an explicit error message when present;
-- connect/disconnect switch or OAuth authenticate action;
-- an overflow menu for editable custom entries.
+- 展示名称；
+- 作用域标签：“当前项目”“全局”或“内置”；
+- 连接状态，以及存在错误时的明确错误信息；
+- 连接/断开开关，或 OAuth 认证按钮；
+- 自定义项的更多操作菜单。
 
-The overflow menu contains `Edit` and `Remove`. Removal requires confirmation and identifies the scope being changed. Built-in rows never expose edit or remove actions, but they retain connection and authentication controls.
+更多操作菜单包含“编辑”和“移除”。移除前必须二次确认，并明确将修改哪个作用域。内置项不显示编辑和移除操作，但保留连接和认证能力。
 
-### Add and edit dialog
+### 添加和编辑对话框
 
-The dialog uses Settings v2 controls and contains a type selector with `Local command` and `Remote URL`.
+对话框复用设置 v2 的控件，并提供“本地命令”和“远程 URL”两种类型。
 
-Common fields:
+通用字段：
 
-- name;
-- scope, selectable when creating and read-only when editing;
-- request timeout in milliseconds;
-- enabled on startup.
+- 名称；
+- 作用域：新增时可选，编辑时只读；
+- 请求超时，单位为毫秒；
+- 启动时启用。
 
-Local fields:
+本地类型字段：
 
-- command as an argument list, not a shell string;
-- optional working directory;
-- repeatable environment variable key/value rows.
+- 命令参数列表，不使用单个 Shell 字符串；
+- 可选工作目录；
+- 可重复添加的环境变量键值行。
 
-Remote fields:
+远程类型字段：
 
-- URL;
-- repeatable HTTP header key/value rows;
-- OAuth mode: automatic detection, explicit configuration, or disabled;
-- optional OAuth client ID, client secret, scope, callback port, and redirect URI when explicit configuration is selected.
+- URL；
+- 可重复添加的 HTTP Header 键值行；
+- OAuth 模式：自动检测、显式配置或禁用；
+- 选择显式配置时，可填写 OAuth Client ID、Client Secret、Scope、回调端口和 Redirect URI。
 
-Edit loads the exact persisted configuration represented by the selected row. Changing type replaces fields belonging only to the previous type after confirmation in the dialog. Secrets are not logged or included in toast text.
+编辑时加载所选列表项对应的真实持久化配置。切换类型时，对话框需要确认并清除旧类型专属字段。密钥不得写入日志或 Toast 文案。
 
-### Names and scope
+### 名称和作用域
 
-MCP names use the same portable identifier rule as other user-configured integrations: lowercase letters, digits, hyphens, and underscores, beginning with a letter or digit.
+MCP 名称使用可跨平台的标识符规则：仅允许小写字母、数字、连字符和下划线，并且必须以字母或数字开头。
 
-`noteexpress` and `qingtibase` are reserved product IDs. Create, rename, update, and remove requests targeting either ID fail with an explicit validation error, even if a user has manually placed such an entry in a configuration file. Manually configured reserved entries remain loadable but are displayed as read-only product entries.
+`noteexpress` 和 `qingtibase` 是产品保留 ID。任何针对这两个 ID 的新增、重命名、更新或移除请求都必须返回明确的校验错误。即使用户手动在配置文件中写入了同名条目，也允许正常加载，但界面仍将其显示为只读产品项。
 
-Creating a name that already exists in any discovered file for the selected scope fails. A project entry may share a name with a global entry because project configuration has higher precedence. When this occurs, both configurations remain visible:
+如果所选作用域内任一已发现配置文件存在同名条目，新增请求失败。项目配置允许和全局配置同名，因为项目配置优先级更高。发生重名时，两条配置都显示：
 
-- the project row is marked effective and owns runtime connection controls;
-- the global row is marked `Overridden by project` and keeps edit/remove actions but has no connection control.
+- 项目条目标记为当前生效，并拥有运行时连接控制；
+- 全局条目标记为“已被项目配置覆盖”，保留编辑和移除操作，但不显示连接控制。
 
-Editing cannot move an entry between scopes. Moving is an explicit remove-and-create operation, which avoids a partially completed two-file mutation.
+编辑不能直接移动作用域。移动配置需要显式执行“移除后重新创建”，避免一次操作跨两个文件写入而产生半完成状态。
 
-## Architecture
+## 架构
 
-### Persistent configuration service
+### 持久化配置服务
 
-Create a focused MCP configuration service in the runtime. It owns:
+在运行时新增职责单一的 MCP 配置服务，负责：
 
-- resolving the global and current-project MCP config files;
-- reading the `mcp` object from each file independently;
-- validating names and MCP schemas;
-- creating, updating, renaming, and removing one scoped entry;
-- preserving JSONC comments and unrelated formatting with `jsonc-parser` edits;
-- assigning an opaque entry ID to each discovered source/name pair;
-- returning scope, source path, effective state, and read-only metadata.
+- 解析全局和当前项目的 MCP 配置文件；
+- 分别读取每个文件中的 `mcp` 对象；
+- 校验名称和 MCP Schema；
+- 创建、更新、重命名和移除指定作用域的单个条目；
+- 使用 `jsonc-parser` 保留 JSONC 注释和无关格式；
+- 为每个“配置来源 + 名称”生成不透明条目 ID；
+- 返回作用域、来源路径、生效状态和只读元数据。
 
-The CLI MCP command delegates its config-file resolution and write behavior to this service instead of maintaining a second persistence implementation.
+CLI 的 MCP 命令改为复用该服务的配置路径解析和写入逻辑，不再维护第二套持久化实现。
 
-The service discovers every supported global and current-project config source that contributes MCP configuration. Existing entries are edited or removed from their exact source file through the opaque entry ID; the API never accepts an arbitrary filesystem path from the client.
+服务发现所有会影响当前项目的受支持全局和项目配置来源。编辑或移除已有条目时，通过不透明条目 ID 定位到真实来源文件；API 不接受客户端传入任意文件系统路径。
 
-Create-target selection is deterministic:
+新增配置的目标文件选择规则必须确定：
 
-- global scope writes the highest-precedence existing global `opencode.jsonc` / `opencode.json` file and creates `<global-config>/opencode.json` when neither exists;
-- project scope writes the highest-precedence existing `opencode.jsonc` / `opencode.json` source inside the current worktree and creates `<worktree>/opencode.json` when none exists;
-- the service never writes project MCP data to `config.json`.
+- 全局作用域写入优先级最高的现有全局 `opencode.jsonc` / `opencode.json`；两者都不存在时创建 `<global-config>/opencode.json`；
+- 项目作用域写入当前工作树内优先级最高的现有 `opencode.jsonc` / `opencode.json`；不存在时创建 `<worktree>/opencode.json`；
+- 项目 MCP 配置绝不写入 `config.json`。
 
-Malformed JSONC, schema errors, inaccessible paths, and write failures fail the request. No in-memory-only fallback is allowed.
+JSONC 格式损坏、Schema 不合法、路径不可访问或写入失败时，请求必须失败。禁止降级成仅内存生效。
 
 ### HTTP API
 
-Add typed persistent-management endpoints beside the existing runtime MCP endpoints:
+在现有 MCP 运行时接口旁新增类型化的持久化管理接口：
 
-- `GET /mcp/config`: list built-in and scoped custom entries with source/effective metadata;
-- `POST /mcp/config`: create one scoped entry;
-- `PUT /mcp/config/:entryID`: update or rename the exact persisted entry within its existing scope;
-- `DELETE /mcp/config/:entryID`: remove the exact persisted entry.
+- `GET /mcp/config`：列出内置项和各作用域自定义项，并返回来源与生效状态；
+- `POST /mcp/config`：创建一个指定作用域的条目；
+- `PUT /mcp/config/:entryID`：在原作用域内更新或重命名指定持久化条目；
+- `DELETE /mcp/config/:entryID`：移除指定持久化条目。
 
-Mutation payloads use the existing v1 MCP config schema used by `/mcp`, including camelCase OAuth fields. Scope is an explicit `project | global` value. Responses return the refreshed configuration list rather than an optimistic echo.
+写操作继续使用 `/mcp` 所用的 v1 MCP 配置 Schema，包括 camelCase OAuth 字段。作用域必须显式传递 `project | global`。响应返回重新读取后的配置列表，而不是乐观回显请求内容。
 
-The existing `POST /mcp` remains a runtime-only API and is not used by Settings. Its documentation must continue to describe its non-persistent behavior so callers cannot mistake it for saved configuration.
+现有 `POST /mcp` 保持为仅运行时接口，设置页不使用它。接口文档必须明确说明该操作不会持久化，避免调用方将其误认为保存配置。
 
-### Instance refresh
+### 实例刷新
 
-After a successful disk mutation, the handler marks the current instance for disposal using the existing configuration-update lifecycle. The response is produced from the persisted file state; the next instance-bound request rebuilds Config and MCP services from disk.
+磁盘写入成功后，处理器使用现有配置更新生命周期，将当前实例标记为待销毁。响应数据来自已经持久化的文件；下一个实例请求会从磁盘重新构建 Config 和 MCP 服务。
 
-The app then invalidates both MCP configuration and status queries. It does not call `MCP.add` as a fallback. Consequently:
+应用随后同时失效 MCP 配置查询和状态查询，不允许调用 `MCP.add` 作为降级路径。因此：
 
-- a newly enabled entry is connected by the reloaded runtime;
-- a disabled entry returns as disabled;
-- an edited or removed entry cannot leave a stale MCP client behind;
-- a persistence failure leaves the current runtime untouched and visibly fails.
+- 新增且启用的条目由重载后的运行时连接；
+- 禁用条目重载后保持禁用；
+- 被编辑或移除的条目不会遗留旧 MCP Client；
+- 持久化失败时，当前运行时保持不变，并明确显示失败。
 
-### App model
+### 应用模型
 
-Add an app-side MCP management model that joins configuration entries with the runtime status map by effective server name. It owns:
+新增应用侧 MCP 管理模型，按生效服务名称把配置条目与运行状态合并，负责：
 
-- built-in ordering and display names;
-- row identity from the server-provided opaque entry ID;
-- effective/overridden state;
-- form-to-API payload conversion;
-- validation errors for name, URL, command arguments, key/value rows, timeout, callback port, and redirect URI.
+- 内置项排序和展示名称；
+- 使用服务端不透明条目 ID 作为行标识；
+- 生效与被覆盖状态；
+- 表单到 API Payload 的转换；
+- 名称、URL、命令参数、键值行、超时、回调端口和 Redirect URI 校验。
 
-The Settings component renders this model and keeps network mutations in focused query/mutation handlers. Form validation is pure and covered independently from dialog rendering.
+设置组件只负责渲染该模型，并把网络写操作放在职责明确的查询和 Mutation 中。表单校验保持为纯函数，并独立于对话框渲染进行测试。
 
-## Data Flow
+## 数据流
 
-### Load
+### 加载
 
-1. Settings requests `/mcp/config` and `/mcp` for the active project directory.
-2. The server reads project and global files separately, adds built-in metadata, and calculates precedence.
-3. The app joins effective entries with runtime status and renders overridden entries without runtime controls.
+1. 设置页针对当前项目目录请求 `/mcp/config` 和 `/mcp`。
+2. 服务端分别读取项目和全局配置文件，加入内置项元数据，并计算配置优先级。
+3. 应用把生效配置和运行状态合并；被覆盖条目不展示运行时控制。
 
-### Create or edit
+### 新增或编辑
 
-1. The dialog validates and submits the explicit scope and MCP configuration.
-2. The server validates the target file and applies JSONC edits.
-3. The server marks the current instance for disposal and returns the persisted configuration list.
-4. The app closes the dialog only after success, invalidates config/status queries, and renders the rebuilt state.
+1. 对话框完成校验后，提交明确的作用域和 MCP 配置。
+2. 服务端校验目标文件并应用 JSONC 修改。
+3. 服务端将当前实例标记为待销毁，并返回持久化后的配置列表。
+4. 应用只在请求成功后关闭对话框，同时失效配置和状态查询，渲染重建后的状态。
 
-### Remove
+### 移除
 
-1. The user confirms the scoped entry removal.
-2. The server removes only `mcp.<name>` from that scope's file.
-3. Empty parent `mcp` objects are removed; unrelated configuration and comments remain.
-4. The instance is refreshed and the app reloads configuration and status.
+1. 用户确认移除指定作用域的条目。
+2. 服务端只移除对应来源文件中的 `mcp.<name>`。
+3. 如果父级 `mcp` 对象已经为空，则一并移除；其他配置和注释保持不变。
+4. 刷新实例，应用重新加载配置和运行状态。
 
-## Validation and Error Handling
+## 校验与错误处理
 
-- Names are trimmed for validation and storage; uppercase input is rejected rather than silently lowercased.
-- Commands require at least one non-empty argument. Arguments are stored exactly as separate array values and are never shell-split by the server.
-- URLs and redirect URIs must be valid HTTP or HTTPS URLs.
-- Environment/header keys must be non-empty and unique case-insensitively within their list; a value may be empty only when the underlying MCP schema permits an intentional empty string.
-- Timeout must be a positive integer. Callback port must be an integer from 1 through 65535.
-- OAuth disabled persists `oauth: false`; automatic detection omits `oauth`; explicit mode persists an OAuth object, including an empty object when dynamic client registration is desired.
-- API failures use typed bad-request/not-found/conflict errors with a user-readable message.
-- The app shows error toasts and keeps the dialog or confirmation open after failure.
-- No errors are swallowed, replaced with mock success, or converted to local-only state.
+- 名称在校验和存储前去除首尾空白；大写输入直接报错，不静默转换为小写。
+- 命令至少包含一个非空参数。参数按独立数组项原样存储，服务端不得按 Shell 规则重新切分。
+- URL 和 Redirect URI 必须是合法的 HTTP 或 HTTPS 地址。
+- 环境变量和 Header 的键不能为空，并在各自列表内按不区分大小写的方式保持唯一；只有底层 MCP Schema 允许显式空字符串时，值才可以为空。
+- Timeout 必须是正整数。回调端口必须是 1 到 65535 的整数。
+- 禁用 OAuth 时持久化 `oauth: false`；自动检测时省略 `oauth`；显式模式持久化 OAuth 对象，需要动态客户端注册时允许保存空对象。
+- API 使用带可读错误信息的类型化 Bad Request、Not Found 和 Conflict 错误。
+- 应用通过错误 Toast 展示失败；失败后保持对话框或确认框打开。
+- 禁止吞掉错误、返回模拟成功或转换为仅本地状态。
 
-## Accessibility
+## 可访问性
 
-- Add, edit, remove, authenticate, and connection controls have translated accessible labels.
-- Overflow menus are keyboard reachable and visible on focus, not hover only.
-- Dynamic key/value rows expose labelled add/remove controls.
-- Validation errors are associated with their input and remain visible until corrected.
-- Password inputs are used for OAuth client secrets.
+- 添加、编辑、移除、认证和连接控件都提供已翻译的可访问标签。
+- 更多操作菜单支持键盘访问，并在获得焦点时显示，不能只依赖 Hover。
+- 动态键值行提供带标签的添加和移除控件。
+- 校验错误与对应输入框关联，并持续显示到问题被修正。
+- OAuth Client Secret 使用密码输入框。
 
-## Testing
+## 测试
 
-### Runtime
+### 运行时
 
-- Resolve existing and default project/global config paths correctly.
-- Preserve JSONC comments while creating, updating, renaming, and removing entries.
-- Never write project MCP configuration to `config.json`.
-- Reject reserved names, duplicates in the same scope, malformed JSONC, invalid schemas, and missing entries.
-- Represent project/global duplicates with correct effective metadata.
-- Mark the instance for disposal only after a successful write.
-- Keep `POST /mcp` explicitly runtime-only.
-- Verify the CLI delegates persistent writes to the shared service.
+- 正确解析已有和默认的项目/全局配置路径。
+- 创建、更新、重命名和移除条目时保留 JSONC 注释。
+- 项目 MCP 配置绝不写入 `config.json`。
+- 拒绝保留名称、同作用域重复名称、损坏的 JSONC、非法 Schema 和不存在的条目。
+- 项目/全局同名时返回正确的生效状态元数据。
+- 仅在写入成功后将实例标记为待销毁。
+- 保持 `POST /mcp` 的“仅运行时”语义和文档。
+- 验证 CLI 复用共享持久化服务。
 
-### App
+### 应用
 
-- Join effective config entries with status and leave overridden rows without connection controls.
-- Keep NoteExpress and Qingti Base first and read-only.
-- Validate local, remote, key/value, OAuth, timeout, and callback-port fields.
-- Serialize all three OAuth modes correctly.
-- Submit explicit scope for create/update/remove and show mutation failures.
-- Render add, edit, remove-confirmation, authentication, and disabled states with accessible labels.
+- 正确合并生效配置与状态，被覆盖行不显示连接控制。
+- NoteExpress 和 Qingti Base 始终排在前面并保持只读。
+- 覆盖本地、远程、键值行、OAuth、超时和回调端口校验。
+- 正确序列化三种 OAuth 模式。
+- 新增、更新和移除都提交明确作用域，并展示 Mutation 失败。
+- 添加、编辑、移除确认、认证和禁用状态均提供可访问标签。
 
-### Verification
+### 验证
 
-- Run focused Bun tests from `packages/opencode` and `packages/app`, with backend test commands limited to 60 seconds.
-- Regenerate the JavaScript SDK with `packages/sdk/js/script/build.ts` after API changes.
-- Run `bun typecheck` from each affected package.
-- Run the app production build.
-- In the current NeCode DEV desktop window, create one project-local command MCP and one global remote MCP, restart NeCode, and verify both persist.
-- Verify edit, remove, enable/disable, headers, environment variables, OAuth authentication, built-in read-only behavior, project/global override presentation, and visible failure handling.
+- 分别从 `packages/opencode` 和 `packages/app` 运行聚焦 Bun 测试，后端测试命令限制在 60 秒内。
+- API 变更后通过 `packages/sdk/js/script/build.ts` 重新生成 JavaScript SDK。
+- 从每个受影响的包目录运行 `bun typecheck`。
+- 运行应用生产构建。
+- 在当前 NeCode DEV 桌面窗口中创建一个项目级本地命令 MCP 和一个全局远程 MCP，重启 NeCode 后确认两者仍然存在。
+- 验证编辑、移除、启用/禁用、Header、环境变量、OAuth 认证、内置项只读、项目/全局覆盖展示和明确的失败反馈。
 
-## Non-Goals
+## 非目标
 
-- A public MCP catalog or one-click marketplace installation.
-- Import/export bundles or bulk MCP editing.
-- Secret-manager integration beyond the existing configuration-file model.
-- Moving entries between scopes in one mutation.
-- Editing product-managed NoteExpress or Qingti Base definitions.
-- Hiding connection, authentication, process, schema, or persistence failures.
+- 公共 MCP 目录或一键市场安装。
+- 配置包导入导出或批量编辑。
+- 超出现有配置文件模型的密钥管理器集成。
+- 在一次写操作中跨作用域移动条目。
+- 编辑产品管理的 NoteExpress 或 Qingti Base 定义。
+- 隐藏连接、认证、进程、Schema 或持久化错误。
