@@ -1,7 +1,7 @@
 import { describe, expect } from "bun:test"
 import path from "node:path"
 import { FSUtil } from "@opencode-ai/core/fs-util"
-import { Effect } from "effect"
+import { Effect, Ref } from "effect"
 import { parse } from "jsonc-parser"
 import { MCPConfigFile } from "@/mcp/config-file"
 import { testEffect } from "../lib/effect"
@@ -43,6 +43,84 @@ describe("MCPConfigFile", () => {
       yield* MCPConfigFile.remove({ fs, path: source, name: "old" })
       yield* MCPConfigFile.remove({ fs, path: source, name: "remote" })
       expect(parse(yield* fs.readFileString(source)).mcp).toBeUndefined()
+    }),
+  )
+
+  test(
+    "renames an entry with one write while preserving JSONC comments",
+    Effect.gen(function* () {
+      const fs = yield* FSUtil.Service
+      const tmp = yield* fs.makeTempDirectoryScoped()
+      const source = path.join(tmp, "opencode.jsonc")
+      yield* fs.writeFileString(
+        source,
+        `{
+  // keep this comment
+  "theme": "necode",
+  "mcp": {
+    "old": { "type": "local", "command": ["echo", "old"] }
+  }
+}`,
+      )
+      const writes = yield* Ref.make(0)
+      const tracked = FSUtil.Service.of({
+        ...fs,
+        writeWithDirs: (target, content, mode) =>
+          Ref.update(writes, (count) => count + 1).pipe(Effect.andThen(fs.writeWithDirs(target, content, mode))),
+      })
+
+      yield* MCPConfigFile.rename({
+        fs: tracked,
+        path: source,
+        from: "old",
+        to: "renamed",
+        config: { type: "remote", url: "https://example.com/renamed" },
+      })
+
+      expect(yield* Ref.get(writes)).toBe(1)
+      const text = yield* fs.readFileString(source)
+      expect(text).toContain("// keep this comment")
+      expect(parse(text).theme).toBe("necode")
+      expect(parse(text).mcp).toEqual({
+        renamed: { type: "remote", url: "https://example.com/renamed" },
+      })
+    }),
+  )
+
+  test(
+    "rejects rename when the old key is missing or the new key exists",
+    Effect.gen(function* () {
+      const fs = yield* FSUtil.Service
+      const tmp = yield* fs.makeTempDirectoryScoped()
+      const source = path.join(tmp, "opencode.jsonc")
+      yield* fs.writeFileString(
+        source,
+        JSON.stringify({
+          mcp: {
+            old: { type: "local", command: ["echo", "old"] },
+            taken: { type: "local", command: ["echo", "taken"] },
+          },
+        }),
+      )
+
+      const missing = yield* MCPConfigFile.rename({
+        fs,
+        path: source,
+        from: "missing",
+        to: "renamed",
+        config: { type: "local", command: ["echo", "renamed"] },
+      }).pipe(Effect.flip)
+      expect(missing._tag).toBe("MCPConfigFile.NotFoundError")
+
+      const conflict = yield* MCPConfigFile.rename({
+        fs,
+        path: source,
+        from: "old",
+        to: "taken",
+        config: { type: "local", command: ["echo", "renamed"] },
+      }).pipe(Effect.flip)
+      expect(conflict._tag).toBe("MCPConfigFile.ConflictError")
+      expect(conflict).toMatchObject({ path: source, name: "taken" })
     }),
   )
 

@@ -56,6 +56,46 @@ export const set = Effect.fn("MCPConfigFile.set")(function* (input: {
   )
 })
 
+/** Renames one MCP entry with a single JSONC edit and filesystem write. */
+export const rename = Effect.fn("MCPConfigFile.rename")(function* (input: {
+  fs: FSUtil.Interface
+  path: string
+  from: string
+  to: string
+  config: ConfigMCPV1.Info
+}) {
+  const document = yield* read(input)
+  if (!Object.hasOwn(document.mcp, input.from)) {
+    return yield* new NotFoundError({
+      path: input.path,
+      name: input.from,
+      message: `MCP entry "${input.from}" does not exist in ${input.path}`,
+    })
+  }
+  if (input.from !== input.to && Object.hasOwn(document.mcp, input.to)) {
+    return yield* new ConflictError({
+      path: input.path,
+      name: input.to,
+      message: `MCP entry "${input.to}" already exists in ${input.path}`,
+    })
+  }
+  const removed =
+    input.from === input.to
+      ? document.text
+      : applyEdits(document.text, modify(document.text, ["mcp", input.from], undefined, FORMATTING))
+  const next = applyEdits(removed, modify(removed, ["mcp", input.to], input.config, FORMATTING))
+  yield* input.fs.writeWithDirs(input.path, next).pipe(
+    Effect.mapError(
+      (cause) =>
+        new WriteError({
+          path: input.path,
+          message: `Unable to write MCP config file: ${describeCause(cause)}`,
+          cause,
+        }),
+    ),
+  )
+})
+
 /** Removes one MCP entry and removes the parent object when it becomes empty. */
 export const remove = Effect.fn("MCPConfigFile.remove")(function* (input: {
   fs: FSUtil.Interface
@@ -108,6 +148,13 @@ export class WriteError extends Schema.TaggedErrorClass<WriteError>()("MCPConfig
 
 /** An attempted removal of an MCP entry that is not present. */
 export class NotFoundError extends Schema.TaggedErrorClass<NotFoundError>()("MCPConfigFile.NotFoundError", {
+  path: Schema.String,
+  name: Schema.String,
+  message: Schema.String,
+}) {}
+
+/** An attempted rename whose destination MCP name is already present. */
+export class ConflictError extends Schema.TaggedErrorClass<ConflictError>()("MCPConfigFile.ConflictError", {
   path: Schema.String,
   name: Schema.String,
   message: Schema.String,

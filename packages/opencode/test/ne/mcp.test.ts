@@ -1,5 +1,12 @@
 import { expect, test } from "bun:test"
-import { withNeDefaultMcp } from "../../src/ne/mcp"
+import { BUILTIN_MCP_NAMES, isBuiltinMcp, withNeDefaultMcp } from "../../src/ne/mcp"
+
+test("exports the stable builtin MCP names", () => {
+  expect(BUILTIN_MCP_NAMES).toEqual(["noteexpress", "qingtibase"])
+  expect(isBuiltinMcp("noteexpress")).toBe(true)
+  expect(isBuiltinMcp("qingtibase")).toBe(true)
+  expect(isBuiltinMcp("custom")).toBe(false)
+})
 
 test("withNeDefaultMcp adds NoteExpress and Qingti servers", () => {
   const result = withNeDefaultMcp({}, "win32", "x64")
@@ -41,4 +48,10 @@ test("withNeDefaultMcp does not overwrite user-defined servers", () => {
     command: ["custom-ne"],
   })
   expect(result.qingtibase).toBeDefined()
+})
+
+test("withNeDefaultMcp preserves user server order before missing builtins", () => {
+  const result = withNeDefaultMcp({ custom: { type: "local", command: ["custom"] } }, "win32", "x64")
+
+  expect(Object.keys(result)).toEqual(["custom", "noteexpress", "qingtibase"])
 })
