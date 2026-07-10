@@ -1,15 +1,15 @@
 import type { SkillV2Info } from "@opencode-ai/sdk/v2/client"
-import { useFilteredList } from "@opencode-ai/ui/hooks"
 import { Tag } from "@opencode-ai/ui/v2/badge-v2"
 import { Icon } from "@opencode-ai/ui/v2/icon"
 import { IconButtonV2 } from "@opencode-ai/ui/v2/icon-button-v2"
 import { TextInputV2 } from "@opencode-ai/ui/v2/text-input-v2"
 import { useQuery } from "@tanstack/solid-query"
-import { type Accessor, createMemo, For, Show } from "solid-js"
+import { createMemo, createSignal, For, Show } from "solid-js"
 import { useLanguage } from "@/context/language"
 import { useServer } from "@/context/server"
 import { useServerSDK } from "@/context/server-sdk"
 import { SettingsListV2 } from "./parts/list"
+import { filterSettingsSkills, loadSettingsSkills } from "./skills-model"
 import "./settings-v2.css"
 
 type Translate = (key: string) => string
@@ -22,25 +22,21 @@ export function SettingsSkillsV2() {
   const server = useServer()
   const serverSDK = useServerSDK()
   const directory = createMemo(() => server.projects.last() ?? server.projects.list()[0]?.worktree)
+  const [filter, setFilter] = createSignal("")
   const skills = useQuery(() => ({
-    queryKey: [serverSDK().scope, directory(), "settings", "skills"] as const,
+    queryKey: [serverSDK().scope, directory(), "settings", "runtime-skills"] as const,
     enabled: !!directory(),
-    queryFn: () => skillList(directory, serverSDK),
+    queryFn: () => loadSettingsSkills(directory(), serverSDK().client),
   }))
-  const list = useFilteredList<SkillV2Info>({
-    items: () => skills.data ?? [],
-    key: (item) => `${item.location}:${item.name}`,
-    filterKeys: ["name", "description", "location"],
-    sortBy: (a, b) => a.name.localeCompare(b.name),
-  })
+  const items = createMemo(() => filterSettingsSkills(skills.data ?? [], filter()))
 
   return (
     <>
-      <SettingsSkillsHeader t={language.t} filter={list.filter()} onInput={list.onInput} onClear={list.clear} />
+      <SettingsSkillsHeader t={language.t} filter={filter()} onInput={setFilter} onClear={() => setFilter("")} />
       <SettingsSkillsBody
         directory={directory()}
-        filter={list.filter()}
-        items={list.flat()}
+        filter={filter()}
+        items={items()}
         loading={skills.isLoading}
         t={language.t}
       />
@@ -151,12 +147,4 @@ function SettingsSkillRow(props: { item: SkillV2Info; t: Translate }) {
       </div>
     </div>
   )
-}
-
-async function skillList(directory: Accessor<string | undefined>, serverSDK: ReturnType<typeof useServerSDK>) {
-  const current = directory()
-  if (!current) throw new Error("No project directory available for Skill list")
-  const result = await serverSDK().client.v2.skill.list({ location: { directory: current } })
-  if (!result.data) throw new Error("Skill list response missing data")
-  return result.data.data
 }

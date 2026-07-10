@@ -563,6 +563,7 @@ export const SessionInfo = Schema.Struct({
     created: NonNegativeInt,
     updated: NonNegativeInt,
     compacting: optionalOmitUndefined(NonNegativeInt),
+    pinned: optionalOmitUndefined(Schema.Finite),
     archived: optionalOmitUndefined(Schema.Finite),
   }),
   permission: optionalOmitUndefined(PermissionV1.Ruleset),

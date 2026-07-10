@@ -207,6 +207,7 @@ export type Session = {
     created: number
     updated: number
     compacting?: number
+    pinned?: number
     archived?: number
   }
   permission?: PermissionRuleset
@@ -2252,6 +2253,7 @@ export type GlobalSession = {
     created: number
     updated: number
     compacting?: number
+    pinned?: number
     archived?: number
   }
   permission?: PermissionRuleset
@@ -3731,6 +3733,7 @@ export type SessionV2Info = {
   time: {
     created: number
     updated: number
+    pinned?: number
     archived?: number
   }
   title: string
@@ -7708,7 +7711,8 @@ export type SessionUpdateData = {
     }
     permission?: PermissionRuleset
     time?: {
-      archived?: number
+      archived?: number | null
+      pinned?: number | null
     }
   }
   path: {

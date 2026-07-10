@@ -65,6 +65,7 @@ import { useSettings } from "@/context/settings"
 import { useSDK } from "@/context/sdk"
 import { useSync } from "@/context/sync"
 import { notifySessionTabsRemoved } from "@/components/titlebar-session-events"
+import { createSessionManagement } from "@/pages/session/session-management"
 import { messageAgentColor } from "@/utils/agent"
 import { sessionTitle } from "@/utils/session-title"
 import { makeTimer } from "@solid-primitives/timer"
@@ -258,6 +259,7 @@ export function MessageTimeline(props: {
   const navigate = useNavigate()
   const serverSDK = useServerSDK()
   const sdk = useSDK()
+  const sessionManagement = () => createSessionManagement({ client: sdk().client, directory: sdk().directory })
   const sync = useSync()
   const settings = useSettings()
   const dialog = useDialog()
@@ -776,25 +778,23 @@ export function MessageTimeline(props: {
     const index = sessions.findIndex((s) => s.id === sessionID)
     const nextSession = index === -1 ? undefined : (sessions[index + 1] ?? sessions[index - 1])
 
-    await sdk()
-      .client.session.update({ sessionID, time: { archived: Date.now() } })
-      .then(() => {
-        sync().set(
-          produce((draft) => {
-            const index = draft.session.findIndex((s) => s.id === sessionID)
-            if (index !== -1) draft.session.splice(index, 1)
-          }),
-        )
-        sync().session.evict(sessionID)
-        navigateAfterSessionRemoval(sessionID, session.parentID, nextSession?.id)
-        notifySessionTabsRemoved({ directory: sdk().directory, sessionIDs: [sessionID] })
+    try {
+      await sessionManagement().archive(sessionID)
+      sync().set(
+        produce((draft) => {
+          const index = draft.session.findIndex((s) => s.id === sessionID)
+          if (index !== -1) draft.session.splice(index, 1)
+        }),
+      )
+      sync().session.evict(sessionID)
+      navigateAfterSessionRemoval(sessionID, session.parentID, nextSession?.id)
+      notifySessionTabsRemoved({ directory: sdk().directory, sessionIDs: [sessionID] })
+    } catch (error) {
+      showToast({
+        title: language.t("common.requestFailed"),
+        description: errorMessage(error),
       })
-      .catch((err) => {
-        showToast({
-          title: language.t("common.requestFailed"),
-          description: errorMessage(err),
-        })
-      })
+    }
   }
 
   const deleteSession = async (sessionID: string) => {
@@ -805,18 +805,15 @@ export function MessageTimeline(props: {
     const index = sessions.findIndex((s) => s.id === sessionID)
     const nextSession = index === -1 ? undefined : (sessions[index + 1] ?? sessions[index - 1])
 
-    const result = await sdk()
-      .client.session.delete({ sessionID })
-      .then((x) => x.data)
-      .catch((err) => {
-        showToast({
-          title: language.t("session.delete.failed.title"),
-          description: errorMessage(err),
-        })
-        return false
+    try {
+      await sessionManagement().remove(sessionID)
+    } catch (error) {
+      showToast({
+        title: language.t("session.delete.failed.title"),
+        description: errorMessage(error),
       })
-
-    if (!result) return false
+      return false
+    }
 
     const removed = new Set<string>([sessionID])
     const byParent = new Map<string, string[]>()
@@ -872,8 +869,7 @@ export function MessageTimeline(props: {
       () => sessionTitle(sync().session.get(props.sessionID)?.title) ?? language.t("command.session.new"),
     )
     const handleDelete = async () => {
-      await deleteSession(props.sessionID)
-      dialog.close()
+      if (await deleteSession(props.sessionID)) dialog.close()
     }
 
     return (

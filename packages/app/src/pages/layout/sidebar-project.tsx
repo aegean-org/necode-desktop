@@ -177,7 +177,7 @@ const ProjectTile = (props: {
             data-project={base64Encode(props.project.worktree)}
             onSelect={() => props.closeProject(props.project.worktree)}
           >
-            <ContextMenu.ItemLabel>{props.language.t("common.close")}</ContextMenu.ItemLabel>
+            <ContextMenu.ItemLabel>{props.language.t("project.removeFromNecode")}</ContextMenu.ItemLabel>
           </ContextMenu.Item>
         </ContextMenu.Content>
       </ContextMenu.Portal>

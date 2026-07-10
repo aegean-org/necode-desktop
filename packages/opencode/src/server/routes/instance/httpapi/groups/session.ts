@@ -46,13 +46,15 @@ export const MessagesQuery = Schema.Struct({
   before: Schema.optional(Schema.String),
 })
 export const StatusMap = Schema.Record(Schema.String, SessionStatus.Info)
+const NullableSessionTimestamp = Schema.Union([Session.ArchivedTimestamp, Schema.Null])
 export const UpdatePayload = Schema.Struct({
   title: Schema.optional(Schema.String),
   metadata: Schema.optional(Session.Metadata),
   permission: Schema.optional(PermissionV1.Ruleset),
   time: Schema.optional(
     Schema.Struct({
-      archived: Schema.optional(Session.ArchivedTimestamp),
+      archived: Schema.optional(NullableSessionTimestamp),
+      pinned: Schema.optional(NullableSessionTimestamp),
     }),
   ),
 })

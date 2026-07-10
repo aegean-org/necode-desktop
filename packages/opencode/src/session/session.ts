@@ -108,6 +108,7 @@ export function fromRow(row: SessionRow): Info {
       created: row.time_created,
       updated: row.time_updated,
       compacting: row.time_compacting ?? undefined,
+      pinned: row.time_pinned ?? undefined,
       archived: row.time_archived ?? undefined,
     },
   }
@@ -142,8 +143,9 @@ export function toRow(info: Info) {
     permission: info.permission,
     time_created: info.time.created,
     time_updated: info.time.updated,
-    time_compacting: info.time.compacting,
-    time_archived: info.time.archived,
+    time_compacting: info.time.compacting ?? null,
+    time_pinned: info.time.pinned ?? null,
+    time_archived: info.time.archived ?? null,
   }
 }
 
@@ -192,6 +194,7 @@ const Time = Schema.Struct({
   created: NonNegativeInt,
   updated: NonNegativeInt,
   compacting: optionalOmitUndefined(NonNegativeInt),
+  pinned: optionalOmitUndefined(ArchivedTimestamp),
   archived: optionalOmitUndefined(ArchivedTimestamp),
 })
 
@@ -271,6 +274,10 @@ export const SetArchivedInput = Schema.Struct({
   sessionID: SessionID,
   time: Schema.optional(ArchivedTimestamp),
 })
+export const SetPinnedInput = Schema.Struct({
+  sessionID: SessionID,
+  time: Schema.optional(ArchivedTimestamp),
+})
 export const SetMetadataInput = Schema.Struct({
   sessionID: SessionID,
   metadata: Metadata,
@@ -322,6 +329,7 @@ const UpdatedTime = Schema.Struct({
   created: Schema.optional(Schema.NullOr(NonNegativeInt)),
   updated: Schema.optional(Schema.NullOr(NonNegativeInt)),
   compacting: Schema.optional(Schema.NullOr(NonNegativeInt)),
+  pinned: Schema.optional(Schema.NullOr(ArchivedTimestamp)),
   archived: Schema.optional(Schema.NullOr(ArchivedTimestamp)),
 })
 
@@ -475,6 +483,7 @@ export interface Interface {
   readonly get: (id: SessionID) => Effect.Effect<Info, NotFound>
   readonly setTitle: (input: { sessionID: SessionID; title: string }) => Effect.Effect<void>
   readonly setArchived: (input: { sessionID: SessionID; time?: number }) => Effect.Effect<void>
+  readonly setPinned: (input: { sessionID: SessionID; time?: number }) => Effect.Effect<void>
   readonly setMetadata: (input: typeof SetMetadataInput.Type) => Effect.Effect<void>
   readonly setPermission: (input: { sessionID: SessionID; permission: PermissionV1.Ruleset }) => Effect.Effect<void>
   readonly setRevert: (input: {
@@ -611,7 +620,7 @@ export const layer: Layer.Layer<
               .where(and(...conditions))
           : db.select().from(SessionTable)
       const rows = yield* query
-        .orderBy(desc(SessionTable.time_updated), desc(SessionTable.id))
+        .orderBy(desc(SessionTable.time_pinned), desc(SessionTable.time_updated), desc(SessionTable.id))
         .limit(input?.limit ?? 100)
         .all()
         .pipe(Effect.orDie)
@@ -800,6 +809,10 @@ export const layer: Layer.Layer<
       yield* patch(input.sessionID, { time: { archived: input.time } }).pipe(Effect.orDie)
     })
 
+    const setPinned = Effect.fn("Session.setPinned")(function* (input: { sessionID: SessionID; time?: number }) {
+      yield* patch(input.sessionID, { time: { pinned: input.time } }).pipe(Effect.orDie)
+    })
+
     const setMetadata = Effect.fn("Session.setMetadata")(function* (input: typeof SetMetadataInput.Type) {
       yield* patch(input.sessionID, { metadata: input.metadata, time: { updated: Date.now() } }).pipe(Effect.orDie)
     })
@@ -941,6 +954,7 @@ export const layer: Layer.Layer<
       get,
       setTitle,
       setArchived,
+      setPinned,
       setMetadata,
       setPermission,
       setRevert,
@@ -1035,7 +1049,7 @@ function listByProject(
     .select()
     .from(SessionTable)
     .where(and(...conditions))
-    .orderBy(desc(SessionTable.time_updated))
+    .orderBy(desc(SessionTable.time_pinned), desc(SessionTable.time_updated))
     .limit(limit)
     .all()
     .pipe(
@@ -1084,7 +1098,11 @@ export function* listGlobal(input?: {
             .from(SessionTable)
             .where(and(...conditions))
         : db.select().from(SessionTable)
-    return query.orderBy(desc(SessionTable.time_updated), desc(SessionTable.id)).limit(limit).all().pipe(Effect.orDie)
+    return query
+      .orderBy(desc(SessionTable.time_pinned), desc(SessionTable.time_updated), desc(SessionTable.id))
+      .limit(limit)
+      .all()
+      .pipe(Effect.orDie)
   })
 
   const ids = [...new Set(rows.map((row) => row.project_id))]

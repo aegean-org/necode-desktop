@@ -45,6 +45,7 @@ export function WorkflowEntityRow(props: {
   class?: string
   onSelect?: () => void
 }) {
+  const titlePadding = props.actions ? "pr-16" : ""
   return (
     <div
       data-component="workflow-entity-row"
@@ -54,20 +55,22 @@ export function WorkflowEntityRow(props: {
       <button
         type="button"
         data-component="workflow-entity-row-select"
-        class="flex w-full min-w-0 cursor-default items-start gap-2 border-0 bg-transparent px-3 py-3 pr-10 text-left focus-visible:outline-none"
+        class="flex w-full min-w-0 cursor-default items-start gap-2 border-0 bg-transparent px-3 py-3 text-left focus-visible:outline-none"
         onClick={props.onSelect}
       >
         {props.icon ? <div class="mt-0.5 flex size-4 shrink-0 items-center justify-center">{props.icon}</div> : null}
         <div class="flex min-w-0 flex-1 flex-col gap-1">
-          <div class="flex min-w-0 items-center gap-2">
+          <div class={`flex min-w-0 items-center gap-2 ${titlePadding}`}>
             <span class="min-w-0 flex-1 overflow-hidden text-ellipsis whitespace-nowrap text-[13px] leading-5 text-v2-text-text-base [font-weight:530]">
               {props.title}
             </span>
             {props.badge ? <span class={WORKFLOW_BADGE}>{props.badge}</span> : null}
-            {props.trailing ? <span class="shrink-0 text-[11px] leading-4 text-v2-text-text-muted">{props.trailing}</span> : null}
           </div>
-          {props.subtitle ? (
-            <div class="line-clamp-2 min-w-0 text-[12px] leading-4 text-v2-text-text-muted [font-weight:420]">{props.subtitle}</div>
+          {props.subtitle || props.trailing ? (
+            <div class="flex min-w-0 items-start gap-2 text-[12px] leading-4 text-v2-text-text-muted [font-weight:420]">
+              {props.subtitle ? <div class="line-clamp-2 min-w-0 flex-1">{props.subtitle}</div> : <span class="min-w-0 flex-1" />}
+              {props.trailing ? <span class="shrink-0 text-[11px]">{props.trailing}</span> : null}
+            </div>
           ) : null}
         </div>
       </button>

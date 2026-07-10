@@ -11,15 +11,18 @@ import {
 
 const FILTER_DOT_CLASS = {
   all: "bg-v2-icon-icon-accent",
+  pinned: "bg-v2-icon-icon-warning",
   needs_action: "bg-icon-critical-base",
   running: "bg-icon-info-base",
   recent: "bg-icon-weak-base",
   done: "bg-icon-success-base",
+  archived: "bg-v2-icon-icon-muted",
 } satisfies Record<WorkflowTaskFilter, string>
 
 /** Left-side workflow navigator for OpenCode task/status navigation. */
 export function HomeWorkflowNav(props: {
   tasks: WorkflowTask[]
+  archivedTasks?: WorkflowTask[]
   filter: WorkflowTaskFilter
   onFilter: (filter: WorkflowTaskFilter) => void
 }) {
@@ -47,7 +50,7 @@ export function HomeWorkflowNav(props: {
                 {language.t(workflowFilterTitleKey(filter))}
               </span>
               <span class="shrink-0 text-[11px] leading-4 text-v2-text-text-muted [font-weight:530]">
-                {workflowTaskFilterCount(props.tasks, filter)}
+                {workflowTaskFilterCount(props.tasks, filter, props.archivedTasks)}
               </span>
             </button>
           )}

@@ -49,15 +49,17 @@ import { createSessionComposerState, SessionComposerRegion } from "@/pages/sessi
 import {
   buildWorkflowTasksFromStores,
   filterWorkflowTasks,
+  type WorkflowTask,
   type WorkflowTaskFilter,
   type WorkflowTaskRecord,
 } from "@/pages/home/workflow-task"
-import { displayName, projectForSession, sortedRootSessions } from "@/pages/layout/helpers"
+import { displayName, errorMessage, projectForSession, sortedRootSessions } from "@/pages/layout/helpers"
 import {
   createOpenReviewFile,
   createSessionTabs,
   createSizing,
   focusTerminalById,
+  nextSessionIDAfterRemoval,
   shouldFocusTerminalOnKeyDown,
   shouldCenterSessionContent,
   shouldShowFileTree,
@@ -69,6 +71,7 @@ import { useSessionLayout } from "@/pages/session/session-layout"
 import { useServer } from "@/context/server"
 import { WorkflowSessionSidebar } from "@/pages/session/workflow-session-sidebar"
 import { WorkflowSessionNavigator } from "@/pages/session/workflow-session-navigator"
+import { createSessionManagement } from "@/pages/session/session-management"
 import { syncSessionModel } from "@/pages/session/session-model-helpers"
 import { SessionSidePanel } from "@/pages/session/session-side-panel"
 import { TerminalPanel } from "@/pages/session/terminal-panel"
@@ -285,6 +288,30 @@ export default function Page() {
   }
   const openWorkflowProjectNewSession = (directory: string) => {
     navigate(`/${base64Encode(directory)}/session`)
+  }
+  const navigateAfterWorkflowSessionRemoval = (task: WorkflowTask) => {
+    if (activeWorkflowSessionID() !== task.id) return
+    const nextID = nextSessionIDAfterRemoval(workflowSessionTasks(), task.id)
+    const next = workflowSessionTasks().find((session) => session.id === nextID)
+    if (next) return openWorkflowSession(next.session)
+    openWorkflowProjectNewSession(task.session.directory)
+  }
+  const runWorkflowSessionAction = async (
+    task: WorkflowTask,
+    action: "pin" | "unpin" | "archive" | "restore" | "remove",
+  ) => {
+    try {
+      await createSessionManagement({ client: sdk().client, directory: task.session.directory })[action](task.id)
+      if (action === "archive" || action === "remove") navigateAfterWorkflowSessionRemoval(task)
+      await sessionWorkflowLoad.refetch()
+      return true
+    } catch (error) {
+      showToast({
+        title: language.t("common.requestFailed"),
+        description: errorMessage(error, language.t("common.requestFailed")),
+      })
+      return false
+    }
   }
   const openWorkflowSettings = () => {
     void import("@/components/settings-v2").then((x) => {
@@ -1853,6 +1880,19 @@ export default function Page() {
           loading={sessionWorkflowLoad.isLoading}
           onOpenSession={openWorkflowSession}
           onNewSession={openWorkflowNewSession}
+          onPin={async (task) => {
+            await runWorkflowSessionAction(task, "pin")
+          }}
+          onUnpin={async (task) => {
+            await runWorkflowSessionAction(task, "unpin")
+          }}
+          onArchive={async (task) => {
+            await runWorkflowSessionAction(task, "archive")
+          }}
+          onRestore={async (task) => {
+            await runWorkflowSessionAction(task, "restore")
+          }}
+          onDelete={(task) => runWorkflowSessionAction(task, "remove")}
         />
       }
       center={sessionPanel(true)}

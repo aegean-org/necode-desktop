@@ -65,7 +65,7 @@ describe("Session.Info", () => {
       title: "Full session",
       version: "1.0.0",
       metadata: { source: "test" },
-      time: { created: 100, updated: 200, compacting: 150, archived: 300 },
+      time: { created: 100, updated: 200, compacting: 150, pinned: 250, archived: 300 },
       permission: [{ action: "allow" as const, pattern: "*", permission: "read" }],
       revert: {
         messageID,
@@ -180,6 +180,12 @@ describe("Session input schemas", () => {
 
   test("SetArchivedInput accepts both with and without time", () => {
     const decode = decodeUnknown(Session.SetArchivedInput)
+    expect(decode({ sessionID })).toEqual({ sessionID })
+    expect(decode({ sessionID, time: 123 })).toEqual({ sessionID, time: 123 })
+  })
+
+  test("SetPinnedInput accepts both with and without time", () => {
+    const decode = decodeUnknown(Session.SetPinnedInput)
     expect(decode({ sessionID })).toEqual({ sessionID })
     expect(decode({ sessionID, time: 123 })).toEqual({ sessionID, time: 123 })
   })

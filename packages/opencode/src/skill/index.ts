@@ -24,15 +24,19 @@ const EXTERNAL_SKILL_PATTERN = "skills/**/SKILL.md"
 const OPENCODE_SKILL_PATTERN = "{skill,skills}/**/SKILL.md"
 const SKILL_PATTERN = "**/SKILL.md"
 
-// Built-in skill that ships with opencode. The model's intuition for what an
-// opencode.json should look like is often wrong, and opencode hard-fails on
+// Built-in skill that ships with NeCode. The model's intuition for what a
+// runtime config should look like is often wrong, and the runtime hard-fails on
 // invalid config, so users hit cryptic startup errors. Loading this skill
-// when the model is asked to touch opencode's own config files gives it the
+// when the model is asked to touch NeCode's own config files gives it the
 // actual schemas instead of guesses.
-const CUSTOMIZE_OPENCODE_SKILL_NAME = "customize-opencode"
-const CUSTOMIZE_OPENCODE_SKILL_DESCRIPTION =
-  "Use ONLY when the user is editing or creating opencode's own configuration: opencode.json, opencode.jsonc, files under .opencode/, or files under ~/.config/opencode/. Also use when creating or fixing opencode agents, subagents, skills, plugins, MCP servers, or permission rules. Do not use for the user's own application code, or for any project that is not configuring opencode itself."
-const CUSTOMIZE_OPENCODE_SKILL_BODY = SkillPlugin.CustomizeOpencodeContent
+const CUSTOMIZE_NECODE_SKILL_NAME = "customize-necode"
+const CUSTOMIZE_NECODE_SKILL_DESCRIPTION =
+  "Use ONLY when the user is installing or importing skills, skill packs, or plugins, or editing or creating NeCode configuration, agents, subagents, skills, plugins, MCP servers, or permission rules. Do not use for the user's own application code, or for any project that is not configuring NeCode itself."
+const CUSTOMIZE_NECODE_SKILL_BODY = SkillPlugin.CustomizeNecodeContent
+const SKILL_CATALOG_GUIDANCE = [
+  "The list below is the currently installed skill set, not a fixed or system-predefined catalog.",
+  "A missing skill may still be installable; do not reject an installation request solely because it is absent.",
+]
 
 export const Info = Schema.Struct({
   name: Schema.String,
@@ -275,11 +279,11 @@ export const layer = Layer.effect(
         const s: State = { skills: {}, dirs: new Set() }
         // Register the built-in skill BEFORE disk discovery so a user-disk
         // skill with the same name can override it.
-        s.skills[CUSTOMIZE_OPENCODE_SKILL_NAME] = {
-          name: CUSTOMIZE_OPENCODE_SKILL_NAME,
-          description: CUSTOMIZE_OPENCODE_SKILL_DESCRIPTION,
+        s.skills[CUSTOMIZE_NECODE_SKILL_NAME] = {
+          name: CUSTOMIZE_NECODE_SKILL_NAME,
+          description: CUSTOMIZE_NECODE_SKILL_DESCRIPTION,
           location: "<built-in>",
-          content: CUSTOMIZE_OPENCODE_SKILL_BODY,
+          content: CUSTOMIZE_NECODE_SKILL_BODY,
         }
         yield* loadSkills(s, yield* InstanceState.get(discovered), events)
         return s
@@ -329,9 +333,10 @@ export const defaultLayer = layer.pipe(
 
 export function fmt(list: Info[], opts: { verbose: boolean }) {
   const described = list.filter((skill) => skill.description !== undefined)
-  if (described.length === 0) return "No skills are currently available."
+  if (described.length === 0) return [...SKILL_CATALOG_GUIDANCE, "No skills are currently available."].join("\n")
   if (opts.verbose) {
     return [
+      ...SKILL_CATALOG_GUIDANCE,
       "<available_skills>",
       ...described
         .toSorted((a, b) => a.name.localeCompare(b.name))
@@ -347,6 +352,7 @@ export function fmt(list: Info[], opts: { verbose: boolean }) {
   }
 
   return [
+    ...SKILL_CATALOG_GUIDANCE,
     "## Available Skills",
     ...described
       .toSorted((a, b) => a.name.localeCompare(b.name))

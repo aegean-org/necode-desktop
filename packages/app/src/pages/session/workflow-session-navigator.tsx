@@ -6,6 +6,7 @@ import { DateTime } from "luxon"
 import { For, Show, createMemo } from "solid-js"
 import { WORKFLOW_BADGE, WorkflowEntityList, WorkflowEntityRow, WorkflowPanelHeader } from "@/components/workflow-ui"
 import { useLanguage } from "@/context/language"
+import { WorkflowSessionActions } from "@/pages/session/workflow-session-actions"
 import { sessionTitle } from "@/utils/session-title"
 import { workflowStatusTitleKey, workflowTaskMeta, type WorkflowTask, type WorkflowTaskStatus } from "../home/workflow-task"
 
@@ -16,8 +17,16 @@ const SESSION_STATUS_DOT_CLASS = {
   done: "bg-icon-success-base",
 } satisfies Record<WorkflowTaskStatus, string>
 
+type WorkflowNavigatorActions = {
+  onPin: (task: WorkflowTask) => void | Promise<void>
+  onUnpin: (task: WorkflowTask) => void | Promise<void>
+  onArchive: (task: WorkflowTask) => void | Promise<void>
+  onRestore: (task: WorkflowTask) => void | Promise<void>
+  onDelete: (task: WorkflowTask) => Promise<boolean>
+}
+
 /** Craft-style navigator kept beside the session detail panel. */
-export function WorkflowSessionNavigator(props: {
+export function WorkflowSessionNavigator(props: WorkflowNavigatorActions & {
   tasks: WorkflowTask[]
   activeID: string | undefined
   loading: boolean
@@ -34,12 +43,7 @@ export function WorkflowSessionNavigator(props: {
       aria-label={language.t("session.workflow.title")}
     >
       <WorkflowSessionNavigatorHeader count={props.tasks.length} onNewSession={props.onNewSession} />
-      <WorkflowSessionNavigatorBody
-        tasks={props.tasks}
-        activeID={props.activeID}
-        loading={props.loading}
-        onOpenSession={props.onOpenSession}
-      />
+      <WorkflowSessionNavigatorBody {...props} />
     </aside>
   )
 }
@@ -68,7 +72,7 @@ function WorkflowSessionNavigatorHeader(props: { count: number; onNewSession: ()
   )
 }
 
-function WorkflowSessionNavigatorBody(props: {
+function WorkflowSessionNavigatorBody(props: WorkflowNavigatorActions & {
   tasks: WorkflowTask[]
   activeID: string | undefined
   loading: boolean
@@ -90,9 +94,9 @@ function WorkflowSessionNavigatorBody(props: {
             <For each={props.tasks}>
               {(task) => (
                 <WorkflowSessionRow
+                  {...props}
                   task={task}
                   selected={props.activeID === task.id}
-                  onOpenSession={props.onOpenSession}
                 />
               )}
             </For>
@@ -103,7 +107,7 @@ function WorkflowSessionNavigatorBody(props: {
   )
 }
 
-function WorkflowSessionRow(props: {
+function WorkflowSessionRow(props: WorkflowNavigatorActions & {
   task: WorkflowTask
   selected: boolean
   onOpenSession: (session: Session) => void
@@ -117,6 +121,18 @@ function WorkflowSessionRow(props: {
       title={sessionTitle(props.task.title) || props.task.id}
       subtitle={<WorkflowSessionSubtitle task={props.task} />}
       trailing={DateTime.fromMillis(props.task.updatedAt).toRelative() ?? undefined}
+      actions={
+        <WorkflowSessionActions
+          title={sessionTitle(props.task.title) || props.task.id}
+          pinned={!!props.task.pinnedAt}
+          archived={!!props.task.archivedAt}
+          onPin={() => props.onPin(props.task)}
+          onUnpin={() => props.onUnpin(props.task)}
+          onArchive={() => props.onArchive(props.task)}
+          onRestore={() => props.onRestore(props.task)}
+          onDelete={() => props.onDelete(props.task)}
+        />
+      }
       onSelect={() => props.onOpenSession(props.task.session)}
       class="workflow-session-row"
     />

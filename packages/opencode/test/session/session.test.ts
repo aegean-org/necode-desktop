@@ -127,6 +127,29 @@ describe("session.created event", () => {
   )
 })
 
+describe("session pinned state", () => {
+  it.instance("persists and clears pinned and archived timestamps", () =>
+    Effect.gen(function* () {
+      const session = yield* SessionNs.Service
+      const info = yield* session.create({})
+
+      yield* session.setPinned({ sessionID: info.id, time: 123 })
+      expect((yield* session.get(info.id)).time.pinned).toBe(123)
+
+      yield* session.setArchived({ sessionID: info.id, time: 456 })
+      expect((yield* session.get(info.id)).time.archived).toBe(456)
+
+      yield* session.setPinned({ sessionID: info.id })
+      expect((yield* session.get(info.id)).time.pinned).toBeUndefined()
+
+      yield* session.setArchived({ sessionID: info.id })
+      expect((yield* session.get(info.id)).time.archived).toBeUndefined()
+
+      yield* session.remove(info.id)
+    }),
+  )
+})
+
 describe("step-finish token propagation via event", () => {
   it.instance(
     "non-zero tokens propagate through PartUpdated event",

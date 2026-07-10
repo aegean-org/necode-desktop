@@ -9,6 +9,8 @@ export type WorkflowTask = {
   id: string
   status: WorkflowTaskStatus
   updatedAt: number
+  pinnedAt?: number
+  archivedAt?: number
   session: Session
   project: LocalProject
   projectName: string
@@ -23,12 +25,12 @@ export type WorkflowTask = {
 
 /** Ordered task group used by the home workflow list. */
 export type WorkflowTaskGroup = {
-  id: "needs_action" | "running" | "recent" | "done"
+  id: "pinned" | "needs_action" | "running" | "recent" | "done" | "archived"
   tasks: WorkflowTask[]
 }
 
 /** Left navigation filter for the home workflow view. */
-export type WorkflowTaskFilter = "all" | WorkflowTaskGroup["id"]
+export type WorkflowTaskFilter = "all" | WorkflowTaskGroup["id"] | "archived"
 
 /** Minimal session record needed to build a home workflow task. */
 export type WorkflowTaskRecord = {
@@ -61,17 +63,20 @@ const STATUS_RANK: Record<WorkflowTaskStatus, number> = {
   ready: 2,
   done: 3,
 }
-const GROUP_ORDER = ["needs_action", "running", "recent", "done"] as const
-const FILTER_ORDER = ["all", ...GROUP_ORDER] as const
+const GROUP_ORDER = ["pinned", "needs_action", "running", "recent", "done"] as const satisfies readonly WorkflowTaskGroup["id"][]
+const FILTER_ORDER = ["all", ...GROUP_ORDER, "archived"] as const
 const GROUP_TITLE_KEYS = {
+  pinned: "home.tasks.filter.pinned",
   needs_action: "home.tasks.group.needsAction",
   running: "home.tasks.group.running",
   recent: "home.tasks.group.recent",
   done: "home.tasks.group.done",
+  archived: "home.tasks.filter.archived",
 } satisfies Record<WorkflowTaskGroup["id"], string>
 const FILTER_TITLE_KEYS = {
   all: "home.tasks.filter.all",
   ...GROUP_TITLE_KEYS,
+  archived: "home.tasks.filter.archived",
 } satisfies Record<WorkflowTaskFilter, string>
 const STATUS_TITLE_KEYS = {
   needs_action: "home.tasks.status.needsAction",
@@ -93,7 +98,15 @@ export function buildWorkflowTasks(input: WorkflowTaskInput): WorkflowTask[] {
   return input.records
     .filter((record) => !record.session.parentID && !record.session.time.archived)
     .map((record) => taskFromRecord(record, input))
-    .sort((a, b) => STATUS_RANK[a.status] - STATUS_RANK[b.status] || b.updatedAt - a.updatedAt)
+    .sort(compareWorkflowTasks)
+}
+
+/** Projects archived root sessions for the dedicated archived workflow filter. */
+export function buildArchivedWorkflowTasks(input: WorkflowTaskInput): WorkflowTask[] {
+  return input.records
+    .filter((record) => !record.session.parentID && !!record.session.time.archived)
+    .map((record) => taskFromRecord(record, input))
+    .sort((a, b) => (b.archivedAt ?? 0) - (a.archivedAt ?? 0) || b.updatedAt - a.updatedAt)
 }
 
 /** Projects session records by merging workflow state from all visible directory stores. */
@@ -114,7 +127,7 @@ export function buildWorkflowTasksFromStores(input: {
 export function groupWorkflowTasks(tasks: WorkflowTask[]): WorkflowTaskGroup[] {
   return GROUP_ORDER.map((id) => ({
     id,
-    tasks: tasks.filter((task) => groupID(task.status) === id),
+    tasks: tasks.filter((task) => taskGroupID(task) === id),
   })).filter((group) => group.tasks.length > 0)
 }
 
@@ -124,14 +137,15 @@ export function workflowTaskFilters() {
 }
 
 /** Filters workflow tasks for the selected home navigator item. */
-export function filterWorkflowTasks(tasks: WorkflowTask[], filter: WorkflowTaskFilter) {
+export function filterWorkflowTasks(tasks: WorkflowTask[], filter: WorkflowTaskFilter, archived: WorkflowTask[] = []) {
+  if (filter === "archived") return archived
   if (filter === "all") return tasks
-  return tasks.filter((task) => groupID(task.status) === filter)
+  return tasks.filter((task) => taskGroupID(task) === filter)
 }
 
 /** Counts workflow tasks for the selected home navigator item. */
-export function workflowTaskFilterCount(tasks: WorkflowTask[], filter: WorkflowTaskFilter) {
-  return filterWorkflowTasks(tasks, filter).length
+export function workflowTaskFilterCount(tasks: WorkflowTask[], filter: WorkflowTaskFilter, archived: WorkflowTask[] = []) {
+  return filterWorkflowTasks(tasks, filter, archived).length
 }
 
 /** Returns the translation key for a home workflow group header. */
@@ -187,6 +201,8 @@ function taskFromRecord(record: WorkflowTaskRecord, input: WorkflowTaskInput): W
     project: record.project,
     projectName: record.projectName,
     updatedAt: record.session.time.updated ?? record.session.time.created,
+    ...(record.session.time.pinned ? { pinnedAt: record.session.time.pinned } : {}),
+    ...(record.session.time.archived ? { archivedAt: record.session.time.archived } : {}),
     hasPermissionRequest,
     hasQuestion,
     status,
@@ -221,6 +237,16 @@ function hasItems<T>(items: T[] | undefined) {
 function groupID(status: WorkflowTaskStatus): WorkflowTaskGroup["id"] {
   if (status === "needs_action" || status === "running" || status === "done") return status
   return "recent"
+}
+
+function taskGroupID(task: WorkflowTask): WorkflowTaskGroup["id"] {
+  if (task.pinnedAt && !task.archivedAt) return "pinned"
+  return groupID(task.status)
+}
+
+function compareWorkflowTasks(a: WorkflowTask, b: WorkflowTask) {
+  if (a.pinnedAt || b.pinnedAt) return (b.pinnedAt ?? 0) - (a.pinnedAt ?? 0)
+  return STATUS_RANK[a.status] - STATUS_RANK[b.status] || b.updatedAt - a.updatedAt
 }
 
 function mergeRecords<T>(records: Array<Record<string, T | undefined>>) {

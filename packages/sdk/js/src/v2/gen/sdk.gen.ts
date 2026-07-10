@@ -3509,7 +3509,8 @@ export class Session2 extends HeyApiClient {
       }
       permission?: PermissionRuleset
       time?: {
-        archived?: number
+        archived?: number | null
+        pinned?: number | null
       }
     },
     options?: Options<never, ThrowOnError>,

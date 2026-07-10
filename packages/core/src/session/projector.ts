@@ -71,8 +71,9 @@ function sessionRow(info: SessionV1.SessionInfo): typeof SessionTable.$inferInse
     permission: info.permission ? [...info.permission] : undefined,
     time_created: info.time.created,
     time_updated: info.time.updated,
-    time_compacting: info.time.compacting,
-    time_archived: info.time.archived,
+    time_compacting: info.time.compacting ?? null,
+    time_pinned: info.time.pinned ?? null,
+    time_archived: info.time.archived ?? null,
   }
 }
 

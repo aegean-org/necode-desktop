@@ -1,13 +1,22 @@
 <!--
   Built-in skill. Name and description are registered in code at
   packages/core/src/plugin/skill.ts
-  and CUSTOMIZE_OPENCODE_SKILL_DESCRIPTION). The body below becomes the
+  and the built-in customize-necode description). The body below becomes the
   skill's content.
 -->
 
-# Customizing opencode
+# Customizing NeCode
 
-opencode validates its own config strictly and refuses to start when a field
+## Product naming
+
+Call the product "NeCode" in user-facing responses. Never tell the user to
+start, quit, or restart "opencode" or "OpenCode". Preserve technical identifiers
+such as `opencode.json`, `.opencode/`, `OPENCODE_*`, package names, commands,
+schema URLs, and upstream URLs exactly. When reading upstream OpenCode
+documentation, translate product-name references to NeCode in the response
+without changing those technical identifiers.
+
+NeCode validates its own config strictly and refuses to start when a field
 is wrong. The shapes below cover the common surface area, but they are a
 **summary, not the source of truth**.
 
@@ -20,7 +29,7 @@ defaults, and descriptions — lives in the published JSON Schema:
 
 If a field is not documented in this skill, or you need to confirm an exact
 shape before writing config, **fetch that URL and read the schema directly**
-rather than guessing. opencode hard-fails on invalid config, so the cost of a
+rather than guessing. NeCode hard-fails on invalid config, so the cost of a
 wrong shape is a broken startup.
 
 Independently, every `opencode.json` should declare
@@ -29,18 +38,56 @@ mistakes as they type.
 
 ## Applying changes
 
-Config is loaded once when opencode starts and is not hot-reloaded. After
+Config is loaded once when NeCode starts and is not hot-reloaded. After
 saving changes to `opencode.json`, an agent file, a skill, a plugin, or any
-other config-time file, **tell the user to quit and restart opencode** for
+other config-time file, **tell the user to quit and restart NeCode** for
 the changes to take effect. The running session will keep using the
 already-loaded config until then.
+
+## Installing skills and skill packs
+
+The skills shown in the system context are the current discovery snapshot,
+not a fixed or system-predefined catalog. A missing name means the skill is not
+installed yet; it does not mean new skills cannot be installed. Do not reject
+an installation request solely because the requested name is absent from the
+available-skills list.
+
+When the user asks to install a named third-party skill, skill pack, or plugin:
+
+1. Locate the official upstream source and read its OpenCode-specific
+   installation instructions before editing files or running commands. Use a
+   URL supplied by the user; otherwise use web search and fetch the official
+   project documentation. If the source is ambiguous, expose that ambiguity
+   instead of guessing.
+2. Determine whether upstream ships standalone skill directories or a plugin
+   that registers skills. Install the complete upstream package, including its
+   scripts and supporting files. Do not replace it with a stub `SKILL.md`, and
+   do not flatten a plugin-backed skill pack into a single skill.
+3. Preserve the user's existing configuration. Resolve the active global config
+   directory from `OPENCODE_CONFIG_DIR` when it is set; otherwise use
+   `$XDG_CONFIG_HOME/opencode` when `XDG_CONFIG_HOME` is set, and only then fall
+   back to `~/.config/opencode`. NeCode Desktop intentionally uses an
+   app-specific XDG directory, so never assume the home-directory fallback is
+   active. Check both `opencode.json` and `opencode.jsonc` at the target scope
+   before deciding that no config exists. If either exists, edit that file and
+   preserve its existing fields and JSONC comments; do not create a sibling
+   config with the other extension. Unless the user explicitly requests
+   project-only scope, install general-purpose third-party packages in the
+   active global NeCode configuration or global skills directory.
+4. Surface installation failures exactly. After a successful config or plugin
+   change, tell the user to restart NeCode and verify that the new skills are
+   discovered.
+
+Superpowers is a plugin-backed skill pack, not one already-installed skill. For
+that exact request, fetch and follow the maintained upstream instructions at
+<https://raw.githubusercontent.com/obra/superpowers/refs/heads/main/.opencode/INSTALL.md>.
 
 ## Where files live
 
 | Scope                         | Path                                                                                                                      |
 | ----------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
-| Project config                | `./opencode.json`, `./opencode.jsonc`, or `.opencode/opencode.json` (opencode walks up from the cwd to the worktree root) |
-| Global config                 | `~/.config/opencode/opencode.json` (NOT `~/.opencode/`)                                                                   |
+| Project config                | `./opencode.json`, `./opencode.jsonc`, or `.opencode/opencode.json` (NeCode walks up from the cwd to the worktree root)  |
+| Global config                 | `<active-config-dir>/opencode.json` or `<active-config-dir>/opencode.jsonc`; resolve the directory from runtime env       |
 | Project agents                | `.opencode/agent/<name>.md` or `.opencode/agents/<name>.md`                                                               |
 | Global agents                 | `~/.config/opencode/agent(s)/<name>.md`                                                                                   |
 | Project skills                | `.opencode/skill(s)/<name>/SKILL.md`                                                                                      |
@@ -157,7 +204,7 @@ Shape notes worth being explicit about:
 
 ## Skills
 
-opencode's skill loader scans for `**/SKILL.md` inside skill directories. The
+NeCode's skill loader scans for `**/SKILL.md` inside skill directories. The
 file is named `SKILL.md` exactly, and lives in its own folder named after the
 skill:
 
@@ -273,7 +320,7 @@ file, `disable: true` in frontmatter.
 
 ### Built-in agents
 
-opencode ships with `build`, `plan`, `general`, `explore`. Hidden internal agents:
+NeCode ships with `build`, `plan`, `general`, `explore`. Hidden internal agents:
 `compaction`, `title`, `summary`. To override a built-in's fields, define the
 same key in `agent: { <name>: { ... } }`.
 
@@ -375,7 +422,7 @@ Actions: `"allow"`, `"ask"`, `"deny"`.
 
 Per-tool value forms: `"allow"` shorthand (treated as `{"*": "allow"}`), or an
 object `{ pattern: action }`. Within an object, **insertion order matters**.
-opencode evaluates the LAST matching rule, so put broad rules first and narrow
+NeCode evaluates the LAST matching rule, so put broad rules first and narrow
 rules last.
 
 `permission: "allow"` (a string at the top level) is shorthand for "allow
@@ -395,10 +442,10 @@ the `plan` agent's permission ruleset (`edit: deny *`).
 
 ## Escape hatches
 
-When a user's config is broken and opencode won't start, these env vars help:
+When a user's config is broken and NeCode won't start, these env vars help:
 
 - `OPENCODE_DISABLE_PROJECT_CONFIG=1`: skip the project's local `opencode.json`
-  and start from globals only. Run from the project directory, opencode loads,
+  and start from globals only. Run from the project directory, NeCode loads,
   the user edits the broken file, then they restart without the flag.
 - `OPENCODE_CONFIG=/path/to/file.json`: load an additional explicit config.
 - `OPENCODE_CONFIG_CONTENT='{"$schema":"https://opencode.ai/config.json"}'`:
@@ -418,7 +465,7 @@ When a user's config is broken and opencode won't start, these env vars help:
 - For agent, skill, and plugin definitions, prefer creating new files in the
   correct location over inlining everything in `opencode.json`.
 - If the user's existing config is malformed, point them at the env-var escape
-  hatches above so they can edit from inside opencode without breaking their
+  hatches above so they can edit from inside NeCode without breaking their
   session.
-- After saving any config change, remind the user to quit and restart opencode
+- After saving any config change, remind the user to quit and restart NeCode
   — running sessions keep using the already-loaded config.

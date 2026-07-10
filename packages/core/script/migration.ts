@@ -6,6 +6,7 @@ import os from "os"
 import path from "path"
 import { pathToFileURL } from "url"
 import { parseArgs } from "util"
+import { migrationDirectoryName } from "./migration-path"
 
 const root = path.resolve(import.meta.dirname, "../../..")
 const snapshot = path.join(root, "packages/core/schema.json")
@@ -105,7 +106,7 @@ export default { ...config, out: ${JSON.stringify(output)} }
 
 async function generatedMigrations(directory: string) {
   return (await Array.fromAsync(new Bun.Glob("*/migration.sql").scan({ cwd: directory })))
-    .map((file) => file.split("/")[0])
+    .map(migrationDirectoryName)
     .filter((name): name is string => name !== undefined)
     .sort()
 }

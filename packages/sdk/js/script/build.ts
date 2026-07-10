@@ -8,6 +8,7 @@ import { $ } from "bun"
 import path from "path"
 
 import { createClient } from "@hey-api/openapi-ts"
+import { patchNullableSessionTime } from "./session-nullable-time"
 
 const opencode = path.resolve(dir, "../../opencode")
 
@@ -57,6 +58,10 @@ if (sseTypesPatched === sseTypesSource) {
   throw new Error(`SseFn patch did not apply; @hey-api/openapi-ts output may have changed (${sseTypesPath})`)
 }
 await Bun.write(sseTypesPath, sseTypesPatched)
+
+for (const generatedPath of ["./src/v2/gen/sdk.gen.ts", "./src/v2/gen/types.gen.ts"]) {
+  await Bun.write(generatedPath, patchNullableSessionTime(await Bun.file(generatedPath).text()))
+}
 
 await $`bun prettier --write src/gen`
 await $`bun prettier --write src/v2`

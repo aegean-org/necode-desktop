@@ -77,6 +77,30 @@ const withHome = <A, E, R>(home: string, self: Effect.Effect<A, E, R>) =>
   )
 
 describe("skill", () => {
+  it.live("registers the built-in customize-necode skill", () =>
+    provideTmpdirInstance(
+      () =>
+        Effect.gen(function* () {
+          const skill = yield* Skill.Service
+          const item = (yield* skill.all()).find((x) => x.location === "<built-in>")
+          expect(item).toEqual(
+            expect.objectContaining({
+              name: "customize-necode",
+              description: expect.stringContaining("installing or importing skills"),
+            }),
+          )
+          expect(item?.content).toContain("not a fixed or system-predefined catalog")
+          expect(item?.content).toContain("obra/superpowers/refs/heads/main/.opencode/INSTALL.md")
+          expect(item?.content).toContain('Call the product "NeCode" in user-facing responses')
+          expect(item?.content).toMatch(/Check both `opencode\.json` and\s+`opencode\.jsonc`/)
+          expect(item?.content).toMatch(/Resolve the active global config\s+directory from `OPENCODE_CONFIG_DIR`/)
+          expect(Skill.fmt([item!], { verbose: false })).toContain("currently installed skill set")
+          expect(Skill.fmt([item!], { verbose: true })).toContain("currently installed skill set")
+        }),
+      { git: true },
+    ),
+  )
+
   it.live("discovers skills from .opencode/skill/ directory", () =>
     provideTmpdirInstance(
       (dir) =>
@@ -221,8 +245,10 @@ Instructions here.
           const item = list.find((x) => x.name === "manual-skill")
           expect(item).toBeDefined()
           expect(item!.description).toBeUndefined()
-          expect(Skill.fmt(list, { verbose: false })).toBe("No skills are currently available.")
-          expect(Skill.fmt(list, { verbose: true })).toBe("No skills are currently available.")
+          expect(Skill.fmt(list, { verbose: false })).toContain("currently installed skill set")
+          expect(Skill.fmt(list, { verbose: false })).toContain("No skills are currently available.")
+          expect(Skill.fmt(list, { verbose: true })).toContain("currently installed skill set")
+          expect(Skill.fmt(list, { verbose: true })).toContain("No skills are currently available.")
         }),
       { git: true },
     ),

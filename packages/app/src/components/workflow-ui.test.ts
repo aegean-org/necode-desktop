@@ -94,6 +94,37 @@ describe("workflow UI primitives", () => {
     expect(actionsSource).toContain("right-2")
   })
 
+  test("reserves title width for compact action groups", () => {
+    const rowSource = workflowUiSource.slice(
+      workflowUiSource.indexOf("export function WorkflowEntityRow"),
+      workflowUiSource.indexOf("export function WorkflowEntityList"),
+    )
+    const selectButtonSource = rowSource.slice(
+      rowSource.indexOf('data-component="workflow-entity-row-select"'),
+      rowSource.indexOf("</button>"),
+    )
+    const selectButtonTag = selectButtonSource.slice(0, selectButtonSource.indexOf("onClick="))
+
+    expect(rowSource).toContain('const titlePadding = props.actions ? "pr-16" : ""')
+    expect(selectButtonTag).not.toContain("${titlePadding}")
+    expect(rowSource).toContain("${titlePadding}")
+    expect(selectButtonSource).not.toContain("pr-10")
+  })
+
+  test("places trailing metadata on the second row", () => {
+    const rowSource = workflowUiSource.slice(
+      workflowUiSource.indexOf("export function WorkflowEntityRow"),
+      workflowUiSource.indexOf("export function WorkflowEntityList"),
+    )
+    const firstRow = rowSource.slice(rowSource.indexOf('class={`flex min-w-0 items-center'), rowSource.indexOf("</div>"))
+    const secondRow = rowSource.slice(rowSource.indexOf("props.subtitle || props.trailing"), rowSource.indexOf("</button>"))
+
+    expect(firstRow).not.toContain("props.trailing")
+    expect(secondRow).toContain("props.subtitle")
+    expect(secondRow).toContain("props.trailing")
+    expect(secondRow.indexOf("props.subtitle")).toBeLessThan(secondRow.indexOf("props.trailing"))
+  })
+
   test("keeps shared workflow class constants intentional", () => {
     expect(WORKFLOW_SECTION_LABEL).toContain("uppercase")
     expect(WORKFLOW_SURFACE_BUTTON).toContain(WORKFLOW_SURFACE_CARD)

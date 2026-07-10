@@ -7,6 +7,7 @@ import {
   createSessionTabs,
   focusTerminalById,
   getTabReorderIndex,
+  nextSessionIDAfterRemoval,
   shouldCenterSessionContent,
   shouldFocusTerminalOnKeyDown,
   shouldShowFileTree,
@@ -39,6 +40,14 @@ describe("session page initialization", () => {
 
     expect(source).toContain("WorkflowEntityRow")
     expect(source).not.toContain("WORKFLOW_ENTITY_ROW")
+  })
+
+  test("wires shared session actions into workflow navigator rows", async () => {
+    const source = await Bun.file(new URL("./workflow-session-navigator.tsx", import.meta.url)).text()
+
+    expect(source).toContain("WorkflowSessionActions")
+    expect(source).toContain("onPin={() => props.onPin(props.task)}")
+    expect(source).toContain("onDelete={() => props.onDelete(props.task)}")
   })
 
   test("keeps workflow navigator rows aligned with compact entity metadata", async () => {
@@ -88,6 +97,16 @@ describe("session page initialization", () => {
 
     expect(source).not.toContain("workflowSessionNavigatorOpen")
     expect(source).not.toContain("isWorkflowPanelWidth")
+  })
+})
+
+describe("nextSessionIDAfterRemoval", () => {
+  test("prefers the next session and then the previous session", () => {
+    const sessions = [{ id: "a" }, { id: "b" }, { id: "c" }]
+
+    expect(nextSessionIDAfterRemoval(sessions, "b")).toBe("c")
+    expect(nextSessionIDAfterRemoval(sessions, "c")).toBe("b")
+    expect(nextSessionIDAfterRemoval([{ id: "a" }], "a")).toBeUndefined()
   })
 })
 

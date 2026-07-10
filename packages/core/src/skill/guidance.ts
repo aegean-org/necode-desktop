@@ -17,6 +17,8 @@ const render = (skills: ReadonlyArray<Summary>) =>
   [
     "Skills provide specialized instructions and workflows for specific tasks.",
     "Use the skill tool to load a skill when a task matches its description.",
+    "The list below is the currently installed skill set, not a fixed or system-predefined catalog.",
+    "A missing skill may still be installable; do not reject an installation request solely because it is absent.",
     ...(skills.length === 0
       ? ["No skills are currently available."]
       : [

@@ -5,6 +5,7 @@ import { Location } from "../location"
 import { SystemContext } from "./index"
 import { InstructionContext } from "../instruction-context"
 import { SystemContextRegistry } from "./registry"
+import { Product } from "../product"
 
 const builtIns = Layer.effectDiscard(
   Effect.gen(function* () {
@@ -33,6 +34,13 @@ const builtIns = Layer.effectDiscard(
         load: DateTime.nowAsDate.pipe(Effect.map((date) => date.toDateString())),
         baseline: (date) => `Today's date: ${date}`,
         update: (_previous, date) => `Today's date is now: ${date}`,
+      }),
+      SystemContext.make({
+        key: SystemContext.Key.make("core/product-naming"),
+        codec: Schema.toCodecJson(Schema.String),
+        load: Effect.succeed(Product.NamingGuidance),
+        baseline: (guidance) => guidance,
+        update: (_previous, guidance) => guidance,
       }),
     ])
 

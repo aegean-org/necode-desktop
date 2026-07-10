@@ -30,6 +30,7 @@ import { useNotification } from "@/context/notification"
 import {
   closeHomeProject,
   displayName,
+  errorMessage,
   getProjectAvatarSource,
   homeProjectDirectories,
   homeProjectNavigation,
@@ -44,6 +45,7 @@ import { pathKey } from "@/utils/path-key"
 import { useGlobal } from "@/context/global"
 import { useCommand } from "@/context/command"
 import { useSettings } from "@/context/settings"
+import { showToast } from "@/utils/toast"
 import { ServerRowMenu } from "@/components/server/server-row-menu"
 import { ServerHealthIndicator } from "@/components/server/server-row"
 import { WorkflowShell } from "@/components/workflow-shell"
@@ -58,28 +60,23 @@ import {
 } from "@/components/workflow-ui"
 import { type ServerHealth } from "@/utils/server-health"
 import {
+  buildArchivedWorkflowTasks,
   buildWorkflowTasksFromStores,
   filterWorkflowTasks,
   groupWorkflowTasks,
   workflowGroupTitleKey,
-  workflowStatusTitleKey,
-  workflowTaskMeta,
   type WorkflowTask,
   type WorkflowTaskFilter,
+  type WorkflowTaskGroup,
 } from "./home/workflow-task"
 import { HomeWorkflowInspector } from "./home/workflow-inspector"
 import { HomeWorkflowOverview } from "./home/workflow-overview"
 import { HomeWorkflowNav } from "./home/workflow-sidebar"
+import { HomeWorkflowTaskRow } from "./home/workflow-task-row"
+import { createSessionManagement } from "./session/session-management"
 
 const HOME_SESSION_LIMIT = 64
 const HOME_PROJECT_NAV_LABEL = "min-w-0 flex-1 overflow-hidden text-ellipsis whitespace-nowrap"
-const HOME_TASK_STATUS_DOT_CLASS = {
-  needs_action: "bg-icon-critical-base",
-  running: "bg-icon-info-base",
-  ready: "bg-icon-weak-base",
-  done: "bg-icon-success-base",
-}
-
 type HomeSessionRecord = {
   session: Session
   project: LocalProject
@@ -224,7 +221,17 @@ function createHomeWorkflowSelection(context: HomeWorkflowContext) {
     () => new Map(projects().flatMap((project) => (project.id ? [[project.id, project] as const] : []))),
   )
 
-  return { focusedServer, focusedSync, projects, selectedProject, newSessionProject, projectDirectories, search, projectByID }
+  return {
+    focusedServer,
+    focusedServerCtx,
+    focusedSync,
+    projects,
+    selectedProject,
+    newSessionProject,
+    projectDirectories,
+    search,
+    projectByID,
+  }
 }
 
 function createHomeWorkflowTasks(input: { context: HomeWorkflowContext; selection: HomeWorkflowSelection }) {
@@ -239,6 +246,7 @@ function createHomeWorkflowTasks(input: { context: HomeWorkflowContext; selectio
       return null
     },
   }))
+  const archivedLoad = createHomeArchivedSessionLoad(input)
   const allRecords = createMemo(() =>
     buildHomeSessionRecords({
       sync: input.selection.focusedSync(),
@@ -252,8 +260,31 @@ function createHomeWorkflowTasks(input: { context: HomeWorkflowContext; selectio
     input.selection.projectDirectories().map((directory) => input.selection.focusedSync().child(directory, { bootstrap: false })[0]),
   )
   const workflowTasks = createMemo(() => buildWorkflowTasksFromStores({ records: records(), stores: workflowStores() }))
-  const filteredWorkflowTasks = createMemo(() => filterWorkflowTasks(workflowTasks(), input.context.state.filter))
-  const workflowGroups = createMemo(() => groupWorkflowTasks(filteredWorkflowTasks()))
+  const archivedRecords = createMemo(() =>
+    (archivedLoad.data ?? []).flatMap((session) => {
+      const project = projectForSession(session, input.selection.projects(), input.selection.projectByID())
+      if (!project) return []
+      return { session, project, projectName: displayName(project) }
+    }),
+  )
+  const archivedWorkflowTasks = createMemo(() =>
+    buildArchivedWorkflowTasks({
+      records: archivedRecords(),
+      sessionStatus: {},
+      todo: {},
+      permission: {},
+      question: {},
+    }),
+  )
+  const filteredWorkflowTasks = createMemo(() =>
+    filterWorkflowTasks(workflowTasks(), input.context.state.filter, archivedWorkflowTasks()),
+  )
+  const workflowGroups = createMemo(() => {
+    if (input.context.state.filter === "archived") {
+      return filteredWorkflowTasks().length ? [{ id: "archived" as const, tasks: filteredWorkflowTasks() }] : []
+    }
+    return groupWorkflowTasks(filteredWorkflowTasks())
+  })
   const activeTask = createMemo(
     () => filteredWorkflowTasks().find((task) => task.id === input.context.state.activeTask) ?? filteredWorkflowTasks()[0],
   )
@@ -263,7 +294,39 @@ function createHomeWorkflowTasks(input: { context: HomeWorkflowContext; selectio
     return allRecords().filter((record) => matchesHomeSessionSearch(record, query))
   })
   const searchOpen = createMemo(() => input.context.state.searchFocused && input.selection.search().length > 0)
-  return { sessionLoad, workflowTasks, filteredWorkflowTasks, workflowGroups, activeTask, searchResults, searchOpen }
+  return {
+    sessionLoad,
+    archivedLoad,
+    workflowTasks,
+    archivedWorkflowTasks,
+    filteredWorkflowTasks,
+    workflowGroups,
+    activeTask,
+    searchResults,
+    searchOpen,
+  }
+}
+
+function createHomeArchivedSessionLoad(input: { context: HomeWorkflowContext; selection: HomeWorkflowSelection }) {
+  return useQuery(() => ({
+    queryKey: ["home", "archived-sessions", input.context.state.selection.server, ...input.selection.projectDirectories()] as const,
+    enabled: input.context.state.filter === "archived",
+    queryFn: async () => {
+      const ctx = input.selection.focusedServerCtx()
+      if (!ctx) throw new Error("No server available for archived sessions")
+      const result = await Promise.all(
+        input.selection.projectDirectories().map((directory) =>
+          ctx.sdk.client.experimental.session
+            .list({ directory, roots: true, archived: true, limit: HOME_SESSION_LIMIT }, { throwOnError: true })
+            .then((response) => {
+              if (!response.data) throw new Error("Archived session list response missing data")
+              return response.data
+            }),
+        ),
+      )
+      return result.flat()
+    },
+  }))
 }
 
 function createHomeWorkflowActions(input: {
@@ -274,6 +337,7 @@ function createHomeWorkflowActions(input: {
   const selectionActions = createHomeSelectionActions(input)
   const navigationActions = createHomeNavigationActions({ ...input, selectionActions })
   const projectActions = createHomeProjectActions({ ...input, selectionActions })
+  const sessionActions = createHomeSessionActions(input)
   const closeSearch = () => {
     input.context.setState("search", "")
     input.context.setState("searchFocused", false)
@@ -282,6 +346,7 @@ function createHomeWorkflowActions(input: {
     ...selectionActions,
     ...navigationActions,
     ...projectActions,
+    ...sessionActions,
     closeSearch,
     selectSearchSession: (session: Session) => {
       navigationActions.openSession(session)
@@ -292,6 +357,36 @@ function createHomeWorkflowActions(input: {
     },
     setWorkflowFilter: (filter: WorkflowTaskFilter) => input.context.setState("filter", filter),
     previewTask: (id: string) => input.context.setState("activeTask", id),
+  }
+}
+
+function createHomeSessionActions(input: {
+  context: HomeWorkflowContext
+  selection: HomeWorkflowSelection
+  tasks: HomeWorkflowTasks
+}) {
+  const run = async (task: WorkflowTask, action: "pin" | "unpin" | "archive" | "restore" | "remove") => {
+    try {
+      const ctx = input.selection.focusedServerCtx()
+      if (!ctx) throw new Error("No server available for session management")
+      await createSessionManagement({ client: ctx.sdk.client, directory: task.session.directory })[action](task.id)
+      await Promise.all([input.tasks.sessionLoad.refetch(), input.tasks.archivedLoad.refetch()])
+      return true
+    } catch (error) {
+      showToast({
+        title: input.context.language.t("common.requestFailed"),
+        description: errorMessage(error, input.context.language.t("common.requestFailed")),
+      })
+      return false
+    }
+  }
+
+  return {
+    pinTask: (task: WorkflowTask) => run(task, "pin"),
+    unpinTask: (task: WorkflowTask) => run(task, "unpin"),
+    archiveTask: (task: WorkflowTask) => run(task, "archive"),
+    restoreTask: (task: WorkflowTask) => run(task, "restore"),
+    deleteTask: (task: WorkflowTask) => run(task, "remove"),
   }
 }
 
@@ -448,6 +543,19 @@ function HomeWorkflowShell(props: { controller: HomeWorkflowController }) {
           task={controller.tasks.activeTask()}
           project={controller.selection.newSessionProject()}
           onOpenSession={controller.actions.openSession}
+          onPin={async (task) => {
+            await controller.actions.pinTask(task)
+          }}
+          onUnpin={async (task) => {
+            await controller.actions.unpinTask(task)
+          }}
+          onArchive={async (task) => {
+            await controller.actions.archiveTask(task)
+          }}
+          onRestore={async (task) => {
+            await controller.actions.restoreTask(task)
+          }}
+          onDelete={controller.actions.deleteTask}
           onNewSession={controller.selection.newSessionProject() ? controller.actions.openNewSession : undefined}
         />
       }
@@ -471,6 +579,7 @@ function HomeWorkflowProjectColumn(props: { controller: HomeWorkflowController }
       clearNotifications={controller.actions.clearNotifications}
       unseenCount={controller.actions.unseenCount}
       workflowTasks={controller.tasks.workflowTasks()}
+      archivedWorkflowTasks={controller.tasks.archivedWorkflowTasks()}
       workflowFilter={controller.context.state.filter}
       setWorkflowFilter={controller.actions.setWorkflowFilter}
       activeTab={controller.context.state.activeSettingsTab}
@@ -548,11 +657,15 @@ function HomeTaskSearch(props: { controller: HomeWorkflowController }) {
 }
 
 function HomeTaskGroups(props: { controller: HomeWorkflowController }) {
+  const loading = () =>
+    props.controller.context.state.filter === "archived"
+      ? props.controller.tasks.archivedLoad.isLoading
+      : props.controller.tasks.sessionLoad.isLoading
   return (
     <ScrollView class="mt-3 min-h-0 flex-1">
       <div class="flex flex-col gap-6 pt-2">
         <Show
-          when={!props.controller.tasks.sessionLoad.isLoading}
+          when={!loading()}
           fallback={<HomeSessionSkeleton label={props.controller.context.language.t("common.loading")} />}
         >
           <HomeTaskGroupsContent controller={props.controller} />
@@ -570,7 +683,12 @@ function HomeTaskGroupsContent(props: { controller: HomeWorkflowController }) {
       fallback={
         <HomeProjectEmptyState
           project={controller.selection.newSessionProject()}
-          onNewSession={controller.selection.newSessionProject() ? controller.actions.openNewSession : undefined}
+          archived={controller.context.state.filter === "archived"}
+          onNewSession={
+            controller.context.state.filter !== "archived" && controller.selection.newSessionProject()
+              ? controller.actions.openNewSession
+              : undefined
+          }
         />
       }
     >
@@ -581,9 +699,10 @@ function HomeTaskGroupsContent(props: { controller: HomeWorkflowController }) {
   )
 }
 
-function HomeProjectEmptyState(props: { project: LocalProject | undefined; onNewSession?: () => void }) {
+function HomeProjectEmptyState(props: { project: LocalProject | undefined; archived?: boolean; onNewSession?: () => void }) {
   const language = useLanguage()
   const title = createMemo(() => {
+    if (props.archived) return language.t("home.tasks.empty.archived")
     if (!props.project) return language.t("home.tasks.empty")
     return language.t("home.tasks.empty.projectTitle", { project: displayName(props.project) })
   })
@@ -599,7 +718,7 @@ function HomeProjectEmptyState(props: { project: LocalProject | undefined; onNew
             {title()}
           </div>
           <p class="text-[13px] leading-5 text-v2-text-text-muted [font-weight:440]">
-            {language.t("home.tasks.empty.projectDescription")}
+            {language.t(props.archived ? "home.tasks.empty.archivedDescription" : "home.tasks.empty.projectDescription")}
           </p>
           <Show when={props.project?.worktree}>
             {(directory) => (
@@ -622,7 +741,7 @@ function HomeProjectEmptyState(props: { project: LocalProject | undefined; onNew
 }
 
 function HomeTaskGroup(props: {
-  group: ReturnType<typeof groupWorkflowTasks>[number]
+  group: WorkflowTaskGroup
   controller: HomeWorkflowController
 }) {
   const controller = props.controller
@@ -637,11 +756,30 @@ function HomeTaskGroup(props: {
           {(task) => (
             <HomeWorkflowTaskRow
               task={task}
-              server={controller.context.state.selection.server}
-              activeServer={controller.context.state.selection.server === controller.context.server.key}
+              icon={
+                <HomeSessionLeading
+                  project={task.project}
+                  session={task.session}
+                  server={controller.context.state.selection.server}
+                  activeServer={controller.context.state.selection.server === controller.context.server.key}
+                />
+              }
               selected={controller.tasks.activeTask()?.id === task.id}
-              previewTask={() => controller.actions.previewTask(task.id)}
-              openSession={controller.actions.openSession}
+              onPreview={() => controller.actions.previewTask(task.id)}
+              onOpen={controller.actions.openSession}
+              onPin={async () => {
+                await controller.actions.pinTask(task)
+              }}
+              onUnpin={async () => {
+                await controller.actions.unpinTask(task)
+              }}
+              onArchive={async () => {
+                await controller.actions.archiveTask(task)
+              }}
+              onRestore={async () => {
+                await controller.actions.restoreTask(task)
+              }}
+              onDelete={() => controller.actions.deleteTask(task)}
             />
           )}
         </For>
@@ -662,6 +800,7 @@ type HomeProjectColumnProps = {
   clearNotifications: (server: ServerConnection.Any, project: LocalProject) => void
   unseenCount: (server: ServerConnection.Any, project: LocalProject) => number
   workflowTasks: WorkflowTask[]
+  archivedWorkflowTasks: WorkflowTask[]
   workflowFilter: WorkflowTaskFilter
   setWorkflowFilter: (filter: WorkflowTaskFilter) => void
   activeTab?: HomeSettingsTab
@@ -686,7 +825,12 @@ function HomeProjectColumn(props: HomeProjectColumnProps) {
       class="flex min-h-0 min-w-0 flex-col gap-5 overflow-hidden px-3 pb-4 pt-3"
       aria-label={props.language.t("home.projects")}
     >
-      <HomeWorkflowNav tasks={props.workflowTasks} filter={props.workflowFilter} onFilter={props.setWorkflowFilter} />
+      <HomeWorkflowNav
+        tasks={props.workflowTasks}
+        archivedTasks={props.archivedWorkflowTasks}
+        filter={props.workflowFilter}
+        onFilter={props.setWorkflowFilter}
+      />
       <HomeWorkflowSystemNav activeTab={props.activeTab} openSettings={props.openSettings} />
       <div class="mx-1 h-px bg-v2-border-border-muted" aria-hidden="true" />
       <div data-component="home-project-section" class="flex min-h-0 min-w-0 flex-1 flex-col gap-3">
@@ -978,7 +1122,7 @@ function HomeProjectRow(props: {
               </MenuV2.Item>
               <MenuV2.Separator />
               <MenuV2.Item onSelect={() => props.closeProject(props.server, props.project.worktree)}>
-                {props.language.t("common.close")}
+                {props.language.t("project.removeFromNecode")}
               </MenuV2.Item>
             </MenuV2.Content>
           </MenuV2.Portal>
@@ -1307,116 +1451,6 @@ function HomeSessionGroupHeader(props: { title: string; count?: number; onNewSes
       }
     />
   )
-}
-
-function HomeWorkflowTaskRow(props: {
-  task: WorkflowTask
-  server: ServerConnection.Key
-  activeServer: boolean
-  selected: boolean
-  previewTask: () => void
-  openSession: (session: Session) => void
-}) {
-  const language = useLanguage()
-  const metadata = createMemo(() => workflowTaskMeta(props.task))
-
-  return (
-    <div
-      data-component="home-workflow-task-row"
-      data-status={props.task.status}
-      aria-current={props.selected ? "page" : undefined}
-      onFocusIn={props.previewTask}
-      onPointerEnter={props.previewTask}
-    >
-      <WorkflowEntityRow
-        rowID={props.task.id}
-        selected={props.selected}
-        title={<HomeWorkflowTaskTitle task={props.task} />}
-        subtitle={<HomeWorkflowTaskSubtitle task={props.task} metadata={metadata()} />}
-        icon={<HomeWorkflowTaskIcon task={props.task} server={props.server} activeServer={props.activeServer} />}
-        trailing={<HomeWorkflowTaskTrailing task={props.task} />}
-        actions={
-          <HomeWorkflowTaskOpenAction
-            label={language.t("home.tasks.detail.open")}
-            onOpen={() => props.openSession(props.task.session)}
-          />
-        }
-        onSelect={props.previewTask}
-        class="home-workflow-task-row"
-      />
-    </div>
-  )
-}
-
-type HomeWorkflowTaskMetadata = ReturnType<typeof workflowTaskMeta>
-
-function HomeWorkflowTaskTitle(props: { task: WorkflowTask }) {
-  const title = createMemo(() => sessionTitle(props.task.title) || props.task.id)
-
-  return (
-    <span class="min-w-0 overflow-hidden text-ellipsis whitespace-nowrap">{title()}</span>
-  )
-}
-
-function HomeWorkflowTaskSubtitle(props: { task: WorkflowTask; metadata: HomeWorkflowTaskMetadata }) {
-  const language = useLanguage()
-  const metadata = createMemo(() => [
-    props.task.projectName,
-    ...props.metadata.flatMap((meta) => {
-      if (meta.id === "status" || meta.id === "updated") return []
-      return meta.id === "todo" ? language.t(meta.i18nKey, meta.values) : language.t(meta.i18nKey)
-    }),
-  ].filter(Boolean))
-
-  return (
-    <span class="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5">
-      <span class="inline-flex min-w-0 items-center gap-1.5">
-        <HomeWorkflowTaskStatusDot status={props.task.status} class="size-1.5" />
-        <span>{language.t(workflowStatusTitleKey(props.task.status))}</span>
-      </span>
-      <For each={metadata()}>{(item) => <span class="min-w-0 overflow-hidden text-ellipsis whitespace-nowrap">{item}</span>}</For>
-    </span>
-  )
-}
-
-function HomeWorkflowTaskIcon(props: {
-  task: WorkflowTask
-  server: ServerConnection.Key
-  activeServer: boolean
-}) {
-  return (
-    <HomeSessionLeading
-      project={props.task.project}
-      session={props.task.session}
-      server={props.server}
-      activeServer={props.activeServer}
-    />
-  )
-}
-
-function HomeWorkflowTaskOpenAction(props: { label: string; onOpen: () => void }) {
-  return (
-    <IconButtonV2
-      aria-label={props.label}
-      title={props.label}
-      variant="ghost-muted"
-      size="small"
-      class="size-7 rounded-[7px]"
-      icon={<IconV2 name="arrow-right" />}
-      onClick={(event) => {
-        event.stopPropagation()
-        props.onOpen()
-      }}
-    />
-  )
-}
-
-function HomeWorkflowTaskTrailing(props: { task: WorkflowTask }) {
-  return DateTime.fromMillis(props.task.updatedAt).toRelative()
-}
-
-function HomeWorkflowTaskStatusDot(props: { status: WorkflowTask["status"]; class?: string }) {
-  return <span class={`${props.class ?? "size-1.5"} shrink-0 rounded-full ${HOME_TASK_STATUS_DOT_CLASS[props.status]}`} />
 }
 
 function HomeSessionSkeleton(props: { label: string }) {

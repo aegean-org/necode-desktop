@@ -162,6 +162,13 @@ export const getTabReorderIndex = (tabs: readonly string[], from: string, to: st
   return toIndex
 }
 
+/** Selects the neighboring root session that remains after one session is removed. */
+export const nextSessionIDAfterRemoval = (sessions: readonly { id: string }[], removedID: string) => {
+  const index = sessions.findIndex((session) => session.id === removedID)
+  if (index === -1) return
+  return (sessions[index + 1] ?? sessions[index - 1])?.id
+}
+
 export const createSizing = () => {
   const [state, setState] = createStore({ active: false })
   let t: number | undefined

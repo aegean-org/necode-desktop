@@ -535,9 +535,13 @@ export const dict = {
   "home.tasks.workflow": "工作流",
   "home.tasks.overview": "任务总览",
   "home.tasks.empty": "未找到任务",
+  "home.tasks.empty.archived": "没有已归档会话",
+  "home.tasks.empty.archivedDescription": "归档后的会话会显示在这里。",
   "home.tasks.empty.projectTitle": "{{project}} 还没有任务",
   "home.tasks.empty.projectDescription": "新建一个会话，开始在这个项目里工作。",
   "home.tasks.filter.all": "全部任务",
+  "home.tasks.filter.pinned": "置顶",
+  "home.tasks.filter.archived": "已归档",
   "home.tasks.group.needsAction": "需要处理",
   "home.tasks.group.running": "进行中",
   "home.tasks.group.recent": "最近",
@@ -676,6 +680,7 @@ export const dict = {
   "sidebar.project.recentSessions": "最近会话",
   "sidebar.project.viewAllSessions": "查看全部会话",
   "sidebar.project.clearNotifications": "清除通知",
+  "project.removeFromNecode": "从 NeCode 移除",
 
   "app.name.desktop": "NeCode Desktop",
 
@@ -905,6 +910,9 @@ export const dict = {
   "session.delete.title": "删除会话",
   "session.delete.confirm": '删除会话 "{{name}}"？',
   "session.delete.button": "删除会话",
+  "session.action.pin": "置顶会话",
+  "session.action.unpin": "取消置顶",
+  "session.action.restore": "恢复会话",
 
   "workspace.new": "新建工作区",
   "workspace.type.local": "本地",

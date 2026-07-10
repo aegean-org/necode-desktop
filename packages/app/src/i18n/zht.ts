@@ -499,6 +499,10 @@ export const dict = {
   "home.recentProjects": "最近專案",
   "home.empty.title": "沒有最近專案",
   "home.empty.description": "透過開啟本地專案開始使用",
+  "home.tasks.empty.archived": "沒有已封存工作階段",
+  "home.tasks.empty.archivedDescription": "封存後的工作階段會顯示在這裡。",
+  "home.tasks.filter.pinned": "已置頂",
+  "home.tasks.filter.archived": "已封存",
 
   "session.tab.session": "工作階段",
   "session.tab.review": "審查",
@@ -609,6 +613,7 @@ export const dict = {
   "sidebar.project.recentSessions": "最近工作階段",
   "sidebar.project.viewAllSessions": "查看全部工作階段",
   "sidebar.project.clearNotifications": "清除通知",
+  "project.removeFromNecode": "從 NeCode 移除",
 
   "app.name.desktop": "NeCode Desktop",
   "settings.section.desktop": "桌面",
@@ -813,6 +818,9 @@ export const dict = {
   "settings.permissions.tool.doom_loop.description": "偵測具有相同輸入的重複工具呼叫",
 
   "session.delete.failed.title": "刪除工作階段失敗",
+  "session.action.pin": "置頂工作階段",
+  "session.action.unpin": "取消置頂",
+  "session.action.restore": "還原工作階段",
   "session.delete.title": "刪除工作階段",
   "session.delete.confirm": '刪除工作階段 "{{name}}"?',
   "session.delete.button": "刪除工作階段",

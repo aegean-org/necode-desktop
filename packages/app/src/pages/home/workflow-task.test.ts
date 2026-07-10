@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test"
 import type { PermissionRequest, QuestionRequest, Session, SessionStatus, Todo } from "@opencode-ai/sdk/v2/client"
 import type { LocalProject } from "@/context/layout"
 import {
+  buildArchivedWorkflowTasks,
   buildWorkflowTasks,
   buildWorkflowTasksFromStores,
   filterWorkflowTasks,
@@ -16,6 +17,7 @@ import {
 
 const homeSource = await Bun.file(new URL("../home.tsx", import.meta.url)).text()
 const inspectorSource = await Bun.file(new URL("./workflow-inspector.tsx", import.meta.url)).text()
+const rowSource = await Bun.file(new URL("./workflow-task-row.tsx", import.meta.url)).text()
 const v2IconSource = await Bun.file(new URL("../../../../ui/src/v2/components/icon.tsx", import.meta.url)).text()
 const indexCssSource = await Bun.file(new URL("../../index.css", import.meta.url)).text()
 const enSource = await Bun.file(new URL("../../i18n/en.ts", import.meta.url)).text()
@@ -30,7 +32,14 @@ const project = (name = "App") =>
     expanded: false,
   }) as LocalProject
 
-const session = (input: { id: string; title?: string; updated?: number; archived?: number; parentID?: string }) =>
+const session = (input: {
+  id: string
+  title?: string
+  updated?: number
+  pinned?: number
+  archived?: number
+  parentID?: string
+}) =>
   ({
     id: input.id,
     title: input.title ?? input.id,
@@ -38,6 +47,7 @@ const session = (input: { id: string; title?: string; updated?: number; archived
     time: {
       created: input.updated ?? 1,
       updated: input.updated ?? 1,
+      pinned: input.pinned,
       archived: input.archived,
     },
   }) as Session
@@ -122,6 +132,45 @@ describe("buildWorkflowTasks", () => {
     ])
   })
 
+  test("groups pinned tasks first without replacing their workflow status", () => {
+    const tasks = buildWorkflowTasks({
+      records: [
+        { session: session({ id: "ready", updated: 2 }), project: project(), projectName: "App" },
+        { session: session({ id: "pinned", updated: 1, pinned: 10 }), project: project(), projectName: "App" },
+      ],
+      permission: {},
+      question: {},
+      sessionStatus: {},
+      todo: {},
+    })
+
+    expect(groupWorkflowTasks(tasks).map((group) => [group.id, group.tasks.map((task) => task.id)])).toEqual([
+      ["pinned", ["pinned"]],
+      ["recent", ["ready"]],
+    ])
+    expect(tasks.find((task) => task.id === "pinned")?.status).toBe("ready")
+  })
+
+  test("projects archived root sessions separately", () => {
+    const tasks = buildArchivedWorkflowTasks({
+      records: [
+        {
+          session: session({ id: "archived", updated: 2, archived: 3 }),
+          project: project(),
+          projectName: "App",
+        },
+        { session: session({ id: "active", updated: 1 }), project: project(), projectName: "App" },
+      ],
+      permission: {},
+      question: {},
+      sessionStatus: {},
+      todo: {},
+    })
+
+    expect(tasks.map((task) => task.id)).toEqual(["archived"])
+    expect(tasks[0]?.archivedAt).toBe(3)
+  })
+
   test("merges workflow state from multiple directory stores", () => {
     const tasks = buildWorkflowTasksFromStores({
       records: [
@@ -172,8 +221,23 @@ describe("buildWorkflowTasks", () => {
       todo: {},
     })
 
-    expect(filterWorkflowTasks(tasks, "all").map((task) => task.id)).toEqual(["blocked", "busy", "ready"])
+    const archived = buildArchivedWorkflowTasks({
+      records: [
+        {
+          session: session({ id: "archived", updated: 4, archived: 5 }),
+          project: project(),
+          projectName: "App",
+        },
+      ],
+      permission: {},
+      question: {},
+      sessionStatus: {},
+      todo: {},
+    })
+
+    expect(filterWorkflowTasks(tasks, "all", archived).map((task) => task.id)).toEqual(["blocked", "busy", "ready"])
     expect(filterWorkflowTasks(tasks, "needs_action").map((task) => task.id)).toEqual(["blocked"])
+    expect(filterWorkflowTasks(tasks, "archived", archived).map((task) => task.id)).toEqual(["archived"])
     expect(workflowTaskFilterCount(tasks, "running")).toBe(1)
     expect(workflowTaskFilterCount(tasks, "done")).toBe(0)
   })
@@ -181,10 +245,12 @@ describe("buildWorkflowTasks", () => {
   test("exposes i18n keys for workflow navigator filters", () => {
     expect(workflowTaskFilters().map(workflowFilterTitleKey)).toEqual([
       "home.tasks.filter.all",
+      "home.tasks.filter.pinned",
       "home.tasks.group.needsAction",
       "home.tasks.group.running",
       "home.tasks.group.recent",
       "home.tasks.group.done",
+      "home.tasks.filter.archived",
     ])
   })
 
@@ -227,42 +293,30 @@ describe("buildWorkflowTasks", () => {
   })
 
   test("keeps home task row selection separate from opening sessions", () => {
-    const rowSource = homeSource.slice(
-      homeSource.indexOf("function HomeWorkflowTaskRow"),
-      homeSource.indexOf("function HomeSessionSkeleton"),
-    )
     const actionsSource = rowSource.slice(rowSource.indexOf("actions={"), rowSource.indexOf("onSelect="))
 
     expect(rowSource).toContain('data-component="home-workflow-task-row"')
-    expect(actionsSource).toContain("props.openSession(props.task.session)")
-    expect(rowSource).toContain("onSelect={props.previewTask}")
-    expect(rowSource).not.toContain("props.previewTask()\n          props.openSession(props.task.session)")
+    expect(actionsSource).toContain("props.onOpen(props.task.session)")
+    expect(rowSource).toContain("onSelect={props.onPreview}")
+    expect(rowSource).not.toContain("props.onPreview()\n          props.onOpen(props.task.session)")
   })
 
   test("keeps home task rows using compact workflow actions", () => {
-    const rowSource = homeSource.slice(
-      homeSource.indexOf("function HomeWorkflowTaskRow"),
-      homeSource.indexOf("function HomeSessionSkeleton"),
-    )
-
-    expect(rowSource).toContain("HomeWorkflowTaskOpenAction")
+    expect(rowSource).toContain("WorkflowSessionActions")
+    expect(rowSource).toContain("IconButtonV2")
     expect(rowSource).not.toContain('>{language.t("home.tasks.detail.open")}</ButtonV2>')
   })
 
   test("uses open-task icon semantics instead of edit semantics", () => {
-    const openActionSource = homeSource.slice(
-      homeSource.indexOf("function HomeWorkflowTaskOpenAction"),
-      homeSource.indexOf("function HomeWorkflowTaskTrailing"),
-    )
     const headerSource = inspectorSource.slice(
       inspectorSource.indexOf("function InspectorHeader"),
       inspectorSource.indexOf("function InspectorEmptyState"),
     )
 
     expect(v2IconSource).toContain('"arrow-right":')
-    expect(openActionSource).toContain('icon={<IconV2 name="arrow-right" />}')
+    expect(rowSource).toContain('icon={<IconV2 name="arrow-right" />}')
     expect(headerSource).toContain('icon={<IconV2 name="arrow-right" />}')
-    expect(openActionSource).not.toContain('name="edit"')
+    expect(rowSource).not.toContain('name="edit"')
     expect(headerSource).not.toContain('name="edit"')
   })
 

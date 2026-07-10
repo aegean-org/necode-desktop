@@ -21,6 +21,7 @@ const info = {
     created: 1,
     updated: 2,
     compacting: undefined,
+    pinned: undefined,
     archived: undefined,
   },
   permission: undefined,
@@ -35,6 +36,7 @@ describe("Session schema", () => {
       expect(Object.hasOwn(encoded, key)).toBe(false)
     }
     expect(Object.hasOwn(encoded.time as Record<string, unknown>, "compacting")).toBe(false)
+    expect(Object.hasOwn(encoded.time as Record<string, unknown>, "pinned")).toBe(false)
     expect(Object.hasOwn(encoded.time as Record<string, unknown>, "archived")).toBe(false)
     expect(JSON.stringify(encoded)).not.toContain("parentID")
   })

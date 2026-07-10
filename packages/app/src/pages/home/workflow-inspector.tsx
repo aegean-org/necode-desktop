@@ -8,6 +8,7 @@ import { createMemo, For, Show, type JSX } from "solid-js"
 import { WORKFLOW_BADGE, WORKFLOW_SURFACE_CARD } from "@/components/workflow-ui"
 import { useLanguage } from "@/context/language"
 import { displayName } from "@/pages/layout/helpers"
+import { WorkflowSessionActions } from "@/pages/session/workflow-session-actions"
 import { sessionTitle } from "@/utils/session-title"
 import {
   workflowStatusTitleKey,
@@ -29,6 +30,11 @@ export function HomeWorkflowInspector(props: {
   task: WorkflowTask | undefined
   project: LocalProject | undefined
   onOpenSession: (session: Session) => void
+  onPin: (task: WorkflowTask) => void | Promise<void>
+  onUnpin: (task: WorkflowTask) => void | Promise<void>
+  onArchive: (task: WorkflowTask) => void | Promise<void>
+  onRestore: (task: WorkflowTask) => void | Promise<void>
+  onDelete: (task: WorkflowTask) => Promise<boolean>
   onNewSession?: () => void
 }) {
   const language = useLanguage()
@@ -39,7 +45,7 @@ export function HomeWorkflowInspector(props: {
       aria-label={language.t("home.tasks.detail.title")}
     >
       <div class="flex min-h-0 flex-1 flex-col gap-5">
-        <InspectorHeader task={props.task} onOpenSession={props.onOpenSession} />
+        <InspectorHeader {...props} />
         <Show
           when={props.task}
           fallback={<InspectorEmptyState project={props.project} onNewSession={props.onNewSession} />}
@@ -54,6 +60,11 @@ export function HomeWorkflowInspector(props: {
 function InspectorHeader(props: {
   task: WorkflowTask | undefined
   onOpenSession: (session: Session) => void
+  onPin: (task: WorkflowTask) => void | Promise<void>
+  onUnpin: (task: WorkflowTask) => void | Promise<void>
+  onArchive: (task: WorkflowTask) => void | Promise<void>
+  onRestore: (task: WorkflowTask) => void | Promise<void>
+  onDelete: (task: WorkflowTask) => Promise<boolean>
 }) {
   const language = useLanguage()
   const title = createMemo(() => {
@@ -72,15 +83,27 @@ function InspectorHeader(props: {
       </div>
       <Show when={props.task}>
         {(task) => (
-          <IconButtonV2
-            aria-label={language.t("home.tasks.detail.open")}
-            title={language.t("home.tasks.detail.open")}
-            variant="ghost-muted"
-            size="small"
-            class="size-7 rounded-[7px]"
-            icon={<IconV2 name="arrow-right" />}
-            onClick={() => props.onOpenSession(task().session)}
-          />
+          <div class="flex items-center gap-0.5">
+            <WorkflowSessionActions
+              title={title()}
+              pinned={!!task().pinnedAt}
+              archived={!!task().archivedAt}
+              onPin={() => props.onPin(task())}
+              onUnpin={() => props.onUnpin(task())}
+              onArchive={() => props.onArchive(task())}
+              onRestore={() => props.onRestore(task())}
+              onDelete={() => props.onDelete(task())}
+            />
+            <IconButtonV2
+              aria-label={language.t("home.tasks.detail.open")}
+              title={language.t("home.tasks.detail.open")}
+              variant="ghost-muted"
+              size="small"
+              class="size-7 rounded-[7px]"
+              icon={<IconV2 name="arrow-right" />}
+              onClick={() => props.onOpenSession(task().session)}
+            />
+          </div>
         )}
       </Show>
     </div>
