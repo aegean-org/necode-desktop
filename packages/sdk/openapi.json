@@ -3022,7 +3022,7 @@
             }
           }
         },
-        "description": "Dynamically add a new Model Context Protocol (MCP) server to the system.",
+        "description": "Dynamically add a runtime-only Model Context Protocol (MCP) server; it is not persisted.",
         "summary": "Add MCP server",
         "requestBody": {
           "content": {
@@ -3054,6 +3054,414 @@
           {
             "lang": "js",
             "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.mcp.add({\n  ...\n})"
+          }
+        ]
+      }
+    },
+    "/mcp/config": {
+      "get": {
+        "tags": ["mcp"],
+        "operationId": "mcp.config.list",
+        "parameters": [
+          {
+            "name": "directory",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "required": false
+          },
+          {
+            "name": "workspace",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "required": false
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Persistent MCP configuration entries",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/McpConfigEntry"
+                  },
+                  "description": "Persistent MCP configuration entries"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "MCPConfigInvalidError | InvalidRequestError",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/MCPConfigInvalidError"
+                    },
+                    {
+                      "$ref": "#/components/schemas/InvalidRequestError"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "MCPConfigPersistenceError",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MCPConfigPersistenceError"
+                }
+              }
+            }
+          }
+        },
+        "description": "List persistent Model Context Protocol (MCP) configuration entries.",
+        "summary": "List persistent MCP configuration",
+        "x-codeSamples": [
+          {
+            "lang": "js",
+            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.mcp.config.list({\n  ...\n})"
+          }
+        ]
+      },
+      "post": {
+        "tags": ["mcp"],
+        "operationId": "mcp.config.create",
+        "parameters": [
+          {
+            "name": "directory",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "required": false
+          },
+          {
+            "name": "workspace",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "required": false
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Persistent MCP configuration entries",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/McpConfigEntry"
+                  },
+                  "description": "Persistent MCP configuration entries"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "MCPConfigInvalidError | InvalidRequestError",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/MCPConfigInvalidError"
+                    },
+                    {
+                      "$ref": "#/components/schemas/InvalidRequestError"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "MCPConfigConflictError",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MCPConfigConflictError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "MCPConfigPersistenceError",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MCPConfigPersistenceError"
+                }
+              }
+            }
+          }
+        },
+        "description": "Create a persistent Model Context Protocol (MCP) configuration entry.",
+        "summary": "Create persistent MCP configuration",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "scope": {
+                    "type": "string",
+                    "enum": ["project", "global"]
+                  },
+                  "name": {
+                    "type": "string"
+                  },
+                  "config": {
+                    "anyOf": [
+                      {
+                        "$ref": "#/components/schemas/McpLocalConfig"
+                      },
+                      {
+                        "$ref": "#/components/schemas/McpRemoteConfig"
+                      }
+                    ]
+                  }
+                },
+                "required": ["scope", "name", "config"],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "x-codeSamples": [
+          {
+            "lang": "js",
+            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.mcp.config.create({\n  ...\n})"
+          }
+        ]
+      }
+    },
+    "/mcp/config/{entryID}": {
+      "put": {
+        "tags": ["mcp"],
+        "operationId": "mcp.config.update",
+        "parameters": [
+          {
+            "name": "entryID",
+            "in": "path",
+            "schema": {
+              "type": "string"
+            },
+            "required": true
+          },
+          {
+            "name": "directory",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "required": false
+          },
+          {
+            "name": "workspace",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "required": false
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Persistent MCP configuration entries",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/McpConfigEntry"
+                  },
+                  "description": "Persistent MCP configuration entries"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "MCPConfigInvalidError | InvalidRequestError",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/MCPConfigInvalidError"
+                    },
+                    {
+                      "$ref": "#/components/schemas/InvalidRequestError"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "MCPConfigNotFoundError",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MCPConfigNotFoundError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "MCPConfigConflictError",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MCPConfigConflictError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "MCPConfigPersistenceError",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MCPConfigPersistenceError"
+                }
+              }
+            }
+          }
+        },
+        "description": "Update a persistent Model Context Protocol (MCP) configuration entry.",
+        "summary": "Update persistent MCP configuration",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "config": {
+                    "anyOf": [
+                      {
+                        "$ref": "#/components/schemas/McpLocalConfig"
+                      },
+                      {
+                        "$ref": "#/components/schemas/McpRemoteConfig"
+                      }
+                    ]
+                  }
+                },
+                "required": ["name", "config"],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "x-codeSamples": [
+          {
+            "lang": "js",
+            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.mcp.config.update({\n  ...\n})"
+          }
+        ]
+      },
+      "delete": {
+        "tags": ["mcp"],
+        "operationId": "mcp.config.remove",
+        "parameters": [
+          {
+            "name": "entryID",
+            "in": "path",
+            "schema": {
+              "type": "string"
+            },
+            "required": true
+          },
+          {
+            "name": "directory",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "required": false
+          },
+          {
+            "name": "workspace",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "required": false
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Persistent MCP configuration entries",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/McpConfigEntry"
+                  },
+                  "description": "Persistent MCP configuration entries"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "MCPConfigInvalidError | InvalidRequestError",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/MCPConfigInvalidError"
+                    },
+                    {
+                      "$ref": "#/components/schemas/InvalidRequestError"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "MCPConfigNotFoundError",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MCPConfigNotFoundError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "MCPConfigPersistenceError",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MCPConfigPersistenceError"
+                }
+              }
+            }
+          }
+        },
+        "description": "Remove a persistent Model Context Protocol (MCP) configuration entry.",
+        "summary": "Remove persistent MCP configuration",
+        "x-codeSamples": [
+          {
+            "lang": "js",
+            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.mcp.config.remove({\n  ...\n})"
           }
         ]
       }
@@ -5800,6 +6208,9 @@
                     "properties": {
                       "archived": {
                         "type": "number"
+                      },
+                      "pinned": {
+                        "type": "number"
                       }
                     },
                     "additionalProperties": false
@@ -8027,6 +8438,116 @@
           {
             "lang": "js",
             "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.part.update({\n  ...\n})"
+          }
+        ]
+      }
+    },
+    "/rag/status": {
+      "get": {
+        "tags": ["rag"],
+        "operationId": "rag.status",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Local NE RAG index status",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RagStatus"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "RagRequestError | InvalidRequestError",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/RagRequestError"
+                    },
+                    {
+                      "$ref": "#/components/schemas/InvalidRequestError"
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "description": "Get local NE RAG index status for the desktop app.",
+        "summary": "Get RAG status",
+        "x-codeSamples": [
+          {
+            "lang": "js",
+            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.rag.status({\n  ...\n})"
+          }
+        ]
+      }
+    },
+    "/rag/import": {
+      "post": {
+        "tags": ["rag"],
+        "operationId": "rag.import",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Documents imported into the local NE RAG index",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RagImportResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "RagCredentialRequiredError | RagImportFailedError | RagRequestError | InvalidRequestError",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/RagCredentialRequiredError"
+                    },
+                    {
+                      "$ref": "#/components/schemas/RagImportFailedError"
+                    },
+                    {
+                      "$ref": "#/components/schemas/RagRequestError"
+                    },
+                    {
+                      "$ref": "#/components/schemas/InvalidRequestError"
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "description": "Import local PDF, Markdown, or text files into the NE RAG index.",
+        "summary": "Import RAG documents",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "path": {
+                    "type": "string"
+                  }
+                },
+                "required": ["path"],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "x-codeSamples": [
+          {
+            "lang": "js",
+            "source": "import { createOpencodeClient } from \"@opencode-ai/sdk\n\nconst client = createOpencodeClient()\nawait client.rag.import({\n  ...\n})"
           }
         ]
       }
@@ -15035,6 +15556,9 @@
                 "type": "integer",
                 "minimum": 0
               },
+              "pinned": {
+                "type": "number"
+              },
               "archived": {
                 "type": "number"
               }
@@ -21011,6 +21535,19 @@
           "key": {
             "type": "string"
           },
+          "account": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "label": {
+                "type": "string"
+              }
+            },
+            "required": ["label"],
+            "additionalProperties": false
+          },
           "options": {
             "type": "object"
           },
@@ -21308,6 +21845,9 @@
               "compacting": {
                 "type": "integer",
                 "minimum": 0
+              },
+              "pinned": {
+                "type": "number"
               },
               "archived": {
                 "type": "number"
@@ -21842,6 +22382,139 @@
           }
         ]
       },
+      "McpConfigEntry": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "scope": {
+            "type": "string",
+            "enum": ["project", "global", "builtin"]
+          },
+          "config": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/McpLocalConfig"
+              },
+              {
+                "$ref": "#/components/schemas/McpRemoteConfig"
+              }
+            ]
+          },
+          "source": {
+            "type": "string"
+          },
+          "effective": {
+            "type": "boolean"
+          },
+          "readonly": {
+            "type": "boolean"
+          },
+          "overriddenBy": {
+            "type": "string",
+            "enum": ["project", "global"]
+          }
+        },
+        "required": ["id", "name", "scope", "config", "effective", "readonly"],
+        "additionalProperties": false
+      },
+      "MCPConfigInvalidError": {
+        "type": "object",
+        "properties": {
+          "_tag": {
+            "type": "string",
+            "enum": ["MCPConfigInvalidError"]
+          },
+          "message": {
+            "type": "string"
+          },
+          "field": {
+            "type": "string"
+          }
+        },
+        "required": ["_tag", "message"],
+        "additionalProperties": false
+      },
+      "MCPConfigPersistenceError": {
+        "type": "object",
+        "properties": {
+          "_tag": {
+            "type": "string",
+            "enum": ["MCPConfigPersistenceError"]
+          },
+          "message": {
+            "type": "string"
+          },
+          "path": {
+            "type": "string"
+          },
+          "cause": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "message": {
+                    "type": "string"
+                  },
+                  "name": {
+                    "type": "string"
+                  },
+                  "stack": {
+                    "type": "string"
+                  }
+                },
+                "required": ["message"],
+                "additionalProperties": false
+              },
+              {}
+            ]
+          }
+        },
+        "required": ["_tag", "message"],
+        "additionalProperties": false
+      },
+      "MCPConfigConflictError": {
+        "type": "object",
+        "properties": {
+          "_tag": {
+            "type": "string",
+            "enum": ["MCPConfigConflictError"]
+          },
+          "message": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "scope": {
+            "type": "string",
+            "enum": ["project", "global"]
+          }
+        },
+        "required": ["_tag", "message", "name", "scope"],
+        "additionalProperties": false
+      },
+      "MCPConfigNotFoundError": {
+        "type": "object",
+        "properties": {
+          "_tag": {
+            "type": "string",
+            "enum": ["MCPConfigNotFoundError"]
+          },
+          "message": {
+            "type": "string"
+          },
+          "entryID": {
+            "type": "string"
+          }
+        },
+        "required": ["_tag", "message"],
+        "additionalProperties": false
+      },
       "McpUnsupportedOAuthError": {
         "type": "object",
         "properties": {
@@ -22230,6 +22903,7 @@
               "ProviderAuthOauthMissing",
               "ProviderAuthOauthCodeMissing",
               "ProviderAuthOauthCallbackFailed",
+              "ProviderAuthApiAuthorizationFailed",
               "ProviderAuthValidationFailed"
             ]
           },
@@ -22434,6 +23108,286 @@
           }
         },
         "required": ["_tag", "sessionID", "message"],
+        "additionalProperties": false
+      },
+      "RagDocument": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string",
+                "enum": ["NaN"]
+              },
+              {
+                "type": "string",
+                "enum": ["Infinity"]
+              },
+              {
+                "type": "string",
+                "enum": ["-Infinity"]
+              },
+              {
+                "type": "string",
+                "enum": ["Infinity", "-Infinity", "NaN"]
+              }
+            ]
+          },
+          "filePath": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "chunks": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string",
+                "enum": ["NaN"]
+              },
+              {
+                "type": "string",
+                "enum": ["Infinity"]
+              },
+              {
+                "type": "string",
+                "enum": ["-Infinity"]
+              },
+              {
+                "type": "string",
+                "enum": ["Infinity", "-Infinity", "NaN"]
+              }
+            ]
+          }
+        },
+        "required": ["id", "filePath", "title", "chunks"],
+        "additionalProperties": false
+      },
+      "RagStatus": {
+        "type": "object",
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          },
+          "storePath": {
+            "type": "string"
+          },
+          "documents": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RagDocument"
+            }
+          },
+          "chunks": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string",
+                "enum": ["NaN"]
+              },
+              {
+                "type": "string",
+                "enum": ["Infinity"]
+              },
+              {
+                "type": "string",
+                "enum": ["-Infinity"]
+              },
+              {
+                "type": "string",
+                "enum": ["Infinity", "-Infinity", "NaN"]
+              }
+            ]
+          }
+        },
+        "required": ["enabled", "storePath", "documents", "chunks"],
+        "additionalProperties": false
+      },
+      "RagRequestError": {
+        "type": "object",
+        "properties": {
+          "_tag": {
+            "type": "string",
+            "enum": ["RagRequestError"]
+          },
+          "message": {
+            "type": "string"
+          }
+        },
+        "required": ["_tag", "message"],
+        "additionalProperties": false
+      },
+      "RagIndexFailure": {
+        "type": "object",
+        "properties": {
+          "filePath": {
+            "type": "string"
+          },
+          "error": {
+            "type": "string"
+          }
+        },
+        "required": ["filePath", "error"],
+        "additionalProperties": false
+      },
+      "RagIndexResult": {
+        "type": "object",
+        "properties": {
+          "files": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string",
+                "enum": ["NaN"]
+              },
+              {
+                "type": "string",
+                "enum": ["Infinity"]
+              },
+              {
+                "type": "string",
+                "enum": ["-Infinity"]
+              },
+              {
+                "type": "string",
+                "enum": ["Infinity", "-Infinity", "NaN"]
+              }
+            ]
+          },
+          "indexedFiles": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string",
+                "enum": ["NaN"]
+              },
+              {
+                "type": "string",
+                "enum": ["Infinity"]
+              },
+              {
+                "type": "string",
+                "enum": ["-Infinity"]
+              },
+              {
+                "type": "string",
+                "enum": ["Infinity", "-Infinity", "NaN"]
+              }
+            ]
+          },
+          "failedFiles": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string",
+                "enum": ["NaN"]
+              },
+              {
+                "type": "string",
+                "enum": ["Infinity"]
+              },
+              {
+                "type": "string",
+                "enum": ["-Infinity"]
+              },
+              {
+                "type": "string",
+                "enum": ["Infinity", "-Infinity", "NaN"]
+              }
+            ]
+          },
+          "chunks": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string",
+                "enum": ["NaN"]
+              },
+              {
+                "type": "string",
+                "enum": ["Infinity"]
+              },
+              {
+                "type": "string",
+                "enum": ["-Infinity"]
+              },
+              {
+                "type": "string",
+                "enum": ["Infinity", "-Infinity", "NaN"]
+              }
+            ]
+          },
+          "failures": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RagIndexFailure"
+            }
+          }
+        },
+        "required": ["files", "indexedFiles", "failedFiles", "chunks", "failures"],
+        "additionalProperties": false
+      },
+      "RagImportResponse": {
+        "type": "object",
+        "properties": {
+          "importResult": {
+            "$ref": "#/components/schemas/RagIndexResult"
+          },
+          "status": {
+            "$ref": "#/components/schemas/RagStatus"
+          }
+        },
+        "required": ["importResult", "status"],
+        "additionalProperties": false
+      },
+      "RagCredentialRequiredError": {
+        "type": "object",
+        "properties": {
+          "_tag": {
+            "type": "string",
+            "enum": ["RagCredentialRequiredError"]
+          },
+          "message": {
+            "type": "string"
+          }
+        },
+        "required": ["_tag", "message"],
+        "additionalProperties": false
+      },
+      "RagImportFailedError": {
+        "type": "object",
+        "properties": {
+          "_tag": {
+            "type": "string",
+            "enum": ["RagImportFailedError"]
+          },
+          "message": {
+            "type": "string"
+          },
+          "failures": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RagIndexFailure"
+            }
+          }
+        },
+        "required": ["_tag", "message", "failures"],
         "additionalProperties": false
       },
       "EventTuiPromptAppend": {
@@ -25659,6 +26613,9 @@
                 "type": "number"
               },
               "updated": {
+                "type": "number"
+              },
+              "pinned": {
                 "type": "number"
               },
               "archived": {
@@ -30540,6 +31497,10 @@
     {
       "name": "session",
       "description": "Experimental HttpApi session routes."
+    },
+    {
+      "name": "rag",
+      "description": "Experimental HttpApi local NE RAG routes."
     },
     {
       "name": "sync",
