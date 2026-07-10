@@ -2431,6 +2431,49 @@ export type McpStatus =
   | McpStatusNeedsAuth
   | McpStatusNeedsClientRegistration
 
+export type McpConfigEntry = {
+  id: string
+  name: string
+  scope: "project" | "global" | "builtin"
+  config: McpLocalConfig | McpRemoteConfig
+  source?: string
+  effective: boolean
+  readonly: boolean
+  overriddenBy?: "project" | "global"
+}
+
+export type McpConfigInvalidError = {
+  _tag: "MCPConfigInvalidError"
+  message: string
+  field?: string
+}
+
+export type McpConfigPersistenceError = {
+  _tag: "MCPConfigPersistenceError"
+  message: string
+  path?: string
+  cause?:
+    | {
+        message: string
+        name?: string
+        stack?: string
+      }
+    | unknown
+}
+
+export type McpConfigConflictError = {
+  _tag: "MCPConfigConflictError"
+  message: string
+  name: string
+  scope: "project" | "global"
+}
+
+export type McpConfigNotFoundError = {
+  _tag: "MCPConfigNotFoundError"
+  message: string
+  entryID?: string
+}
+
 export type McpUnsupportedOAuthError = {
   error: string
 }
@@ -6571,6 +6614,161 @@ export type McpAddResponses = {
 }
 
 export type McpAddResponse = McpAddResponses[keyof McpAddResponses]
+
+export type McpConfigListData = {
+  body?: never
+  path?: never
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/mcp/config"
+}
+
+export type McpConfigListErrors = {
+  /**
+   * MCPConfigInvalidError | InvalidRequestError
+   */
+  400: McpConfigInvalidError | InvalidRequestError
+  /**
+   * MCPConfigPersistenceError
+   */
+  500: McpConfigPersistenceError
+}
+
+export type McpConfigListError = McpConfigListErrors[keyof McpConfigListErrors]
+
+export type McpConfigListResponses = {
+  /**
+   * Persistent MCP configuration entries
+   */
+  200: Array<McpConfigEntry>
+}
+
+export type McpConfigListResponse = McpConfigListResponses[keyof McpConfigListResponses]
+
+export type McpConfigCreateData = {
+  body?: {
+    scope: "project" | "global"
+    name: string
+    config: McpLocalConfig | McpRemoteConfig
+  }
+  path?: never
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/mcp/config"
+}
+
+export type McpConfigCreateErrors = {
+  /**
+   * MCPConfigInvalidError | InvalidRequestError
+   */
+  400: McpConfigInvalidError | InvalidRequestError
+  /**
+   * MCPConfigConflictError
+   */
+  409: McpConfigConflictError
+  /**
+   * MCPConfigPersistenceError
+   */
+  500: McpConfigPersistenceError
+}
+
+export type McpConfigCreateError = McpConfigCreateErrors[keyof McpConfigCreateErrors]
+
+export type McpConfigCreateResponses = {
+  /**
+   * Persistent MCP configuration entries
+   */
+  200: Array<McpConfigEntry>
+}
+
+export type McpConfigCreateResponse = McpConfigCreateResponses[keyof McpConfigCreateResponses]
+
+export type McpConfigRemoveData = {
+  body?: never
+  path: {
+    entryID: string
+  }
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/mcp/config/{entryID}"
+}
+
+export type McpConfigRemoveErrors = {
+  /**
+   * MCPConfigInvalidError | InvalidRequestError
+   */
+  400: McpConfigInvalidError | InvalidRequestError
+  /**
+   * MCPConfigNotFoundError
+   */
+  404: McpConfigNotFoundError
+  /**
+   * MCPConfigPersistenceError
+   */
+  500: McpConfigPersistenceError
+}
+
+export type McpConfigRemoveError = McpConfigRemoveErrors[keyof McpConfigRemoveErrors]
+
+export type McpConfigRemoveResponses = {
+  /**
+   * Persistent MCP configuration entries
+   */
+  200: Array<McpConfigEntry>
+}
+
+export type McpConfigRemoveResponse = McpConfigRemoveResponses[keyof McpConfigRemoveResponses]
+
+export type McpConfigUpdateData = {
+  body?: {
+    name: string
+    config: McpLocalConfig | McpRemoteConfig
+  }
+  path: {
+    entryID: string
+  }
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/mcp/config/{entryID}"
+}
+
+export type McpConfigUpdateErrors = {
+  /**
+   * MCPConfigInvalidError | InvalidRequestError
+   */
+  400: McpConfigInvalidError | InvalidRequestError
+  /**
+   * MCPConfigNotFoundError
+   */
+  404: McpConfigNotFoundError
+  /**
+   * MCPConfigConflictError
+   */
+  409: McpConfigConflictError
+  /**
+   * MCPConfigPersistenceError
+   */
+  500: McpConfigPersistenceError
+}
+
+export type McpConfigUpdateError = McpConfigUpdateErrors[keyof McpConfigUpdateErrors]
+
+export type McpConfigUpdateResponses = {
+  /**
+   * Persistent MCP configuration entries
+   */
+  200: Array<McpConfigEntry>
+}
+
+export type McpConfigUpdateResponse = McpConfigUpdateResponses[keyof McpConfigUpdateResponses]
 
 export type McpAuthRemoveData = {
   body?: never

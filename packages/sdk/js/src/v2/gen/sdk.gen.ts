@@ -17,7 +17,7 @@ import type {
   AuthSetResponses,
   CommandListErrors,
   CommandListResponses,
-  Config as Config3,
+  Config as Config4,
   ConfigGetErrors,
   ConfigGetResponses,
   ConfigProvidersErrors,
@@ -101,6 +101,14 @@ import type {
   McpAuthRemoveResponses,
   McpAuthStartErrors,
   McpAuthStartResponses,
+  McpConfigCreateErrors,
+  McpConfigCreateResponses,
+  McpConfigListErrors,
+  McpConfigListResponses,
+  McpConfigRemoveErrors,
+  McpConfigRemoveResponses,
+  McpConfigUpdateErrors,
+  McpConfigUpdateResponses,
   McpConnectErrors,
   McpConnectResponses,
   McpDisconnectErrors,
@@ -1230,7 +1238,7 @@ export class Config extends HeyApiClient {
    */
   public update<ThrowOnError extends boolean = false>(
     parameters?: {
-      config?: Config3
+      config?: Config4
     },
     options?: Options<never, ThrowOnError>,
   ) {
@@ -1387,7 +1395,7 @@ export class Config2 extends HeyApiClient {
     parameters?: {
       directory?: string
       workspace?: string
-      config?: Config3
+      config?: Config4
     },
     options?: Options<never, ThrowOnError>,
   ) {
@@ -2185,6 +2193,152 @@ export class Formatter extends HeyApiClient {
   }
 }
 
+export class Config3 extends HeyApiClient {
+  /**
+   * List persistent MCP configuration
+   *
+   * List persistent Model Context Protocol (MCP) configuration entries.
+   */
+  public list<ThrowOnError extends boolean = false>(
+    parameters?: {
+      directory?: string
+      workspace?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).get<McpConfigListResponses, McpConfigListErrors, ThrowOnError>({
+      url: "/mcp/config",
+      ...options,
+      ...params,
+    })
+  }
+
+  /**
+   * Create persistent MCP configuration
+   *
+   * Create a persistent Model Context Protocol (MCP) configuration entry.
+   */
+  public create<ThrowOnError extends boolean = false>(
+    parameters?: {
+      directory?: string
+      workspace?: string
+      scope?: "project" | "global"
+      name?: string
+      config?: McpLocalConfig | McpRemoteConfig
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+            { in: "body", key: "scope" },
+            { in: "body", key: "name" },
+            { in: "body", key: "config" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).post<McpConfigCreateResponses, McpConfigCreateErrors, ThrowOnError>({
+      url: "/mcp/config",
+      ...options,
+      ...params,
+      headers: {
+        "Content-Type": "application/json",
+        ...options?.headers,
+        ...params.headers,
+      },
+    })
+  }
+
+  /**
+   * Remove persistent MCP configuration
+   *
+   * Remove a persistent Model Context Protocol (MCP) configuration entry.
+   */
+  public remove<ThrowOnError extends boolean = false>(
+    parameters: {
+      entryID: string
+      directory?: string
+      workspace?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "path", key: "entryID" },
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).delete<McpConfigRemoveResponses, McpConfigRemoveErrors, ThrowOnError>({
+      url: "/mcp/config/{entryID}",
+      ...options,
+      ...params,
+    })
+  }
+
+  /**
+   * Update persistent MCP configuration
+   *
+   * Update a persistent Model Context Protocol (MCP) configuration entry.
+   */
+  public update<ThrowOnError extends boolean = false>(
+    parameters: {
+      entryID: string
+      directory?: string
+      workspace?: string
+      name?: string
+      config?: McpLocalConfig | McpRemoteConfig
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "path", key: "entryID" },
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+            { in: "body", key: "name" },
+            { in: "body", key: "config" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).put<McpConfigUpdateResponses, McpConfigUpdateErrors, ThrowOnError>({
+      url: "/mcp/config/{entryID}",
+      ...options,
+      ...params,
+      headers: {
+        "Content-Type": "application/json",
+        ...options?.headers,
+        ...params.headers,
+      },
+    })
+  }
+}
+
 export class Auth2 extends HeyApiClient {
   /**
    * Remove MCP OAuth
@@ -2358,7 +2512,7 @@ export class Mcp extends HeyApiClient {
   /**
    * Add MCP server
    *
-   * Dynamically add a new Model Context Protocol (MCP) server to the system.
+   * Dynamically add a runtime-only Model Context Protocol (MCP) server; it is not persisted.
    */
   public add<ThrowOnError extends boolean = false>(
     parameters?: {
@@ -2452,6 +2606,11 @@ export class Mcp extends HeyApiClient {
       ...options,
       ...params,
     })
+  }
+
+  private _config?: Config3
+  get config(): Config3 {
+    return (this._config ??= new Config3({ client: this.client }))
   }
 
   private _auth?: Auth2
