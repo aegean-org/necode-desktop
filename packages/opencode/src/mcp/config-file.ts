@@ -3,7 +3,15 @@ export * as MCPConfigFile from "./config-file"
 import { FSUtil } from "@opencode-ai/core/fs-util"
 import { ConfigMCPV1 } from "@opencode-ai/core/v1/config/mcp"
 import { Effect, Schema } from "effect"
-import { applyEdits, modify, parse, printParseErrorCode } from "jsonc-parser"
+import {
+  applyEdits,
+  findNodeAtLocation,
+  getNodeValue,
+  modify,
+  parse,
+  parseTree,
+  printParseErrorCode,
+} from "jsonc-parser"
 
 /** A parsed MCP configuration file with its original JSONC source. */
 export type Document = {
@@ -55,7 +63,7 @@ export const remove = Effect.fn("MCPConfigFile.remove")(function* (input: {
   name: string
 }) {
   const document = yield* read(input)
-  if (!(input.name in document.mcp)) {
+  if (!Object.hasOwn(document.mcp, input.name)) {
     return yield* new NotFoundError({
       path: input.path,
       name: input.name,
@@ -115,12 +123,18 @@ function* decodeDocument(path: string, text: string) {
     return yield* new ParseError({ path, message: `Invalid JSONC: ${message}`, cause: errors })
   }
   if (!isRecord(data)) return yield* invalidStructure(path, "Configuration root must be an object", data)
-  if (data.mcp === undefined) return { path, text, mcp: {} }
+  if (data.mcp === undefined) return { path, text, mcp: Object.create(null) as Record<string, ConfigMCPV1.Info> }
   if (!isRecord(data.mcp)) return yield* invalidStructure(path, 'Configuration field "mcp" must be an object', data.mcp)
 
-  const mcp: Record<string, ConfigMCPV1.Info> = {}
-  for (const [name, config] of Object.entries(data.mcp)) {
-    mcp[name] = yield* Schema.decodeUnknownEffect(ConfigMCPV1.Info)(config).pipe(
+  const tree = parseTree(text)
+  const node = tree && findNodeAtLocation(tree, ["mcp"])
+  if (!node || node.type !== "object") return yield* invalidStructure(path, "Unable to locate the MCP object", node)
+  const mcp = Object.create(null) as Record<string, ConfigMCPV1.Info>
+  for (const property of node.children ?? []) {
+    const name = property.children?.[0]?.value
+    const value = property.children?.[1]
+    if (typeof name !== "string" || !value) return yield* invalidStructure(path, "Invalid MCP property", property)
+    mcp[name] = yield* Schema.decodeUnknownEffect(ConfigMCPV1.Info)(getNodeValue(value)).pipe(
       Effect.mapError(
         (cause) => new ParseError({ path, message: `Invalid MCP config "${name}": ${describeCause(cause)}`, cause }),
       ),

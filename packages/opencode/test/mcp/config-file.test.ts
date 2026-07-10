@@ -93,4 +93,52 @@ describe("MCPConfigFile", () => {
       expect(error.message).toContain("missing")
     }),
   )
+
+  test(
+    "treats inherited object names as missing MCP entries",
+    Effect.gen(function* () {
+      const fs = yield* FSUtil.Service
+      const tmp = yield* fs.makeTempDirectoryScoped()
+      const source = path.join(tmp, "opencode.jsonc")
+      yield* fs.writeFileString(source, `{ "mcp": {} }`)
+
+      const toStringError = yield* MCPConfigFile.remove({ fs, path: source, name: "toString" }).pipe(Effect.flip)
+      expect(toStringError).toBeInstanceOf(MCPConfigFile.NotFoundError)
+      expect(toStringError.name).toBe("toString")
+
+      const constructorError = yield* MCPConfigFile.remove({ fs, path: source, name: "constructor" }).pipe(Effect.flip)
+      expect(constructorError).toBeInstanceOf(MCPConfigFile.NotFoundError)
+      expect(constructorError.name).toBe("constructor")
+    }),
+  )
+
+  test(
+    "preserves a __proto__ MCP entry when removing another entry",
+    Effect.gen(function* () {
+      const fs = yield* FSUtil.Service
+      const tmp = yield* fs.makeTempDirectoryScoped()
+      const source = path.join(tmp, "opencode.jsonc")
+      yield* fs.writeFileString(
+        source,
+        `{
+  "mcp": {
+    "__proto__": { "type": "remote", "url": "https://example.com/proto" },
+    "other": { "type": "remote", "url": "https://example.com/other" }
+  }
+}`,
+      )
+
+      const before = yield* MCPConfigFile.read({ fs, path: source })
+      expect(Object.hasOwn(before.mcp, "__proto__")).toBe(true)
+
+      yield* MCPConfigFile.remove({ fs, path: source, name: "other" })
+
+      const text = yield* fs.readFileString(source)
+      expect(text).toContain('"__proto__"')
+      expect(text).not.toContain('"other"')
+      const after = yield* MCPConfigFile.read({ fs, path: source })
+      expect(Object.hasOwn(after.mcp, "__proto__")).toBe(true)
+      expect(Object.hasOwn(after.mcp, "other")).toBe(false)
+    }),
+  )
 })
