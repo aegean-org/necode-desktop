@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { mcpDisplayItems, mcpDisplayName, sortMcpNames, statusLabelKey } from "./ne-mcp"
+import { isBuiltinMcp, mcpDisplayItems, mcpDisplayName, sortMcpNames, statusLabelKey } from "./ne-mcp"
 
 describe("NE MCP display helpers", () => {
   test("puts NE built-in MCP servers before custom MCP servers", () => {
@@ -15,6 +15,12 @@ describe("NE MCP display helpers", () => {
     expect(mcpDisplayName("noteexpress")).toBe("NoteExpress")
     expect(mcpDisplayName("qingtibase")).toBe("Qingti Base")
     expect(mcpDisplayName("custom")).toBe("custom")
+  })
+
+  test("identifies reserved NE MCP server names", () => {
+    expect(isBuiltinMcp("noteexpress")).toBe(true)
+    expect(isBuiltinMcp("qingtibase")).toBe(true)
+    expect(isBuiltinMcp("custom")).toBe(false)
   })
 
   test("maps known MCP status values to localization keys", () => {

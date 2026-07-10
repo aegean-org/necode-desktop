@@ -1,6 +1,7 @@
 import type { McpStatus } from "@opencode-ai/sdk/v2/client"
 
-const NE_MCP_ORDER = ["noteexpress", "qingtibase"] as const
+/** Stable names reserved for NE-provided MCP servers. */
+export const BUILTIN_MCP_NAMES = ["noteexpress", "qingtibase"] as const
 const UNKNOWN_MCP_RANK = Number.MAX_SAFE_INTEGER
 
 const neMcpNames = new Map<string, string>([
@@ -8,7 +9,7 @@ const neMcpNames = new Map<string, string>([
   ["qingtibase", "Qingti Base"],
 ])
 
-const neMcpRank = new Map<string, number>(NE_MCP_ORDER.map((name, index) => [name, index]))
+const neMcpRank = new Map<string, number>(BUILTIN_MCP_NAMES.map((name, index) => [name, index]))
 
 const statusLabels = {
   connected: "mcp.status.connected",
@@ -21,6 +22,11 @@ const statusLabels = {
 type McpStatusLike = {
   status: McpStatus["status"]
   error?: string
+}
+
+/** Returns whether a name is reserved for an NE-provided MCP server. */
+export function isBuiltinMcp(name: string) {
+  return BUILTIN_MCP_NAMES.includes(name as (typeof BUILTIN_MCP_NAMES)[number])
 }
 
 /**
