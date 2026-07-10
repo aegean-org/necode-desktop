@@ -1,5 +1,7 @@
 import { describe, expect } from "bun:test"
 import { Context, Effect, Layer } from "effect"
+import { mkdir } from "node:fs/promises"
+import path from "node:path"
 import { HttpApiApp } from "../../src/server/routes/instance/httpapi/server"
 import { McpPaths } from "../../src/server/routes/instance/httpapi/groups/mcp"
 import { Server } from "../../src/server/server"
@@ -45,6 +47,13 @@ const request = Effect.fnUntraced(function* (
 
 const json = <A>(response: Response) => Effect.promise(() => response.json() as Promise<A>)
 
+const requestJSON = (handler: TestHandler, directory: string) => (route: string, method: string, payload: unknown) =>
+  request(handler, route, directory, {
+    method,
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(payload),
+  })
+
 const readResponse = Effect.fnUntraced(function* (input: { app: TestApp; path: string; headers: HeadersInit }) {
   const response = yield* Effect.promise(() =>
     Promise.resolve(input.app.request(input.path, { method: "POST", headers: input.headers })),
@@ -65,7 +74,7 @@ describe("mcp HttpApi", () => {
         const response = yield* request(handler, McpPaths.status, tmp.directory)
 
         expect(response.status).toBe(200)
-        expect(yield* json(response)).toEqual({ demo: { status: "disabled" } })
+        expect(yield* json(response)).toMatchObject({ demo: { status: "disabled" } })
       }),
     {
       config: {
@@ -100,6 +109,9 @@ describe("mcp HttpApi", () => {
         })
         expect(added.status).toBe(200)
         expect(yield* json(added)).toMatchObject({ added: { status: "disabled" } })
+        expect(yield* Effect.promise(() => Bun.file(path.join(tmp.directory, "opencode.json")).text())).not.toContain(
+          '"added"',
+        )
 
         const addedDisconnected = yield* request(handler, "/mcp/added/disconnect", tmp.directory, { method: "POST" })
         expect(addedDisconnected.status).toBe(200)
@@ -124,6 +136,68 @@ describe("mcp HttpApi", () => {
         },
       },
     },
+  )
+
+  it.instance(
+    "persists config CRUD and returns typed validation errors",
+    () =>
+      Effect.gen(function* () {
+        const tmp = yield* TestInstance
+        const handler = HttpApiApp.webHandler()
+        const send = requestJSON(handler, tmp.directory)
+        const config = { type: "local" as const, command: ["echo", "demo"], enabled: false }
+        const created = yield* send("/mcp/config", "POST", { scope: "project", name: "demo", config })
+        expect(created.status).toBe(200)
+        const entries = yield* json<Array<{ id: string; name: string; readonly: boolean }>>(created)
+        const demo = entries.find((entry) => entry.name === "demo")!
+        const reserved = entries.find((entry) => entry.readonly)!
+        expect(yield* Effect.promise(() => Bun.file(path.join(tmp.directory, "opencode.json")).text())).toContain(
+          '"demo"',
+        )
+
+        const listed = yield* request(handler, "/mcp/config", tmp.directory)
+        expect(listed.status).toBe(200)
+        const listedEntries = yield* json<Array<{ id: string; name: string }>>(listed)
+        expect(listedEntries.some((entry) => entry.name === "demo")).toBe(true)
+        expect((yield* send("/mcp/config", "POST", { scope: "project", name: "demo", config })).status).toBe(409)
+        expect((yield* send(`/mcp/config/${reserved.id}`, "PUT", { name: "renamed", config })).status).toBe(400)
+        expect((yield* request(handler, "/mcp/config/missing", tmp.directory, { method: "DELETE" })).status).toBe(404)
+
+        const updated = yield* send(`/mcp/config/${demo.id}`, "PUT", { name: "renamed", config })
+        expect(updated.status).toBe(200)
+        const renamed = (yield* json<Array<{ id: string; name: string }>>(updated)).find(
+          (entry) => entry.name === "renamed",
+        )!
+        const persisted = yield* Effect.promise(() => Bun.file(path.join(tmp.directory, "opencode.json")).text())
+        expect(persisted).toContain('"renamed"')
+        expect(persisted).not.toContain('"demo": {')
+
+        const removed = yield* request(handler, `/mcp/config/${renamed.id}`, tmp.directory, { method: "DELETE" })
+        expect(removed.status).toBe(200)
+        expect(yield* Effect.promise(() => Bun.file(path.join(tmp.directory, "opencode.json")).text())).not.toContain(
+          '"renamed"',
+        )
+      }),
+    { git: true },
+  )
+
+  it.instance(
+    "keeps the runtime instance when persistent config writes fail",
+    () =>
+      Effect.gen(function* () {
+        const tmp = yield* TestInstance
+        const handler = HttpApiApp.webHandler()
+        const send = requestJSON(handler, tmp.directory)
+        const config = { type: "local" as const, command: ["echo", "volatile"], enabled: false }
+        expect((yield* send("/mcp", "POST", { name: "volatile", config })).status).toBe(200)
+        yield* Effect.promise(() => mkdir(path.join(tmp.directory, "opencode.json")))
+
+        const failed = yield* send("/mcp/config", "POST", { scope: "project", name: "blocked", config })
+        expect(failed.status).toBe(500)
+        const status = yield* request(handler, "/mcp", tmp.directory)
+        expect(yield* json<Record<string, unknown>>(status)).toMatchObject({ volatile: { status: "disabled" } })
+      }),
+    { git: true },
   )
 
   it.instance(

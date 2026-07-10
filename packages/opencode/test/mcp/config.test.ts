@@ -111,6 +111,7 @@ describe("MCPConfig", () => {
       const before = yield* manager.list(ctx)
       const low = before.find((item) => item.name === "low")!
       const high = before.find((item) => item.name === "high")!
+      expect((yield* manager.list(ctx)).find((item) => item.name === "high")?.id).toBe(high.id)
       const renamed = yield* manager.update(ctx, low.id, {
         name: "renamed",
         config: remote("https://renamed.example/mcp"),

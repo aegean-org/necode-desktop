@@ -45,19 +45,21 @@ describe("MCPConfigSource", () => {
   )
 
   test(
-    "round trips canonical URL-safe entry IDs and rejects damaged IDs",
+    "creates stable short URL-safe entry IDs from normalized sources",
     Effect.sync(() => {
       const input = {
         scope: "project" as const,
-        source: "C:\\workspace with spaces\\opencode.jsonc",
+        source: path.join("workspace with spaces", "nested", "..", "opencode.jsonc"),
         name: "shared_server",
       }
       const entryID = MCPConfigSource.encodeEntryID(input)
 
-      expect(entryID).toMatch(/^[A-Za-z0-9_-]+$/)
-      expect(MCPConfigSource.decodeEntryID(entryID)).toEqual(input)
-      expect(MCPConfigSource.decodeEntryID(`${entryID}!`)).toBeUndefined()
-      expect(MCPConfigSource.decodeEntryID("bm90LWpzb24")).toBeUndefined()
+      expect(entryID).toMatch(/^[A-Za-z0-9_-]{43}$/)
+      expect(MCPConfigSource.encodeEntryID(input)).toBe(entryID)
+      expect(
+        MCPConfigSource.encodeEntryID({ ...input, source: path.join("workspace with spaces", "opencode.jsonc") }),
+      ).toBe(entryID)
+      expect(MCPConfigSource.encodeEntryID({ ...input, name: "other" })).not.toBe(entryID)
     }),
   )
 })

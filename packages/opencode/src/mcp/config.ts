@@ -70,15 +70,19 @@ export class ConflictError extends Schema.TaggedErrorClass<ConflictError>()(
 export type Failure = InvalidError | NotFoundError | ConflictError | PersistenceError
 
 /** Persistent MCP configuration operations for one filesystem environment. */
+type ListFailure = InvalidError | PersistenceError
+type CreateFailure = ListFailure | ConflictError
+type RemoveFailure = ListFailure | NotFoundError
+
 export interface Interface {
-  readonly list: (ctx: InstanceContext) => Effect.Effect<readonly Entry[], Failure>
-  readonly create: (ctx: InstanceContext, input: CreateInput) => Effect.Effect<readonly Entry[], Failure>
+  readonly list: (ctx: InstanceContext) => Effect.Effect<readonly Entry[], ListFailure>
+  readonly create: (ctx: InstanceContext, input: CreateInput) => Effect.Effect<readonly Entry[], CreateFailure>
   readonly update: (
     ctx: InstanceContext,
     entryID: string,
     input: UpdateInput,
   ) => Effect.Effect<readonly Entry[], Failure>
-  readonly remove: (ctx: InstanceContext, entryID: string) => Effect.Effect<readonly Entry[], Failure>
+  readonly remove: (ctx: InstanceContext, entryID: string) => Effect.Effect<readonly Entry[], RemoveFailure>
 }
 
 /** Creates an MCP configuration manager backed by the supplied filesystem. */
@@ -91,16 +95,13 @@ export function make(input: { fs: FSUtil.Interface; globalConfigDir: string }): 
     remove: makeRemove(input, list),
   }
 }
-
 type ManagerInput = { fs: FSUtil.Interface; globalConfigDir: string }
-
 function makeList(input: ManagerInput) {
   return Effect.fn("MCPConfig.list")(function* (ctx: InstanceContext) {
     const sources = yield* MCPConfigSource.discover({ ...input, ctx })
     return mergeEntries(yield* loadDocuments(input.fs, sources))
   })
 }
-
 function makeCreate(input: ManagerInput, list: Interface["list"]) {
   return Effect.fn("MCPConfig.create")(function* (ctx: InstanceContext, value: CreateInput) {
     const invalid = validateName(value.name)
@@ -115,11 +116,10 @@ function makeCreate(input: ManagerInput, list: Interface["list"]) {
       })
     }
     const source = MCPConfigSource.target({ ...input, ctx, sources, scope: value.scope })
-    yield* MCPConfigFile.set({ ...value, fs: input.fs, path: source }).pipe(Effect.mapError(mapFileFailure))
+    yield* MCPConfigFile.set({ ...value, fs: input.fs, path: source }).pipe(Effect.mapError(mapReadWriteFailure))
     return yield* list(ctx)
   })
 }
-
 function makeUpdate(input: ManagerInput, list: Interface["list"]) {
   return Effect.fn("MCPConfig.update")(function* (ctx: InstanceContext, entryID: string, value: UpdateInput) {
     const resolved = yield* resolveEntry({ ...input, ctx, entryID })
@@ -142,7 +142,7 @@ function makeUpdate(input: ManagerInput, list: Interface["list"]) {
         path: resolved.source.path,
         name: value.name,
         config: value.config,
-      }).pipe(Effect.mapError(mapFileFailure))
+      }).pipe(Effect.mapError(mapReadWriteFailure))
       return yield* list(ctx)
     }
     yield* MCPConfigFile.rename({
@@ -155,7 +155,6 @@ function makeUpdate(input: ManagerInput, list: Interface["list"]) {
     return yield* list(ctx)
   })
 }
-
 function makeRemove(input: ManagerInput, list: Interface["list"]) {
   return Effect.fn("MCPConfig.remove")(function* (ctx: InstanceContext, entryID: string) {
     const resolved = yield* resolveEntry({ ...input, ctx, entryID })
@@ -166,12 +165,10 @@ function makeRemove(input: ManagerInput, list: Interface["list"]) {
     return yield* list(ctx)
   })
 }
-
 type Loaded = {
   readonly source: MCPConfigSource.Source
   readonly document: MCPConfigFile.Document
 }
-
 type Resolved =
   | { readonly scope: "builtin"; readonly name: string; readonly config: ConfigMCPV1.Info; readonly readonly: true }
   | {
@@ -182,16 +179,14 @@ type Resolved =
       readonly source: MCPConfigSource.Source
       readonly sources: readonly MCPConfigSource.Source[]
     }
-
 function loadDocuments(fs: FSUtil.Interface, sources: readonly MCPConfigSource.Source[]) {
   return Effect.forEach(sources, (source) =>
     MCPConfigFile.read({ fs, path: source.path }).pipe(
       Effect.map((document): Loaded => ({ source, document })),
-      Effect.mapError(mapFileFailure),
+      Effect.mapError(mapReadWriteFailure),
     ),
   )
 }
-
 function mergeEntries(documents: readonly Loaded[]): readonly Entry[] {
   const loaded = documents.flatMap((item) =>
     Object.entries(item.document.mcp).map(
@@ -227,10 +222,8 @@ function mergeEntries(documents: readonly Loaded[]): readonly Entry[] {
     return { ...entry, overriddenBy: winner.scope }
   })
 }
-
 const hasName = (documents: readonly Loaded[], scope: Scope, name: string) =>
   documents.some((item) => item.source.scope === scope && Object.hasOwn(item.document.mcp, name))
-
 function validateName(name: string) {
   if (isBuiltinMcp(name)) return readonlyFailure(name)
   if (/^[a-z0-9][a-z0-9_-]*$/.test(name)) return
@@ -239,51 +232,58 @@ function validateName(name: string) {
     field: "name",
   })
 }
-
 const readonlyFailure = (name: string) =>
   new InvalidError({ message: `MCP entry "${name}" is managed by NE and cannot be changed`, field: "name" })
-
 function resolveEntry(input: {
   fs: FSUtil.Interface
   globalConfigDir: string
   ctx: InstanceContext
   entryID: string
-}): Effect.Effect<Resolved, Failure> {
+}): Effect.Effect<Resolved, InvalidError | NotFoundError | PersistenceError> {
   return Effect.gen(function* () {
-    const decoded = MCPConfigSource.decodeEntryID(input.entryID)
-    if (!decoded) return yield* missing(input.entryID)
-    if (decoded.scope === "builtin") {
-      if (!isBuiltinMcp(decoded.name)) return yield* missing(input.entryID)
-      return { scope: "builtin", name: decoded.name, config: withNeDefaultMcp({})[decoded.name], readonly: true }
-    }
-    const sources = yield* MCPConfigSource.discover(input)
-    const source = sources.find((candidate) => candidate.scope === decoded.scope && candidate.path === decoded.source)
-    if (!source) return yield* missing(input.entryID)
-    const document = yield* MCPConfigFile.read({ fs: input.fs, path: source.path }).pipe(
-      Effect.mapError(mapFileFailure),
+    const builtin = BUILTIN_MCP_NAMES.find(
+      (name) => MCPConfigSource.encodeEntryID({ scope: "builtin", source: "", name }) === input.entryID,
     )
-    if (!Object.hasOwn(document.mcp, decoded.name)) return yield* missing(input.entryID)
+    if (builtin) return { scope: "builtin", name: builtin, config: withNeDefaultMcp({})[builtin], readonly: true }
+    const sources = yield* MCPConfigSource.discover(input)
+    const resolved = (yield* loadDocuments(input.fs, sources))
+      .flatMap((item) =>
+        Object.entries(item.document.mcp).map(([name, config]) => ({ source: item.source, name, config })),
+      )
+      .find(
+        (item) =>
+          MCPConfigSource.encodeEntryID({ scope: item.source.scope, source: item.source.path, name: item.name }) ===
+          input.entryID,
+      )
+    if (!resolved) return yield* missing(input.entryID)
     return {
-      scope: decoded.scope,
-      source,
+      scope: resolved.source.scope,
+      source: resolved.source,
       sources,
-      name: decoded.name,
-      config: document.mcp[decoded.name],
-      readonly: isBuiltinMcp(decoded.name),
+      name: resolved.name,
+      config: resolved.config,
+      readonly: isBuiltinMcp(resolved.name),
     }
   })
 }
-
 const missing = (entryID: string) =>
   new NotFoundError({ message: "MCP entry does not exist or is no longer available", entryID })
-
 type FileFailure =
   | MCPConfigFile.ReadError
   | MCPConfigFile.ParseError
   | MCPConfigFile.WriteError
   | MCPConfigFile.NotFoundError
+type ReadWriteFailure = MCPConfigFile.ReadError | MCPConfigFile.ParseError | MCPConfigFile.WriteError
+function mapReadWriteFailure(error: ReadWriteFailure): ListFailure {
+  if (error._tag === "MCPConfigFile.ParseError") return new InvalidError({ message: error.message })
+  return new PersistenceError({
+    message: "Unable to access MCP configuration file",
+    path: error.path,
+    cause: error.cause,
+  })
+}
 
-function mapFileFailure(error: FileFailure): Failure {
+function mapFileFailure(error: FileFailure): RemoveFailure {
   if (error._tag === "MCPConfigFile.ParseError") return new InvalidError({ message: error.message })
   if (error._tag === "MCPConfigFile.NotFoundError") return new NotFoundError({ message: error.message })
   return new PersistenceError({

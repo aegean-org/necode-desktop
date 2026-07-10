@@ -1,7 +1,8 @@
 export * as MCPConfigSource from "./config-source"
 
 import { FSUtil } from "@opencode-ai/core/fs-util"
-import { Effect, Option, Schema } from "effect"
+import { Effect, Schema } from "effect"
+import { createHash } from "node:crypto"
 import path from "node:path"
 import { ConfigPaths } from "../config/paths"
 import type { InstanceContext } from "../project/instance-context"
@@ -71,24 +72,12 @@ export function target(input: {
   return path.join(input.ctx.worktree, "opencode.json")
 }
 
-/** Encodes a stable URL-safe MCP entry identity. */
+/** Creates a stable short URL-safe MCP entry identity. */
 export function encodeEntryID(input: EntryID) {
-  return Buffer.from(JSON.stringify([input.scope, input.source, input.name])).toString("base64url")
+  return createHash("sha256")
+    .update(JSON.stringify([input.scope, input.source ? path.normalize(input.source) : input.source, input.name]))
+    .digest("base64url")
 }
-
-/** Decodes only the entry ID structure; callers must validate the source against current discovery. */
-export function decodeEntryID(entryID: string): EntryID | undefined {
-  if (!entryID || !/^[A-Za-z0-9_-]+$/.test(entryID)) return
-  const text = Buffer.from(entryID, "base64url").toString("utf8")
-  if (Buffer.from(text).toString("base64url") !== entryID) return
-  const decoded = Schema.decodeUnknownOption(Schema.fromJsonString(ENTRY_ID))(text)
-  if (Option.isNone(decoded)) return
-  const [scope, source, name] = decoded.value
-  if (!name || (scope !== "builtin" && !source) || (scope === "builtin" && source)) return
-  return { scope, source, name }
-}
-
-const ENTRY_ID = Schema.Tuple([Schema.Literals(["project", "global", "builtin"]), Schema.String, Schema.String])
 
 function isFile(fs: FSUtil.Interface, source: string) {
   return fs.stat(source).pipe(

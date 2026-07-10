@@ -1,4 +1,5 @@
 import { MCP } from "@/mcp"
+import { MCPConfig } from "@/mcp/config"
 import { ConfigMCPV1 } from "@opencode-ai/core/v1/config/mcp"
 import { Schema } from "effect"
 import { HttpApi, HttpApiEndpoint, HttpApiError, HttpApiGroup, OpenApi } from "effect/unstable/httpapi"
@@ -31,6 +32,8 @@ export class UnsupportedOAuthError extends Schema.ErrorClass<UnsupportedOAuthErr
 
 export const McpPaths = {
   status: "/mcp",
+  config: "/mcp/config",
+  configEntry: "/mcp/config/:entryID",
   auth: "/mcp/:name/auth",
   authCallback: "/mcp/:name/auth/callback",
   authAuthenticate: "/mcp/:name/auth/authenticate",
@@ -61,7 +64,55 @@ export const McpApi = HttpApi.make("mcp")
           OpenApi.annotations({
             identifier: "mcp.add",
             summary: "Add MCP server",
-            description: "Dynamically add a new Model Context Protocol (MCP) server to the system.",
+            description: "Dynamically add a runtime-only Model Context Protocol (MCP) server; it is not persisted.",
+          }),
+        ),
+        HttpApiEndpoint.get("configList", McpPaths.config, {
+          query: WorkspaceRoutingQuery,
+          success: described(Schema.Array(MCPConfig.Entry), "Persistent MCP configuration entries"),
+          error: [MCPConfig.InvalidError, MCPConfig.PersistenceError],
+        }).annotateMerge(
+          OpenApi.annotations({
+            identifier: "mcp.config.list",
+            summary: "List persistent MCP configuration",
+            description: "List persistent Model Context Protocol (MCP) configuration entries.",
+          }),
+        ),
+        HttpApiEndpoint.post("configCreate", McpPaths.config, {
+          query: WorkspaceRoutingQuery,
+          payload: MCPConfig.CreateInput,
+          success: described(Schema.Array(MCPConfig.Entry), "Persistent MCP configuration entries"),
+          error: [MCPConfig.InvalidError, MCPConfig.ConflictError, MCPConfig.PersistenceError],
+        }).annotateMerge(
+          OpenApi.annotations({
+            identifier: "mcp.config.create",
+            summary: "Create persistent MCP configuration",
+            description: "Create a persistent Model Context Protocol (MCP) configuration entry.",
+          }),
+        ),
+        HttpApiEndpoint.put("configUpdate", McpPaths.configEntry, {
+          params: { entryID: Schema.String },
+          query: WorkspaceRoutingQuery,
+          payload: MCPConfig.UpdateInput,
+          success: described(Schema.Array(MCPConfig.Entry), "Persistent MCP configuration entries"),
+          error: [MCPConfig.InvalidError, MCPConfig.NotFoundError, MCPConfig.ConflictError, MCPConfig.PersistenceError],
+        }).annotateMerge(
+          OpenApi.annotations({
+            identifier: "mcp.config.update",
+            summary: "Update persistent MCP configuration",
+            description: "Update a persistent Model Context Protocol (MCP) configuration entry.",
+          }),
+        ),
+        HttpApiEndpoint.delete("configRemove", McpPaths.configEntry, {
+          params: { entryID: Schema.String },
+          query: WorkspaceRoutingQuery,
+          success: described(Schema.Array(MCPConfig.Entry), "Persistent MCP configuration entries"),
+          error: [MCPConfig.InvalidError, MCPConfig.NotFoundError, MCPConfig.PersistenceError],
+        }).annotateMerge(
+          OpenApi.annotations({
+            identifier: "mcp.config.remove",
+            summary: "Remove persistent MCP configuration",
+            description: "Remove a persistent Model Context Protocol (MCP) configuration entry.",
           }),
         ),
         HttpApiEndpoint.post("authStart", McpPaths.auth, {
