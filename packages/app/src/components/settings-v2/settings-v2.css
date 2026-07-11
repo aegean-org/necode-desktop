@@ -951,3 +951,141 @@
   line-height: 1;
   color: var(--v2-text-text-muted);
 }
+
+.settings-v2-mcp-dialog {
+  width: min(720px, calc(100vw - 32px));
+  max-width: 720px;
+}
+
+.settings-v2-mcp-form,
+.settings-v2-mcp-fields {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.settings-v2-mcp-form {
+  padding: 0 20px;
+}
+
+.settings-v2-mcp-grid {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.settings-v2-mcp-field,
+.settings-v2-mcp-fieldset {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.settings-v2-mcp-fieldset {
+  padding: 0;
+  border: 0;
+}
+
+.settings-v2-mcp-label {
+  font-size: 12px;
+  font-weight: 530;
+  line-height: 16px;
+  color: var(--v2-text-text-muted);
+}
+
+.settings-v2-mcp-readonly-value,
+.settings-v2-mcp-remove-copy {
+  font-size: 13px;
+  line-height: 20px;
+  color: var(--v2-text-text-base);
+}
+
+.settings-v2-mcp-switch,
+.settings-v2-mcp-type-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.settings-v2-mcp-type-confirm {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px;
+  border: 1px solid var(--v2-border-border-base);
+  border-radius: 8px;
+  background: var(--v2-background-bg-layer-01);
+  font-size: 12px;
+  color: var(--v2-text-text-base);
+}
+
+.settings-v2-mcp-command-list,
+.settings-v2-mcp-key-values {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.settings-v2-mcp-command-row,
+.settings-v2-mcp-key-value {
+  display: grid;
+  min-width: 0;
+  align-items: start;
+  gap: 8px;
+}
+
+.settings-v2-mcp-command-row {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.settings-v2-mcp-key-value {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+}
+
+.settings-v2-mcp-row-error {
+  grid-column: 1 / -1;
+}
+
+.settings-v2-mcp-error,
+.settings-v2-mcp-row-error {
+  font-size: 11px;
+  line-height: 14px;
+  color: var(--v2-text-text-critical-base);
+}
+
+.settings-v2-mcp-remove-dialog {
+  width: min(440px, calc(100vw - 32px));
+  max-width: 440px;
+}
+
+.settings-v2-mcp-remove-copy {
+  padding: 0 20px;
+  overflow-wrap: anywhere;
+}
+
+.settings-v2-mcp-field [data-component="text-input-v2"],
+.settings-v2-mcp-command-row [data-component="text-input-v2"],
+.settings-v2-mcp-key-value [data-component="text-input-v2"],
+.settings-v2-mcp-field [data-component="select-v2-root"] {
+  width: 100%;
+  min-width: 0;
+}
+
+@media (max-width: 639px) {
+  .settings-v2-mcp-grid,
+  .settings-v2-mcp-key-value {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .settings-v2-mcp-type-confirm,
+  .settings-v2-mcp-type-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+}

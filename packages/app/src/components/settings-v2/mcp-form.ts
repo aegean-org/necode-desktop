@@ -51,6 +51,12 @@ export type McpFormErrors = {
   headers?: Readonly<Record<number, McpKeyValueErrorCode>>
 }
 
+/** Reactive dialog state shared by the MCP form and its field groups. */
+export type McpFormStore = McpForm & {
+  errors: McpFormErrors
+  submitting: boolean
+}
+
 /** Valid configuration accepted by the generated persistent MCP client. */
 export type McpFormResult = {
   readonly scope: "project" | "global"
@@ -91,6 +97,26 @@ export function createMcpForm(entry?: McpConfigEntry): McpForm {
     oauthScope: oauth?.scope ?? "",
     callbackPort: oauth?.callbackPort === undefined ? "" : String(oauth.callbackPort),
     redirectUri: oauth?.redirectUri ?? "",
+  }
+}
+
+/** Replaces type-exclusive fields without mutating the current form. */
+export function replaceTypeFields(form: McpForm, type: McpForm["type"]): McpForm {
+  return {
+    ...form,
+    type,
+    command: type === "local" ? [{ value: "" }] : [],
+    cwd: "",
+    environment: [],
+    url: "",
+    headers: [],
+    oauthMode: "auto",
+    clientId: "",
+    clientSecret: "",
+    oauthScope: "",
+    callbackPort: "",
+    redirectUri: "",
+    pendingType: undefined,
   }
 }
 

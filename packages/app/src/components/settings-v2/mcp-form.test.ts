@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test"
 import type { McpConfigEntry, McpRemoteConfig } from "@opencode-ai/sdk/v2/client"
-import { createMcpForm, validateMcpForm, type McpForm } from "./mcp-form"
+import { createMcpForm, replaceTypeFields, validateMcpForm, type McpForm } from "./mcp-form"
 
 describe("desktop MCP form model", () => {
   test("creates one complete store state and preserves an edited local command", () => {
@@ -167,6 +167,68 @@ describe("desktop MCP form model", () => {
     expect(validateMcpForm(remote({ oauthMode: "disabled" }), []).result?.config).toMatchObject({ oauth: false })
     expect(validateMcpForm(remote({ oauthMode: "explicit", clientId: "" }), []).result?.config).toMatchObject({
       oauth: {},
+    })
+  })
+
+  test("replaces remote fields with a fresh local command without mutating the form", () => {
+    const form = remote({
+      pendingType: "local",
+      headers: [{ key: "Authorization", value: "Bearer token" }],
+      oauthMode: "explicit",
+      clientId: "client",
+      clientSecret: "secret",
+      oauthScope: "read",
+      callbackPort: "8080",
+      redirectUri: "https://example.com/callback",
+    })
+    const result = replaceTypeFields(form, "local")
+
+    expect(result).toMatchObject({
+      name: "remote-server",
+      scope: "project",
+      enabled: true,
+      type: "local",
+      command: [{ value: "" }],
+      url: "",
+      headers: [],
+      oauthMode: "auto",
+      clientId: "",
+      clientSecret: "",
+      oauthScope: "",
+      callbackPort: "",
+      redirectUri: "",
+    })
+    expect(result.pendingType).toBeUndefined()
+    expect(form.type).toBe("remote")
+    expect(form.url).toBe("https://example.com/mcp")
+  })
+
+  test("replaces local fields with empty remote fields while preserving common values", () => {
+    const form = local({
+      scope: "global",
+      enabled: false,
+      timeout: "30",
+      pendingType: "remote",
+      command: [{ value: "bun" }, { value: "run" }],
+      cwd: "D:/workspace",
+      environment: [{ key: "TOKEN", value: "secret" }],
+    })
+
+    expect(replaceTypeFields(form, "remote")).toEqual({
+      ...form,
+      type: "remote",
+      command: [],
+      cwd: "",
+      environment: [],
+      url: "",
+      headers: [],
+      oauthMode: "auto",
+      clientId: "",
+      clientSecret: "",
+      oauthScope: "",
+      callbackPort: "",
+      redirectUri: "",
+      pendingType: undefined,
     })
   })
 
