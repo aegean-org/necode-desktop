@@ -1056,8 +1056,7 @@ export const dict = {
   "settings.mcp.import.scope": "Scope",
   "settings.mcp.import.check": "Check config",
   "settings.mcp.import.error.invalidJsonc": "Enter valid JSON or JSONC",
-  "settings.mcp.import.error.singleEntry":
-    'Paste exactly one MCP server. If its name is "mcp", use manual configuration.',
+  "settings.mcp.import.error.singleEntry": "Paste exactly one MCP server.",
   "settings.mcp.import.error.invalidEntry": "Enter a valid local or remote MCP server configuration",
   "settings.mcp.import.error.unsupportedField": "Remove unsupported fields before importing",
   "settings.mcp.dialog.addTitle": "Add MCP",
@@ -1069,7 +1068,7 @@ export const dict = {
   "settings.mcp.dialog.field.scope": "Scope",
   "settings.mcp.dialog.field.type": "Type",
   "settings.mcp.dialog.field.timeout": "Timeout",
-  "settings.mcp.dialog.field.timeoutPlaceholder": "Seconds",
+  "settings.mcp.dialog.field.timeoutPlaceholder": "Milliseconds",
   "settings.mcp.dialog.field.enabled": "Enabled",
   "settings.mcp.dialog.scope.project": "Current project",
   "settings.mcp.dialog.scope.global": "Global",

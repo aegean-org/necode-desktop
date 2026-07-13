@@ -3,10 +3,10 @@ import type { Accessor } from "solid-js"
 import { DialogMcpAdd } from "./dialog-mcp-add"
 import { DialogMcpImport } from "./dialog-mcp-import"
 import { DialogMcp } from "./dialog-mcp"
-import type { McpForm, McpFormResult } from "./mcp-form"
+import type { McpExistingEntry, McpForm, McpFormResult } from "./mcp-form"
 
 type McpCreateDialogFlowProps = {
-  existingNames: Accessor<readonly string[]>
+  existingEntries: Accessor<readonly McpExistingEntry[]>
   onSubmit: (result: McpFormResult) => Promise<void>
 }
 
@@ -27,6 +27,6 @@ export function McpCreateDialogFlow(props: McpCreateDialogFlowProps) {
 
 function replaceCreateDialog(dialog: ReturnType<typeof useDialog>, props: McpCreateDialogFlowProps, form?: McpForm) {
   return dialog.replace(() => (
-    <DialogMcp initialForm={form} existingNames={props.existingNames()} onSubmit={props.onSubmit} />
+    <DialogMcp initialForm={form} existingEntries={props.existingEntries()} onSubmit={props.onSubmit} />
   ))
 }

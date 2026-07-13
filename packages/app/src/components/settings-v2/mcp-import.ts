@@ -61,7 +61,7 @@ function readSingleEntry(input: unknown): EntryResult {
   const mcp = readOwn(input, "mcp")
   const wrapped = Object.hasOwn(input, "mcp")
   if (wrapped && hasUnsupportedFields(input, ["mcp"])) return { error: "unsupported_field" }
-  const entries = wrapped ? mcp : input
+  const entries = wrapped && !hasSupportedConfigType(mcp) ? mcp : input
   if (!isRecord(entries)) return { error: "invalid_entry" }
   const names = Object.keys(entries)
   if (names.length !== 1) return { error: "single_entry" }
@@ -70,6 +70,12 @@ function readSingleEntry(input: unknown): EntryResult {
   const config = readConfig(readOwn(entries, name))
   if ("error" in config) return config
   return { name, config: config.config }
+}
+
+function hasSupportedConfigType(input: unknown) {
+  if (!isRecord(input)) return false
+  const type = readOwn(input, "type")
+  return type === "local" || type === "remote"
 }
 
 function readConfig(input: unknown): ConfigResult {

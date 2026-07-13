@@ -4,6 +4,7 @@ const mcpSource = await Bun.file(new URL("./mcp.tsx", import.meta.url)).text()
 const controllerSource = await Bun.file(new URL("./mcp-controller.tsx", import.meta.url)).text()
 const createFlowSource = await Bun.file(new URL("./mcp-create-dialog-flow.tsx", import.meta.url)).text()
 const cssSource = await Bun.file(new URL("./settings-v2.css", import.meta.url)).text()
+const packageSource = await Bun.file(new URL("../../../package.json", import.meta.url)).text()
 const settings = `${mcpSource}\n${controllerSource}`
 const menuFile = Bun.file(new URL("./mcp-row-menu.tsx", import.meta.url))
 const translations = await Promise.all(
@@ -84,5 +85,16 @@ describe("desktop MCP settings contract", () => {
     expect(cssSource).toContain(
       ".settings-v2-rag-header .settings-v2-tab-header-row,\n.settings-v2-mcp-header .settings-v2-tab-header-row",
     )
+  })
+
+  test("removes ineffective MCP content width and names the browser test phase accurately", () => {
+    const rule = cssSource.match(/\.settings-v2-mcp-dialog\s*\{([^}]+)\}/)?.[1] ?? ""
+    expect(rule).not.toContain("width:")
+    expect(rule).not.toContain("max-width:")
+    expect(packageSource).toContain('"test": "bun run test:unit && bun run test:browser"')
+    expect(packageSource).toContain(
+      '"test:browser": "bun test --conditions=browser --preload ./solid-happydom.ts ./test-browser"',
+    )
+    expect(packageSource).not.toContain('"test:virtualizer":')
   })
 })

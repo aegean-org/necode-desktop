@@ -57,6 +57,9 @@ export type McpFormStore = McpForm & {
   submitting: boolean
 }
 
+/** Existing persistent entry metadata used for scope-aware name validation. */
+export type McpExistingEntry = Pick<McpConfigEntry, "name" | "scope">
+
 /** Valid configuration accepted by the generated persistent MCP client. */
 export type McpFormResult = {
   readonly scope: "project" | "global"
@@ -121,10 +124,10 @@ export function replaceTypeFields(form: McpForm, type: McpForm["type"]): McpForm
 }
 
 /** Validates a complete MCP form and serializes it into generated SDK configuration types. */
-export function validateMcpForm(form: McpForm, existingNames: readonly string[]): McpFormValidation {
+export function validateMcpForm(form: McpForm, existingEntries: readonly McpExistingEntry[]): McpFormValidation {
   const name = form.name.trim()
   const errors: McpFormErrors = {}
-  const nameError = validateName(form, name, existingNames)
+  const nameError = validateName(form, name, existingEntries)
   if (nameError) errors.name = nameError
   const timeout = readPositiveInteger(form.timeout)
   if (timeout === null) errors.timeout = "positive_integer"
@@ -133,11 +136,16 @@ export function validateMcpForm(form: McpForm, existingNames: readonly string[])
   return { errors, result: { scope: form.scope, name, config: parsed } }
 }
 
-function validateName(form: McpForm, name: string, existingNames: readonly string[]): McpFormErrorCode | undefined {
+function validateName(
+  form: McpForm,
+  name: string,
+  existingEntries: readonly McpExistingEntry[],
+): McpFormErrorCode | undefined {
   if (!name) return "required"
   if (isBuiltinMcp(name)) return "reserved"
   if (!MCP_NAME.test(name)) return "invalid"
-  if (existingNames.some((item) => item === name && item !== form.originalName)) return "duplicate"
+  if (form.mode === "edit" && name === form.originalName) return
+  if (existingEntries.some((entry) => entry.scope === form.scope && entry.name === name)) return "duplicate"
 }
 
 function validateLocal(form: McpForm, timeout: number | null | undefined, errors: McpFormErrors): McpLocalConfig {

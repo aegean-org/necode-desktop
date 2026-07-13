@@ -19,7 +19,7 @@ const labels: Record<string, string> = {
   "settings.mcp.dialog.field.scope": "Scope",
   "settings.mcp.dialog.field.type": "Type",
   "settings.mcp.dialog.field.timeout": "Timeout",
-  "settings.mcp.dialog.field.timeoutPlaceholder": "Seconds",
+  "settings.mcp.dialog.field.timeoutPlaceholder": "Milliseconds",
   "settings.mcp.dialog.field.enabled": "Enabled",
   "settings.mcp.dialog.scope.project": "Project",
   "settings.mcp.dialog.scope.global": "Global",
@@ -55,12 +55,14 @@ afterEach(() => {
 })
 
 describe("desktop MCP browser add flow", () => {
-  test("imports through the shared flow and persists only from the editable form", async () => {
-    const [existingNames, setExistingNames] = createSignal<readonly string[]>([])
+  test("uses live existing entries when the imported form is finally saved", async () => {
+    const [existingEntries, setExistingEntries] = createSignal<
+      readonly { name: string; scope: "project" | "global" }[]
+    >([])
     const onSubmit = mock(async () => {})
     const dialog = mountProvider()
     await dialog.push(() => <div data-testid="parent">Parent</div>)
-    await dialog.push(() => <McpCreateDialogFlow existingNames={existingNames} onSubmit={onSubmit} />)
+    await dialog.push(() => <McpCreateDialogFlow existingEntries={existingEntries} onSubmit={onSubmit} />)
     ;(await button("Paste MCP config")).click()
     input(await element("textarea"), LOCAL_CONFIG)
     ;(await button("Check config")).click()
@@ -69,21 +71,36 @@ describe("desktop MCP browser add flow", () => {
     expect(((await element("#mcp-name")) as HTMLInputElement).value).toBe("demo")
     expect(document.querySelector('[data-testid="parent"]')).not.toBeNull()
 
-    setExistingNames(["demo"])
+    setExistingEntries([{ name: "demo", scope: "project" }])
     ;(await button("Save")).click()
     expect(await text("This name already exists")).toBeTruthy()
     expect(onSubmit).not.toHaveBeenCalled()
 
-    setExistingNames([])
+    setExistingEntries([])
     ;(await button("Save")).click()
     await find(() => onSubmit.mock.calls.length === 1)
     expect(document.querySelector('[data-testid="parent"]')).not.toBeNull()
   })
 
+  test("accepts an imported project entry when the same name exists only globally", async () => {
+    const onSubmit = mock(async () => {})
+    const dialog = mountProvider()
+    await dialog.push(() => (
+      <McpCreateDialogFlow existingEntries={() => [{ name: "demo", scope: "global" }]} onSubmit={onSubmit} />
+    ))
+    ;(await button("Paste MCP config")).click()
+    input(await element("textarea"), LOCAL_CONFIG)
+    ;(await button("Check config")).click()
+    ;(await button("Save")).click()
+
+    await find(() => onSubmit.mock.calls.length === 1)
+    expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({ name: "demo", scope: "project" }))
+  })
+
   test("manual creation replaces only the method picker", async () => {
     const dialog = mountProvider()
     await dialog.push(() => <div data-testid="parent">Parent</div>)
-    await dialog.push(() => <McpCreateDialogFlow existingNames={() => []} onSubmit={async () => {}} />)
+    await dialog.push(() => <McpCreateDialogFlow existingEntries={() => []} onSubmit={async () => {}} />)
     ;(await button("Manual config")).click()
 
     expect(await element("#mcp-name")).toBeTruthy()
@@ -130,7 +147,7 @@ describe("desktop MCP browser add flow", () => {
     mountDialog(() => (
       <DialogMcp
         initialForm={{ ...createMcpForm(), name: "demo", command: [{ value: "demo" }] }}
-        existingNames={[]}
+        existingEntries={[]}
         onSubmit={async () => {}}
       />
     ))

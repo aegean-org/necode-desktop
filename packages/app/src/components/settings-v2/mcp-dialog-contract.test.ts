@@ -27,13 +27,18 @@ const translations = await Promise.all(
     Bun.file(new URL(file, import.meta.url)).text(),
   ),
 )
+const timeoutPlaceholders = [
+  '"settings.mcp.dialog.field.timeoutPlaceholder": "Milliseconds"',
+  '"settings.mcp.dialog.field.timeoutPlaceholder": "毫秒"',
+  '"settings.mcp.dialog.field.timeoutPlaceholder": "毫秒"',
+] as const
 
 type AssertFalse<Value extends false> = Value
 type DialogProps = Parameters<typeof DialogMcp>[0]
 type CombinedDialogProps = {
   entry: McpConfigEntry
   initialForm: McpForm
-  existingNames: readonly string[]
+  existingEntries: readonly Pick<McpConfigEntry, "name" | "scope">[]
   onSubmit: DialogProps["onSubmit"]
 }
 const combinedDialogPropsAreRejected: AssertFalse<CombinedDialogProps extends DialogProps ? true : false> = false
@@ -142,6 +147,10 @@ describe("desktop MCP dialog contract", () => {
       "settings.mcp.dialog.error.duplicateKey",
     ]
     translations.forEach((translation) => keys.forEach((key) => expect(translation).toContain(`"${key}"`)))
+  })
+
+  test("labels timeout values as milliseconds in every supported dictionary", () => {
+    translations.forEach((translation, index) => expect(translation).toContain(timeoutPlaceholders[index]!))
   })
 
   test("keeps each dialog component below the file-size limit", async () => {

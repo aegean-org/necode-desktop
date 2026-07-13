@@ -71,7 +71,7 @@ function createDialogActions(options: DialogActionsOptions) {
   const openAdd = () =>
     options.dialog.push(() => (
       <McpCreateDialogFlow
-        existingNames={() => options.entries().map((entry) => entry.name)}
+        existingEntries={options.entries}
         onSubmit={options.management.create.mutateAsync}
       />
     ))
@@ -80,7 +80,7 @@ function createDialogActions(options: DialogActionsOptions) {
     options.dialog.push(() => (
       <DialogMcp
         entry={entry}
-        existingNames={options.entries().map((item) => item.name)}
+        existingEntries={options.entries()}
         onSubmit={(payload) => options.management.update.mutateAsync({ entry, payload })}
       />
     ))

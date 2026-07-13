@@ -38,9 +38,9 @@ describe("desktop MCP JSONC import parser", () => {
     ).toEqual({ error: "invalid_jsonc" })
   })
 
-  test("rejects a direct entry named mcp because the root key is reserved for the wrapper", () => {
+  test("imports a direct entry named mcp when its value has a supported literal config type", () => {
     expect(parseMcpImport(`{"mcp":{"type":"local","command":["demo"]}}`, "project")).toEqual({
-      error: "single_entry",
+      form: expect.objectContaining({ name: "mcp", type: "local", command: [{ value: "demo" }] }),
     })
   })
 

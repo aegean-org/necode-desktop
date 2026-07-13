@@ -41,7 +41,7 @@ describe("desktop MCP form model", () => {
       cwd: "D:/workspace",
       environment: [{ key: "TOKEN", value: "secret" }],
     })
-    expect(validateMcpForm(form, ["local-server"]).result?.config).toEqual({
+    expect(validateMcpForm(form, [existing("project", "local-server")]).result?.config).toEqual({
       type: "local",
       command: ["bun", "run", "", "--flag=value"],
       cwd: "D:/workspace",
@@ -51,12 +51,20 @@ describe("desktop MCP form model", () => {
     })
   })
 
-  test("rejects invalid, reserved, and duplicate names while allowing an edited name to keep itself", () => {
+  test("rejects invalid and reserved names independently of existing entries", () => {
     expect(validateMcpForm(local({ name: "Uppercase" }), []).errors.name).toBe("invalid")
     expect(validateMcpForm(local({ name: "noteexpress" }), []).errors.name).toBe("reserved")
-    expect(validateMcpForm(local({ name: "duplicate" }), ["duplicate"]).errors.name).toBe("duplicate")
+  })
+
+  test("rejects duplicates only in the selected scope and allows an edited name to keep itself", () => {
+    expect(validateMcpForm(local({ name: "duplicate" }), [existing("project", "duplicate")]).errors.name).toBe(
+      "duplicate",
+    )
+    expect(validateMcpForm(local({ name: "duplicate" }), [existing("global", "duplicate")]).result).toBeDefined()
     expect(
-      validateMcpForm(local({ mode: "edit", originalName: "existing", name: "existing" }), ["existing"]).result,
+      validateMcpForm(local({ mode: "edit", originalName: "existing", name: "existing" }), [
+        existing("project", "existing"),
+      ]).result,
     ).toBeDefined()
   })
 
@@ -257,6 +265,10 @@ function remote(input: Partial<McpForm> = {}): McpForm {
     command: [],
     ...input,
   }
+}
+
+function existing(scope: "project" | "global", name: string) {
+  return { scope, name } as const
 }
 
 function builtinEntry() {

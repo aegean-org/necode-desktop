@@ -251,7 +251,8 @@ Add labels and explicit import errors for method selection, pasted config, scope
 From `packages/app`:
 
 ```powershell
-bun test --preload ./happydom.ts ./src/components/settings-v2/mcp-import.test.ts ./src/components/settings-v2/mcp-add-flow.test.tsx ./src/components/settings-v2/mcp-dialog-contract.test.ts ./src/components/settings-v2/mcp-desktop-contract.test.ts ./src/components/settings-v2/mcp-form.test.ts ./src/components/settings-v2/mcp-model.test.ts
+bun test --preload ./happydom.ts ./src/components/settings-v2/mcp-import.test.ts ./src/components/settings-v2/mcp-dialog-contract.test.ts ./src/components/settings-v2/mcp-desktop-contract.test.ts ./src/components/settings-v2/mcp-form.test.ts ./src/components/settings-v2/mcp-model.test.ts
+bun run test:browser
 bun typecheck
 bun run build
 ```

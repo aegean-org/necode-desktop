@@ -12,6 +12,7 @@ import {
   createMcpForm,
   replaceTypeFields,
   validateMcpForm,
+  type McpExistingEntry,
   type McpFormErrorCode,
   type McpForm,
   type McpFormResult,
@@ -22,7 +23,7 @@ import { McpRemoteFields } from "./mcp-remote-fields"
 import "./settings-v2.css"
 
 type DialogMcpProps = {
-  existingNames: readonly string[]
+  existingEntries: readonly McpExistingEntry[]
   onSubmit: (result: McpFormResult) => Promise<void>
 } & ({ entry: McpConfigEntry; initialForm?: never } | { entry?: never; initialForm?: McpForm })
 type Controller = ReturnType<typeof useMcpDialog>
@@ -74,7 +75,7 @@ function useMcpDialog(props: DialogMcpProps) {
   const submit = async (event: SubmitEvent) => {
     event.preventDefault()
     if (form.submitting) return
-    const validation = validateMcpForm(form, props.existingNames)
+    const validation = validateMcpForm(form, props.existingEntries)
     setForm("errors", validation.errors)
     if (!validation.result) return
     setForm("submitting", true)
