@@ -1,7 +1,7 @@
 import { LayerNode } from "@opencode-ai/core/effect/layer-node"
 import path from "path"
 import { pathToFileURL } from "url"
-import { Effect, Layer, Context, Schema } from "effect"
+import { Effect, Layer, Context, Option, Schema } from "effect"
 import { NamedError } from "@opencode-ai/core/util/error"
 import type { Agent } from "@/agent/agent"
 import { EventV2Bridge } from "@/event-v2-bridge"
@@ -14,15 +14,10 @@ import { Config } from "@/config/config"
 import { FrontmatterError } from "@opencode-ai/core/v1/config/error"
 import { ConfigMarkdown } from "@/config/markdown"
 import { RuntimeFlags } from "@/effect/runtime-flags"
-import { Glob } from "@opencode-ai/core/util/glob"
 import { Discovery } from "./discovery"
 import { isRecord } from "@/util/record"
-
-const CLAUDE_EXTERNAL_DIR = ".claude"
-const AGENTS_EXTERNAL_DIR = ".agents"
-const EXTERNAL_SKILL_PATTERN = "skills/**/SKILL.md"
-const OPENCODE_SKILL_PATTERN = "{skill,skills}/**/SKILL.md"
-const SKILL_PATTERN = "**/SKILL.md"
+import { Plugin } from "@/plugin"
+import { SkillSources } from "./sources"
 
 // Built-in skill that ships with NeCode. The model's intuition for what a
 // runtime config should look like is often wrong, and the runtime hard-fails on
@@ -88,16 +83,6 @@ type State = {
   dirs: Set<string>
 }
 
-type DiscoveryState = {
-  matches: string[]
-  dirs: string[]
-}
-
-type ScanState = {
-  matches: Set<string>
-  dirs: Set<string>
-}
-
 export interface Interface {
   readonly get: (name: string) => Effect.Effect<Info | undefined>
   readonly require: (name: string) => Effect.Effect<Info, NotFoundError>
@@ -143,102 +128,9 @@ const add = Effect.fnUntraced(function* (state: State, match: string, events: Ev
   }
 })
 
-const scan = Effect.fnUntraced(function* (
-  state: ScanState,
-  root: string,
-  pattern: string,
-  opts?: { dot?: boolean; scope?: string },
-) {
-  const matches = yield* Effect.tryPromise({
-    try: () =>
-      Glob.scan(pattern, {
-        cwd: root,
-        absolute: true,
-        include: "file",
-        symlink: true,
-        dot: opts?.dot,
-      }),
-    catch: (error) => error,
-  }).pipe(
-    Effect.catch((error) => {
-      if (!opts?.scope) return Effect.die(error)
-      return Effect.logError(`failed to scan ${opts.scope} skills`, { dir: root, error: error }).pipe(
-        Effect.as([] as string[]),
-      )
-    }),
-  )
-
-  for (const match of matches) {
-    state.matches.add(match)
-    state.dirs.add(path.dirname(match))
-  }
-})
-
-const discoverSkills = Effect.fnUntraced(function* (
-  config: Config.Interface,
-  discovery: Discovery.Interface,
-  fsys: FSUtil.Interface,
-  global: Global.Interface,
-  disableExternalSkills: boolean,
-  disableClaudeCodeSkills: boolean,
-  directory: string,
-  worktree: string,
-) {
-  const state: ScanState = { matches: new Set(), dirs: new Set() }
-
-  const externalDirs: string[] = []
-  if (!disableExternalSkills) {
-    if (!disableClaudeCodeSkills) externalDirs.push(CLAUDE_EXTERNAL_DIR)
-    externalDirs.push(AGENTS_EXTERNAL_DIR)
-
-    for (const dir of externalDirs) {
-      const root = path.join(global.home, dir)
-      if (!(yield* fsys.isDir(root))) continue
-      yield* scan(state, root, EXTERNAL_SKILL_PATTERN, { dot: true, scope: "global" })
-    }
-
-    const upDirs = yield* fsys
-      .up({ targets: externalDirs, start: directory, stop: worktree })
-      .pipe(Effect.catch(() => Effect.succeed([] as string[])))
-
-    for (const root of upDirs) {
-      yield* scan(state, root, EXTERNAL_SKILL_PATTERN, { dot: true, scope: "project" })
-    }
-  }
-
-  const configDirs = yield* config.directories()
-  for (const dir of configDirs) {
-    yield* scan(state, dir, OPENCODE_SKILL_PATTERN)
-  }
-
-  const cfg = yield* config.get()
-  for (const item of cfg.skills?.paths ?? []) {
-    const expanded = item.startsWith("~/") ? path.join(global.home, item.slice(2)) : item
-    const dir = path.isAbsolute(expanded) ? expanded : path.join(directory, expanded)
-    if (!(yield* fsys.isDir(dir))) {
-      yield* Effect.logWarning("skill path not found", { path: dir })
-      continue
-    }
-
-    yield* scan(state, dir, SKILL_PATTERN)
-  }
-
-  for (const url of cfg.skills?.urls ?? []) {
-    const pulledDirs = yield* discovery.pull(url)
-    for (const dir of pulledDirs) {
-      yield* scan(state, dir, SKILL_PATTERN)
-    }
-  }
-
-  return {
-    matches: Array.from(state.matches),
-    dirs: Array.from(state.dirs),
-  }
-})
-
 const loadSkills = Effect.fnUntraced(function* (
   state: State,
-  discovered: DiscoveryState,
+  discovered: SkillSources.State,
   events: EventV2Bridge.Service["Service"],
 ) {
   yield* Effect.forEach(discovered.matches, (match) => add(state, match, events), {
@@ -260,18 +152,20 @@ export const layer = Layer.effect(
     const fsys = yield* FSUtil.Service
     const global = yield* Global.Service
     const flags = yield* RuntimeFlags.Service
+    const plugin = Option.getOrUndefined(yield* Effect.serviceOption(Plugin.Service))
     const discovered = yield* InstanceState.make(
       Effect.fn("Skill.discovery")(function* (ctx) {
-        return yield* discoverSkills(
+        return yield* SkillSources.discover({
           config,
           discovery,
           fsys,
           global,
-          flags.disableExternalSkills,
-          flags.disableClaudeCodeSkills,
-          ctx.directory,
-          ctx.worktree,
-        )
+          plugins: plugin ? yield* plugin.entries() : [],
+          disableExternalSkills: flags.disableExternalSkills,
+          disableClaudeCodeSkills: flags.disableClaudeCodeSkills,
+          directory: ctx.directory,
+          worktree: ctx.worktree,
+        })
       }),
     )
     const state = yield* InstanceState.make(
@@ -329,6 +223,7 @@ export const defaultLayer = layer.pipe(
   Layer.provide(FSUtil.defaultLayer),
   Layer.provide(Global.layer),
   Layer.provide(RuntimeFlags.defaultLayer),
+  Layer.provide(Plugin.defaultLayer),
 )
 
 export function fmt(list: Info[], opts: { verbose: boolean }) {
@@ -367,6 +262,7 @@ export const node = LayerNode.make(layer, [
   FSUtil.node,
   Global.node,
   RuntimeFlags.node,
+  Plugin.node,
 ])
 
 export * as Skill from "."
