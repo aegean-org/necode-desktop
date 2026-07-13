@@ -4,7 +4,7 @@ import { useDialog } from "@opencode-ai/ui/context/dialog"
 import { Dialog, DialogFooter } from "@opencode-ai/ui/v2/dialog-v2"
 import { createStore } from "solid-js/store"
 import { useLanguage } from "@/context/language"
-import "./settings-v2.css"
+import "./plugin.css"
 
 /** Confirms removal of one external plugin configuration. */
 export function DialogPluginRemove(props: { entry: PluginEntry; onConfirm: () => Promise<void> }) {

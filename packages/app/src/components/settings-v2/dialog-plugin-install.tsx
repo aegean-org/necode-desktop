@@ -5,12 +5,13 @@ import { SelectV2 } from "@opencode-ai/ui/v2/select-v2"
 import { TabsV2 } from "@opencode-ai/ui/v2/tabs-v2"
 import { TextInputV2 } from "@opencode-ai/ui/v2/text-input-v2"
 import { Show } from "solid-js"
-import { createStore } from "solid-js/store"
+import { createStore, type SetStoreFunction } from "solid-js/store"
 import { useLanguage } from "@/context/language"
 import { usePlatform } from "@/context/platform"
 import { firstPickedDirectory, firstPickedFile, normalizeLocalSpec, normalizeNpmSpec } from "./plugin-install-model"
-import "./settings-v2.css"
+import "./plugin.css"
 
+/** Persisted source and scope selected by the desktop plugin installer. */
 export type PluginInstallResult = { spec: string; scope: "local" | "global" }
 type Method = "npm" | "local"
 type State = {
@@ -28,40 +29,23 @@ export function DialogPluginInstall(props: { onSubmit: (result: PluginInstallRes
   const language = useLanguage()
   const platform = usePlatform()
   const [state, setState] = createStore<State>({ method: "npm", scope: "local", npm: "", local: "", pending: false })
-  const submit = async (event: SubmitEvent) => {
-    event.preventDefault()
-    const raw = state.method === "npm" ? state.npm : state.local
-    if (!raw.trim()) return setState("error", language.t(`settings.plugins.dialog.install.error.${state.method}`))
-    const spec = state.method === "npm" ? normalizeNpmSpec(raw) : normalizeLocalSpec(raw)
-    setState({ pending: true, error: undefined })
-    try {
-      await props.onSubmit({ spec, scope: state.scope })
-      dialog.close()
-    } finally {
-      setState("pending", false)
-    }
-  }
-  const chooseDirectory = async () => {
-    if (platform.platform !== "desktop")
-      return setState("error", language.t("settings.plugins.dialog.install.error.desktop"))
-    const selected = firstPickedDirectory(await platform.openDirectoryPickerDialog({ multiple: false }))
-    if (selected) setState({ local: selected, error: undefined })
-  }
-  const chooseFile = async () => {
-    if (!platform.openFilePathPickerDialog)
-      return setState("error", language.t("settings.plugins.dialog.install.error.desktop"))
-    const selected = firstPickedFile(
-      await platform.openFilePathPickerDialog({ multiple: false, extensions: ["js", "ts", "mjs", "cjs"] }),
-    )
-    if (selected) setState({ local: selected, error: undefined })
-  }
+  const actions = createInstallActions({
+    state,
+    setState,
+    platform,
+    t: language.t,
+    close: dialog.close,
+    onSubmit: props.onSubmit,
+  })
   return (
     <Dialog title={language.t("settings.plugins.dialog.install.title")} fit class="settings-v2-plugin-install-dialog">
-      <form class="settings-v2-plugin-install-form" onSubmit={submit}>
+      <form class="settings-v2-plugin-install-form" onSubmit={actions.submit}>
         <InstallMethod state={state} setMethod={(method) => setState({ method, error: undefined })} />
         <Show
           when={state.method === "npm"}
-          fallback={<LocalFields state={state} chooseDirectory={chooseDirectory} chooseFile={chooseFile} />}
+          fallback={
+            <LocalFields state={state} chooseDirectory={actions.chooseDirectory} chooseFile={actions.chooseFile} />
+          }
         >
           <NpmField value={state.npm} onInput={(value) => setState({ npm: value, error: undefined })} />
         </Show>
@@ -78,6 +62,45 @@ export function DialogPluginInstall(props: { onSubmit: (result: PluginInstallRes
       </form>
     </Dialog>
   )
+}
+
+function createInstallActions(input: {
+  state: State
+  setState: SetStoreFunction<State>
+  platform: ReturnType<typeof usePlatform>
+  t: ReturnType<typeof useLanguage>["t"]
+  close: () => void
+  onSubmit: (result: PluginInstallResult) => Promise<void>
+}) {
+  const submit = async (event: SubmitEvent) => {
+    event.preventDefault()
+    const raw = input.state.method === "npm" ? input.state.npm : input.state.local
+    if (!raw.trim())
+      return input.setState("error", input.t(`settings.plugins.dialog.install.error.${input.state.method}`))
+    const spec = input.state.method === "npm" ? normalizeNpmSpec(raw) : normalizeLocalSpec(raw)
+    input.setState({ pending: true, error: undefined })
+    try {
+      await input.onSubmit({ spec, scope: input.state.scope })
+      input.close()
+    } finally {
+      input.setState("pending", false)
+    }
+  }
+  const chooseDirectory = async () => {
+    if (input.platform.platform !== "desktop")
+      return input.setState("error", input.t("settings.plugins.dialog.install.error.desktop"))
+    const selected = firstPickedDirectory(await input.platform.openDirectoryPickerDialog({ multiple: false }))
+    if (selected) input.setState({ local: selected, error: undefined })
+  }
+  const chooseFile = async () => {
+    if (!input.platform.openFilePathPickerDialog)
+      return input.setState("error", input.t("settings.plugins.dialog.install.error.desktop"))
+    const selected = firstPickedFile(
+      await input.platform.openFilePathPickerDialog({ multiple: false, extensions: ["js", "ts", "mjs", "cjs"] }),
+    )
+    if (selected) input.setState({ local: selected, error: undefined })
+  }
+  return { submit, chooseDirectory, chooseFile }
 }
 
 function InstallMethod(props: { state: State; setMethod: (method: Method) => void }) {
