@@ -17,7 +17,7 @@ import type {
   AuthSetResponses,
   CommandListErrors,
   CommandListResponses,
-  Config as Config4,
+  Config as Config5,
   ConfigGetErrors,
   ConfigGetResponses,
   ConfigProvidersErrors,
@@ -134,6 +134,16 @@ import type {
   PermissionRespondResponses,
   PermissionRuleset,
   PermissionV2Reply,
+  PluginConfigInstallErrors,
+  PluginConfigInstallResponses,
+  PluginConfigListErrors,
+  PluginConfigListResponses,
+  PluginConfigRemoveErrors,
+  PluginConfigRemoveResponses,
+  PluginConfigUpdateErrors,
+  PluginConfigUpdateResponses,
+  PluginListErrors,
+  PluginListResponses,
   ProjectCurrentErrors,
   ProjectCurrentResponses,
   ProjectDirectoriesErrors,
@@ -1238,7 +1248,7 @@ export class Config extends HeyApiClient {
    */
   public update<ThrowOnError extends boolean = false>(
     parameters?: {
-      config?: Config4
+      config?: Config5
     },
     options?: Options<never, ThrowOnError>,
   ) {
@@ -1395,7 +1405,7 @@ export class Config2 extends HeyApiClient {
     parameters?: {
       directory?: string
       workspace?: string
-      config?: Config4
+      config?: Config5
     },
     options?: Options<never, ThrowOnError>,
   ) {
@@ -3296,6 +3306,189 @@ export class Permission extends HeyApiClient {
         ...params.headers,
       },
     })
+  }
+}
+
+export class Config4 extends HeyApiClient {
+  /**
+   * List plugin configuration
+   *
+   * List manageable plugin installations and enablement state.
+   */
+  public list<ThrowOnError extends boolean = false>(
+    parameters?: {
+      directory?: string
+      workspace?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).get<PluginConfigListResponses, PluginConfigListErrors, ThrowOnError>({
+      url: "/plugin/config",
+      ...options,
+      ...params,
+    })
+  }
+
+  /**
+   * Install plugin
+   *
+   * Install an npm plugin or register a local plugin in persistent configuration.
+   */
+  public install<ThrowOnError extends boolean = false>(
+    parameters?: {
+      directory?: string
+      workspace?: string
+      scope?: "global" | "local"
+      spec?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+            { in: "body", key: "scope" },
+            { in: "body", key: "spec" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).post<PluginConfigInstallResponses, PluginConfigInstallErrors, ThrowOnError>(
+      {
+        url: "/plugin/config",
+        ...options,
+        ...params,
+        headers: {
+          "Content-Type": "application/json",
+          ...options?.headers,
+          ...params.headers,
+        },
+      },
+    )
+  }
+
+  /**
+   * Remove plugin
+   *
+   * Remove an external plugin from persistent configuration.
+   */
+  public remove<ThrowOnError extends boolean = false>(
+    parameters: {
+      pluginKey: string
+      directory?: string
+      workspace?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "path", key: "pluginKey" },
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).delete<PluginConfigRemoveResponses, PluginConfigRemoveErrors, ThrowOnError>(
+      {
+        url: "/plugin/config/{pluginKey}",
+        ...options,
+        ...params,
+      },
+    )
+  }
+
+  /**
+   * Update plugin enablement
+   *
+   * Persist the enabled state for a manageable plugin.
+   */
+  public update<ThrowOnError extends boolean = false>(
+    parameters: {
+      pluginKey: string
+      directory?: string
+      workspace?: string
+      enabled?: boolean
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "path", key: "pluginKey" },
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+            { in: "body", key: "enabled" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).put<PluginConfigUpdateResponses, PluginConfigUpdateErrors, ThrowOnError>({
+      url: "/plugin/config/{pluginKey}",
+      ...options,
+      ...params,
+      headers: {
+        "Content-Type": "application/json",
+        ...options?.headers,
+        ...params.headers,
+      },
+    })
+  }
+}
+
+export class Plugin extends HeyApiClient {
+  /**
+   * List plugin status
+   *
+   * List built-in and configured plugins with their current runtime status.
+   */
+  public list<ThrowOnError extends boolean = false>(
+    parameters?: {
+      directory?: string
+      workspace?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).get<PluginListResponses, PluginListErrors, ThrowOnError>({
+      url: "/plugin",
+      ...options,
+      ...params,
+    })
+  }
+
+  private _config?: Config4
+  get config(): Config4 {
+    return (this._config ??= new Config4({ client: this.client }))
   }
 }
 
@@ -6961,6 +7154,11 @@ export class OpencodeClient extends HeyApiClient {
   private _permission?: Permission
   get permission(): Permission {
     return (this._permission ??= new Permission({ client: this.client }))
+  }
+
+  private _plugin?: Plugin
+  get plugin(): Plugin {
+    return (this._plugin ??= new Plugin({ client: this.client }))
   }
 
   private _provider?: Provider

@@ -105,7 +105,17 @@ export class NotFoundError extends Schema.TaggedErrorClass<NotFoundError>()("Plu
 }) {}
 
 function update(input: WriteInput, change: (document: Document) => string) {
-  return updateEffect(input, (document) => Effect.sync(() => change(document)))
+  return input.flock
+    .withLock(
+      Effect.gen(function* () {
+        const document = yield* read(input)
+        const next = change(document)
+        if (next === document.text) return
+        yield* atomicWrite(input.fs, input.path, next)
+      }),
+      `plugin-config:${path.resolve(input.path)}`,
+    )
+    .pipe(Effect.mapError((error) => mapUpdateError(input.path, error)))
 }
 
 function updateEffect<E>(input: WriteInput, change: (document: Document) => Effect.Effect<string, E>) {
@@ -177,6 +187,11 @@ function invalid(source: string, message: string, cause: unknown) {
 
 function mapWriteError(source: string, cause: unknown) {
   if (cause instanceof ParseError || cause instanceof ReadError || cause instanceof NotFoundError) return cause
+  return new WriteError({ path: source, message: describe("Unable to write plugin config", cause), cause })
+}
+
+function mapUpdateError(source: string, cause: unknown) {
+  if (cause instanceof ParseError || cause instanceof ReadError) return cause
   return new WriteError({ path: source, message: describe("Unable to write plugin config", cause), cause })
 }
 

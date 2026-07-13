@@ -33,6 +33,10 @@ export type Entry = typeof Entry.Type
 export const InstallInput = Schema.Struct({ scope: Scope, spec: Schema.String })
 export type InstallInput = typeof InstallInput.Type
 
+/** Plugin enablement update accepted by the management API. */
+export const UpdateInput = Schema.Struct({ enabled: Schema.Boolean })
+export type UpdateInput = typeof UpdateInput.Type
+
 /** Invalid plugin specification or persisted configuration. */
 export class InvalidError extends Schema.TaggedErrorClass<InvalidError>()(
   "PluginConfigInvalidError",
@@ -78,12 +82,21 @@ export class InstallError extends Schema.TaggedErrorClass<InstallError>()(
 /** Declared failures surfaced by persistent plugin management operations. */
 export type Failure = InvalidError | NotFoundError | ConflictError | ImmutableError | BuiltinRemovalError | InstallError | PersistenceError
 
+/** Failures returned while listing plugin configuration. */
+export type ListFailure = InvalidError | PersistenceError
+/** Failures returned while installing a plugin. */
+export type InstallFailure = ListFailure | ConflictError | InstallError
+/** Failures returned while updating plugin enablement. */
+export type UpdateFailure = ListFailure | NotFoundError | ImmutableError
+/** Failures returned while removing a configured plugin. */
+export type RemoveFailure = ListFailure | NotFoundError | BuiltinRemovalError
+
 /** Persistent plugin configuration operations for one filesystem environment. */
 export interface Interface {
-  readonly list: (ctx: InstanceContext) => Effect.Effect<readonly Entry[], InvalidError | PersistenceError>
-  readonly install: (ctx: InstanceContext, input: InstallInput) => Effect.Effect<readonly Entry[], Failure>
-  readonly setEnabled: (ctx: InstanceContext, key: string, enabled: boolean) => Effect.Effect<readonly Entry[], Failure>
-  readonly remove: (ctx: InstanceContext, key: string) => Effect.Effect<readonly Entry[], Failure>
+  readonly list: (ctx: InstanceContext) => Effect.Effect<readonly Entry[], ListFailure>
+  readonly install: (ctx: InstanceContext, input: InstallInput) => Effect.Effect<readonly Entry[], InstallFailure>
+  readonly setEnabled: (ctx: InstanceContext, key: string, enabled: boolean) => Effect.Effect<readonly Entry[], UpdateFailure>
+  readonly remove: (ctx: InstanceContext, key: string) => Effect.Effect<readonly Entry[], RemoveFailure>
 }
 
 type Input = {
@@ -123,7 +136,7 @@ function makeInstall(input: Input, list: Interface["list"]) {
       PluginCatalog.resolveExternal({ origin: { spec: resolved, source: target, scope: value.scope }, enabled: true }),
     )
     if (catalog.failure) return yield* new InstallError({ stage: catalog.failure.stage, message: catalog.failure.message })
-    yield* PluginConfigFile.install({ ...input, path: target, spec: value.spec }).pipe(Effect.mapError(mapFileFailure))
+    yield* PluginConfigFile.install({ ...input, path: target, spec: value.spec }).pipe(Effect.mapError(mapWriteFailure))
     return yield* list(ctx)
   })
 }
@@ -136,7 +149,7 @@ function makeSetEnabled(input: Input, list: Interface["list"]) {
     if (!entry.canDisable) return yield* new ImmutableError({ message: `Plugin ${key} cannot be disabled`, pluginKey: key })
     const managed = current.external.find((item) => item.key === key)
     const target = managed?.source.path ?? PluginConfigSource.target({ ...input, ctx, sources: current.sources, scope: "local" })
-    yield* PluginConfigFile.setEnabled({ ...input, path: target, key, enabled }).pipe(Effect.mapError(mapFileFailure))
+    yield* PluginConfigFile.setEnabled({ ...input, path: target, key, enabled }).pipe(Effect.mapError(mapWriteFailure))
     return yield* list(ctx)
   })
 }
@@ -228,6 +241,11 @@ function mapFileFailure(error: PluginConfigFile.ReadError | PluginConfigFile.Par
 }
 
 function mapReadFailure(error: PluginConfigFile.ReadError | PluginConfigFile.ParseError) {
+  if (error instanceof PluginConfigFile.ParseError) return new InvalidError({ message: error.message })
+  return new PersistenceError({ message: error.message, path: error.path, cause: error.cause })
+}
+
+function mapWriteFailure(error: PluginConfigFile.ReadError | PluginConfigFile.ParseError | PluginConfigFile.WriteError) {
   if (error instanceof PluginConfigFile.ParseError) return new InvalidError({ message: error.message })
   return new PersistenceError({ message: error.message, path: error.path, cause: error.cause })
 }
