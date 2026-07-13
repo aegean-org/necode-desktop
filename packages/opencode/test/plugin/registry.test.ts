@@ -45,7 +45,10 @@ function project(input: { server: string; enabled?: boolean }) {
     const spec = pathToFileURL(root).href
     yield* Effect.promise(async () => {
       await Bun.write(path.join(root, "server.js"), input.server)
-      await Bun.write(path.join(root, "skills", "demo", "SKILL.md"), "---\nname: demo-skill\ndescription: Demo\n---\nBody")
+      await Bun.write(
+        path.join(root, "skills", "demo", "SKILL.md"),
+        "---\nname: demo-skill\ndescription: Demo\n---\nBody",
+      )
       await Bun.write(
         path.join(root, "package.json"),
         JSON.stringify({
@@ -69,7 +72,10 @@ function project(input: { server: string; enabled?: boolean }) {
 
 it.instance("lists active plugin metadata, tools, and skills", () =>
   Effect.gen(function* () {
-    const setup = yield* project({ server: "export default async () => ({ tool: { demo: { description: 'Demo', args: {}, execute: async () => 'ok' } } })" })
+    const setup = yield* project({
+      server:
+        "export default async () => ({ tool: { demo: { description: 'Demo', args: {}, execute: async () => 'ok' } } })",
+    })
     const entry = (yield* (yield* Plugin.Service).entries()).find((item) => item.key === setup.key)!
 
     expect(entry).toMatchObject({ id: "demo", name: "Demo Plugin", version: "1.2.3", status: "active" })
@@ -85,6 +91,21 @@ it.instance("records initialization failures", () =>
 
     expect(entry.status).toBe("failed")
     expect(entry.error).toEqual({ stage: "initialize", message: "init failed" })
+  }),
+)
+
+it.instance("records config hook failures and does not expose their tools", () =>
+  Effect.gen(function* () {
+    const setup = yield* project({
+      server:
+        "export default async () => ({ config: async () => { throw new Error('config failed') }, tool: { demo: { description: 'Demo', args: {}, execute: async () => 'ok' } } })",
+    })
+    const plugin = yield* Plugin.Service
+    const entry = (yield* plugin.entries()).find((item) => item.key === setup.key)!
+
+    expect(entry.status).toBe("failed")
+    expect(entry.error).toEqual({ stage: "initialize", message: "config failed" })
+    expect((yield* plugin.list()).flatMap((hook) => Object.keys(hook.tool ?? {}))).not.toContain("demo")
   }),
 )
 
