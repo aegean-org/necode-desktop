@@ -1,0 +1,40 @@
+{
+  "name": "@necode-ai/plugin-pdf",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "bun test --timeout 60000",
+    "typecheck": "tsgo --noEmit"
+  },
+  "exports": {
+    ".": "./src/index.ts",
+    "./server": "./src/server.ts"
+  },
+  "files": [
+    "src",
+    "skills",
+    "assets"
+  ],
+  "necode": {
+    "plugin": {
+      "id": "pdf",
+      "name": "PDF",
+      "description": "读取、生成、合并和拆分 PDF",
+      "skills": [
+        "./skills/"
+      ]
+    }
+  },
+  "dependencies": {
+    "@opencode-ai/plugin": "workspace:*",
+    "@necode-ai/plugin-artifacts": "workspace:*",
+    "@pdf-lib/fontkit": "1.1.1",
+    "markit-ai": "0.5.3",
+    "pdf-lib": "1.17.1"
+  },
+  "devDependencies": {
+    "@tsconfig/node22": "catalog:",
+    "@types/node": "catalog:",
+    "@typescript/native-preview": "catalog:"
+  }
+}
