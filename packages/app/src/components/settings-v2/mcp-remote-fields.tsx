@@ -33,14 +33,18 @@ function UrlField(props: FieldProps) {
     <label class="settings-v2-mcp-field">
       <span class="settings-v2-mcp-label">{language.t("settings.mcp.dialog.remote.url")}</span>
       <TextInputV2
+        id="mcp-url"
         value={props.form.url}
         placeholder={language.t("settings.mcp.dialog.remote.urlPlaceholder")}
         invalid={!!props.form.errors.url}
+        aria-describedby={props.form.errors.url ? "mcp-url-error" : undefined}
         disabled={props.form.submitting}
         onInput={(event) => props.setForm("url", event.currentTarget.value)}
       />
       <Show when={props.form.errors.url}>
-        <span class="settings-v2-mcp-error">{language.t("settings.mcp.dialog.error.url")}</span>
+        <span id="mcp-url-error" class="settings-v2-mcp-error">
+          {language.t("settings.mcp.dialog.error.url")}
+        </span>
       </Show>
     </label>
   )
@@ -58,6 +62,7 @@ function OAuthFields(props: FieldProps) {
       <label class="settings-v2-mcp-field">
         <span class="settings-v2-mcp-label">{language.t("settings.mcp.dialog.oauth.label")}</span>
         <SelectV2
+          aria-label={language.t("settings.mcp.dialog.oauth.label")}
           appearance="base"
           options={options()}
           current={options().find((option) => option.value === props.form.oauthMode)}
@@ -102,25 +107,33 @@ function OAuthExplicitFields(props: FieldProps) {
   )
 }
 
-function OAuthField(props: FieldProps & {
-  field: "clientId" | "clientSecret" | "oauthScope" | "callbackPort" | "redirectUri"
-  label: string
-  type?: "text" | "password"
-  invalid?: boolean
-}) {
+function OAuthField(
+  props: FieldProps & {
+    field: "clientId" | "clientSecret" | "oauthScope" | "callbackPort" | "redirectUri"
+    label: string
+    type?: "text" | "password"
+    invalid?: boolean
+  },
+) {
   const language = useLanguage()
+  const inputId = `mcp-oauth-${props.field}`
+  const errorId = `${inputId}-error`
   return (
     <label class="settings-v2-mcp-field">
       <span class="settings-v2-mcp-label">{props.label}</span>
       <TextInputV2
+        id={inputId}
         type={props.type}
         value={props.form[props.field]}
         invalid={props.invalid}
+        aria-describedby={props.invalid ? errorId : undefined}
         disabled={props.form.submitting}
         onInput={(event) => props.setForm(props.field, event.currentTarget.value)}
       />
       <Show when={props.invalid}>
-        <span class="settings-v2-mcp-error">{language.t("settings.mcp.dialog.error.value")}</span>
+        <span id={errorId} class="settings-v2-mcp-error">
+          {language.t("settings.mcp.dialog.error.value")}
+        </span>
       </Show>
     </label>
   )

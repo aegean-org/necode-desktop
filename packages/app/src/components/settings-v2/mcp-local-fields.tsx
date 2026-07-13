@@ -48,13 +48,11 @@ function CommandEditor(props: FieldProps) {
           {(row, index) => <CommandEditorRow {...props} row={row} index={index()} onRemove={remove} />}
         </For>
       </div>
-      <Show when={props.form.errors.command}>
-        <span class="settings-v2-mcp-error">{language.t("settings.mcp.dialog.error.required")}</span>
-      </Show>
       <ButtonV2
         type="button"
         variant="ghost-muted"
         icon="plus"
+        aria-label={language.t("settings.mcp.dialog.local.addArgument")}
         data-action="mcp-command-add"
         disabled={props.form.submitting}
         onClick={add}
@@ -68,6 +66,9 @@ function CommandEditor(props: FieldProps) {
 function CommandEditorRow(props: FieldProps & { row: CommandRow; index: number; onRemove: (index: number) => void }) {
   const language = useLanguage()
   const id = createUniqueId()
+  const inputId = `${id}-input`
+  const errorId = `${id}-error`
+  const hasError = () => props.index === 0 && !!props.form.errors.command
   const label = () =>
     props.index === 0
       ? language.t("settings.mcp.dialog.local.executable")
@@ -75,10 +76,12 @@ function CommandEditorRow(props: FieldProps & { row: CommandRow; index: number; 
   return (
     <div class="settings-v2-mcp-command-row" data-row-id={id}>
       <TextInputV2
+        id={inputId}
         aria-label={label()}
         value={props.row.value}
         placeholder={label()}
-        invalid={props.index === 0 && !!props.form.errors.command}
+        invalid={hasError()}
+        aria-describedby={hasError() ? errorId : undefined}
         disabled={props.form.submitting}
         onInput={(event) => props.setForm("command", props.index, "value", event.currentTarget.value)}
       />
@@ -90,6 +93,11 @@ function CommandEditorRow(props: FieldProps & { row: CommandRow; index: number; 
         disabled={props.form.submitting}
         onClick={() => props.onRemove(props.index)}
       />
+      <Show when={hasError()}>
+        <span id={errorId} class="settings-v2-mcp-error">
+          {language.t("settings.mcp.dialog.error.required")}
+        </span>
+      </Show>
     </div>
   )
 }

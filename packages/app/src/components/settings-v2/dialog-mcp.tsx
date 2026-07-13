@@ -103,14 +103,20 @@ function NameField(props: { controller: Controller }) {
     <label class="settings-v2-mcp-field">
       <span class="settings-v2-mcp-label">{language.t("settings.mcp.dialog.field.name")}</span>
       <TextInputV2
+        id="mcp-name"
         autofocus
         value={props.controller.form.name}
         invalid={!!props.controller.form.errors.name}
+        aria-describedby={props.controller.form.errors.name ? "mcp-name-error" : undefined}
         disabled={props.controller.form.submitting}
         onInput={(event) => props.controller.setForm("name", event.currentTarget.value)}
       />
       <Show when={props.controller.form.errors.name}>
-        {(error) => <span class="settings-v2-mcp-error">{fieldError(error(), language.t)}</span>}
+        {(error) => (
+          <span id="mcp-name-error" class="settings-v2-mcp-error">
+            {fieldError(error(), language.t)}
+          </span>
+        )}
       </Show>
     </label>
   )
@@ -134,6 +140,7 @@ function ScopeField(props: { controller: Controller }) {
         }
       >
         <SelectV2
+          aria-label={language.t("settings.mcp.dialog.field.scope")}
           appearance="base"
           options={options()}
           current={options().find((option) => option.value === props.controller.form.scope)}
@@ -157,6 +164,7 @@ function TypeField(props: { controller: Controller }) {
     <label class="settings-v2-mcp-field">
       <span class="settings-v2-mcp-label">{language.t("settings.mcp.dialog.field.type")}</span>
       <SelectV2
+        aria-label={language.t("settings.mcp.dialog.field.type")}
         appearance="base"
         options={options()}
         current={options().find((option) => option.value === props.controller.form.type)}
@@ -175,16 +183,20 @@ function TimeoutField(props: { controller: Controller }) {
     <label class="settings-v2-mcp-field">
       <span class="settings-v2-mcp-label">{language.t("settings.mcp.dialog.field.timeout")}</span>
       <TextInputV2
+        id="mcp-timeout"
         inputmode="numeric"
         numeric
         value={props.controller.form.timeout}
         placeholder={language.t("settings.mcp.dialog.field.timeoutPlaceholder")}
         invalid={!!props.controller.form.errors.timeout}
+        aria-describedby={props.controller.form.errors.timeout ? "mcp-timeout-error" : undefined}
         disabled={props.controller.form.submitting}
         onInput={(event) => props.controller.setForm("timeout", event.currentTarget.value)}
       />
       <Show when={props.controller.form.errors.timeout}>
-        <span class="settings-v2-mcp-error">{language.t("settings.mcp.dialog.error.positiveInteger")}</span>
+        <span id="mcp-timeout-error" class="settings-v2-mcp-error">
+          {language.t("settings.mcp.dialog.error.positiveInteger")}
+        </span>
       </Show>
     </label>
   )
