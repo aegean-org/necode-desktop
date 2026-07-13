@@ -17,6 +17,8 @@ export type ToolContext = {
   abort: AbortSignal
   metadata(input: { title?: string; metadata?: { [key: string]: any } }): void
   ask(input: AskInput): Promise<void>
+  /** Allocate a session-scoped artifact path under NeCode's data directory. */
+  artifact(filename: string): Promise<{ path: string; url: string }>
 }
 
 type AskInput = {

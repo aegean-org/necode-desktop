@@ -14,8 +14,11 @@ import type { Provider as ProviderV2, Model as ModelV2, Auth } from "@opencode-a
 
 import type { BunShell } from "./shell.js"
 import { type ToolDefinition } from "./tool.js"
+import type { AuthHook } from "./auth.js"
 
 export * from "./tool.js"
+export { PluginCapability, PluginFailureStage, PluginManifest } from "./manifest.js"
+export type { AuthHook, AuthOAuthResult, AuthOuathResult } from "./auth.js"
 
 export type ProviderContext = {
   source: "env" | "config" | "custom" | "api"
@@ -79,134 +82,6 @@ export type PluginModule = {
   tui?: never
 }
 
-type Rule = {
-  key: string
-  op: "eq" | "neq"
-  value: string
-}
-
-export type AuthHook = {
-  provider: string
-  loader?: (auth: () => Promise<Auth>, provider: Provider) => Promise<Record<string, any>>
-  methods: (
-    | {
-        type: "oauth"
-        label: string
-        prompts?: Array<
-          | {
-              type: "text"
-              key: string
-              message: string
-              placeholder?: string
-              validate?: (value: string) => string | undefined
-              /** @deprecated Use `when` instead */
-              condition?: (inputs: Record<string, string>) => boolean
-              when?: Rule
-            }
-          | {
-              type: "select"
-              key: string
-              message: string
-              options: Array<{
-                label: string
-                value: string
-                hint?: string
-              }>
-              /** @deprecated Use `when` instead */
-              condition?: (inputs: Record<string, string>) => boolean
-              when?: Rule
-            }
-        >
-        authorize(inputs?: Record<string, string>): Promise<AuthOAuthResult>
-      }
-    | {
-        type: "api"
-        label: string
-        prompts?: Array<
-          | {
-              type: "text"
-              key: string
-              message: string
-              placeholder?: string
-              validate?: (value: string) => string | undefined
-              /** @deprecated Use `when` instead */
-              condition?: (inputs: Record<string, string>) => boolean
-              when?: Rule
-            }
-          | {
-              type: "select"
-              key: string
-              message: string
-              options: Array<{
-                label: string
-                value: string
-                hint?: string
-              }>
-              /** @deprecated Use `when` instead */
-              condition?: (inputs: Record<string, string>) => boolean
-              when?: Rule
-            }
-        >
-        authorize?(inputs?: Record<string, string>): Promise<
-          | {
-              type: "success"
-              key: string
-              provider?: string
-              metadata?: Record<string, string>
-            }
-          | {
-              type: "failed"
-            }
-        >
-      }
-  )[]
-}
-
-export type AuthOAuthResult = { url: string; instructions: string } & (
-  | {
-      method: "auto"
-      callback(): Promise<
-        | ({
-            type: "success"
-            provider?: string
-          } & (
-            | {
-                refresh: string
-                access: string
-                expires: number
-                accountId?: string
-                enterpriseUrl?: string
-              }
-            | { key: string; metadata?: Record<string, string> }
-          ))
-        | {
-            type: "failed"
-          }
-      >
-    }
-  | {
-      method: "code"
-      callback(code: string): Promise<
-        | ({
-            type: "success"
-            provider?: string
-          } & (
-            | {
-                refresh: string
-                access: string
-                expires: number
-                accountId?: string
-                enterpriseUrl?: string
-              }
-            | { key: string; metadata?: Record<string, string> }
-          ))
-        | {
-            type: "failed"
-          }
-      >
-    }
-)
-
 export type ProviderHookContext = {
   auth?: Auth
 }
@@ -215,9 +90,6 @@ export type ProviderHook = {
   id: string
   models?: (provider: ProviderV2, ctx: ProviderHookContext) => Promise<Record<string, ModelV2>>
 }
-
-/** @deprecated Use AuthOAuthResult instead. */
-export type AuthOuathResult = AuthOAuthResult
 
 export interface Hooks {
   dispose?: () => Promise<void>

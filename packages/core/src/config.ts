@@ -101,6 +101,9 @@ export class Info extends Schema.Class<Info>("Config.Info")({
   plugins: ConfigPlugin.Plugins.pipe(Schema.optional).annotate({
     description: "Ordered external plugin packages to load",
   }),
+  plugin_enabled: ConfigPlugin.Enabled.pipe(Schema.optional).annotate({
+    description: "Persistent plugin enablement keyed by stable plugin identity",
+  }),
   experimental: ConfigExperimental.Experimental.pipe(Schema.optional),
   providers: Schema.Record(Schema.String, ConfigProvider.Info).pipe(Schema.optional),
 }) {}
