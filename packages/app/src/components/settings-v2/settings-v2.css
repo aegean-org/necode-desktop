@@ -964,12 +964,6 @@
   height: min(720px, calc(100vh - 32px));
 }
 
-.settings-v2-mcp-add-dialog,
-.settings-v2-mcp-import-dialog {
-  width: min(520px, calc(100vw - 32px));
-  max-width: 520px;
-}
-
 .settings-v2-mcp-add-methods,
 .settings-v2-mcp-import-form {
   display: flex;

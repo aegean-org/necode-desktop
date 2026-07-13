@@ -35,7 +35,7 @@ export function DialogMcpImport(props: ImportProps) {
     props.onContinue(result.form)
   }
   return (
-    <Dialog title={language.t("settings.mcp.import.title")} fit class="settings-v2-mcp-import-dialog">
+    <Dialog title={language.t("settings.mcp.import.title")} fit>
       <form class="settings-v2-mcp-import-form" onSubmit={submit}>
         <ImportConfigField store={store} setStore={setStore} />
         <ImportScopeField store={store} setStore={setStore} />

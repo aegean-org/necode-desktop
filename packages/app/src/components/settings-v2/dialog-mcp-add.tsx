@@ -7,7 +7,7 @@ import "./settings-v2.css"
 export function DialogMcpAdd(props: { onManual: () => void; onImport: () => void }) {
   const language = useLanguage()
   return (
-    <Dialog title={language.t("settings.mcp.addMethod.title")} fit class="settings-v2-mcp-add-dialog">
+    <Dialog title={language.t("settings.mcp.addMethod.title")} fit>
       <div class="settings-v2-mcp-add-methods">
         <ButtonV2 type="button" onClick={props.onImport}>
           {language.t("settings.mcp.addMethod.import")}

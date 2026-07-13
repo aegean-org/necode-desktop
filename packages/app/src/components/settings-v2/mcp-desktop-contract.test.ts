@@ -3,6 +3,8 @@ import { describe, expect, test } from "bun:test"
 const mcpSource = await Bun.file(new URL("./mcp.tsx", import.meta.url)).text()
 const controllerSource = await Bun.file(new URL("./mcp-controller.tsx", import.meta.url)).text()
 const createFlowSource = await Bun.file(new URL("./mcp-create-dialog-flow.tsx", import.meta.url)).text()
+const addDialogSource = await Bun.file(new URL("./dialog-mcp-add.tsx", import.meta.url)).text()
+const importDialogSource = await Bun.file(new URL("./dialog-mcp-import.tsx", import.meta.url)).text()
 const cssSource = await Bun.file(new URL("./settings-v2.css", import.meta.url)).text()
 const packageSource = await Bun.file(new URL("../../../package.json", import.meta.url)).text()
 const settings = `${mcpSource}\n${controllerSource}`
@@ -91,6 +93,10 @@ describe("desktop MCP settings contract", () => {
     const rule = cssSource.match(/\.settings-v2-mcp-dialog\s*\{([^}]+)\}/)?.[1] ?? ""
     expect(rule).not.toContain("width:")
     expect(rule).not.toContain("max-width:")
+    expect(cssSource).not.toContain(".settings-v2-mcp-add-dialog")
+    expect(cssSource).not.toContain(".settings-v2-mcp-import-dialog")
+    expect(addDialogSource).not.toContain('class="settings-v2-mcp-add-dialog"')
+    expect(importDialogSource).not.toContain('class="settings-v2-mcp-import-dialog"')
     expect(packageSource).toContain('"test": "bun run test:unit && bun run test:browser"')
     expect(packageSource).toContain(
       '"test:browser": "bun test --conditions=browser --preload ./solid-happydom.ts ./test-browser"',
