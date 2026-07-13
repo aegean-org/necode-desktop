@@ -1,9 +1,8 @@
-import type { McpConfigEntry } from "@opencode-ai/sdk/v2/client"
 import { DialogProvider, useDialog } from "@opencode-ai/ui/context/dialog"
 import { afterEach, describe, expect, mock, test } from "bun:test"
 import { onMount, type JSX } from "solid-js"
 import { render } from "solid-js/web"
-import { createMcpForm, type McpForm } from "./mcp-form"
+import { createMcpForm } from "../src/components/settings-v2/mcp-form"
 
 const labels: Record<string, string> = {
   "settings.mcp.addMethod.title": "Add MCP",
@@ -42,9 +41,9 @@ mock.module("@/context/language", () => ({
   useLanguage: () => ({ t: (key: string) => labels[key] ?? key }),
 }))
 
-const { DialogMcpAdd } = await import("./dialog-mcp-add")
-const { DialogMcpImport } = await import("./dialog-mcp-import")
-const { DialogMcp } = await import("./dialog-mcp")
+const { DialogMcpAdd } = await import("../src/components/settings-v2/dialog-mcp-add")
+const { DialogMcpImport } = await import("../src/components/settings-v2/dialog-mcp-import")
+const { DialogMcp } = await import("../src/components/settings-v2/dialog-mcp")
 const LOCAL_CONFIG = `{"mcp":{"demo":{"type":"local","command":["demo"]}}}`
 const disposers: Array<() => void> = []
 
@@ -53,7 +52,7 @@ afterEach(() => {
   document.body.replaceChildren()
 })
 
-describe("desktop MCP add flow", () => {
+describe("desktop MCP browser add flow", () => {
   test("method buttons invoke manual and import callbacks", async () => {
     const onManual = mock()
     const onImport = mock()
@@ -98,17 +97,6 @@ describe("desktop MCP add flow", () => {
     expect(((await element("#mcp-name")) as HTMLInputElement).value).toBe("demo")
   })
 })
-
-type DialogProps = Parameters<typeof DialogMcp>[0]
-type CombinedProps = {
-  entry: McpConfigEntry
-  initialForm: McpForm
-  existingNames: readonly string[]
-  onSubmit: DialogProps["onSubmit"]
-}
-type AssertFalse<Value extends false> = Value
-const mutuallyExclusive: AssertFalse<CombinedProps extends DialogProps ? true : false> = false
-expect(mutuallyExclusive).toBeFalse()
 
 function mountDialog(open: () => JSX.Element) {
   const root = document.createElement("div")

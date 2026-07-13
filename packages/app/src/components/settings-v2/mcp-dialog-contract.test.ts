@@ -1,4 +1,8 @@
 import { describe, expect, test } from "bun:test"
+import type { McpConfigEntry } from "@opencode-ai/sdk/v2/client"
+import type { IconProps } from "@opencode-ai/ui/v2/icon"
+import type { DialogMcp } from "./dialog-mcp"
+import type { McpForm } from "./mcp-form"
 
 const files = [
   "dialog-mcp.tsx",
@@ -17,14 +21,26 @@ const localSource = await source("mcp-local-fields.tsx")
 const remoteSource = await source("mcp-remote-fields.tsx")
 const removeSource = await source("dialog-mcp-remove.tsx")
 const keyValueSource = await source("mcp-key-value-editor.tsx")
-const iconSource = await Bun.file(
-  new URL("../../../../ui/src/v2/components/icon.tsx", import.meta.url),
-).text()
+const iconSource = await Bun.file(new URL("../../../../ui/src/v2/components/icon.tsx", import.meta.url)).text()
 const translations = await Promise.all(
   ["../../i18n/en.ts", "../../i18n/zh.ts", "../../i18n/zht.ts"].map((file) =>
     Bun.file(new URL(file, import.meta.url)).text(),
   ),
 )
+
+type AssertFalse<Value extends false> = Value
+type DialogProps = Parameters<typeof DialogMcp>[0]
+type CombinedDialogProps = {
+  entry: McpConfigEntry
+  initialForm: McpForm
+  existingNames: readonly string[]
+  onSubmit: DialogProps["onSubmit"]
+}
+const combinedDialogPropsAreRejected: AssertFalse<CombinedDialogProps extends DialogProps ? true : false> = false
+const iconNamesAreClosed: AssertFalse<string extends IconProps["name"] ? true : false> = false
+
+expect(combinedDialogPropsAreRejected).toBeFalse()
+expect(iconNamesAreClosed).toBeFalse()
 
 describe("desktop MCP dialog contract", () => {
   test("exposes the save, command, secret, and remove accessibility actions", () => {

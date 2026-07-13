@@ -62,7 +62,7 @@ export const Rich = {
         <MenuV2.Content style={{ "min-width": "240px" }}>
           <MenuV2.Item shortcut="⇧ D" badge="Label">
             <Avatar size="small" kind="org" fallback="A" />
-            <Icon name="settings" size="small" />
+            <Icon name="settings-gear" size="small" />
             Text
           </MenuV2.Item>
           <MenuV2.Item shortcut="⌘ N">
@@ -70,12 +70,10 @@ export const Rich = {
             New window
           </MenuV2.Item>
           <MenuV2.Item shortcut="⌘ S" badge="Beta">
-            <Icon name="save" size="small" />
             Save as…
           </MenuV2.Item>
           <MenuV2.Separator />
           <MenuV2.Item disabled shortcut="⌘ P">
-            <Icon name="print" size="small" />
             Print
           </MenuV2.Item>
         </MenuV2.Content>
@@ -192,23 +190,11 @@ export const Context = {
             <Avatar size="small" kind="org" fallback="C" />
             Copy
           </MenuV2.Item>
-          <MenuV2.Item shortcut="⌘ X">
-            <Icon name="cut" size="small" />
-            Cut
-          </MenuV2.Item>
-          <MenuV2.Item shortcut="⌘ V">
-            <Icon name="paste" size="small" />
-            Paste
-          </MenuV2.Item>
+          <MenuV2.Item shortcut="⌘ X">Cut</MenuV2.Item>
+          <MenuV2.Item shortcut="⌘ V">Paste</MenuV2.Item>
           <MenuV2.Separator />
-          <MenuV2.Item badge="New">
-            <Icon name="inspect" size="small" />
-            Inspect element
-          </MenuV2.Item>
-          <MenuV2.Item disabled>
-            <Icon name="trash" size="small" />
-            Delete
-          </MenuV2.Item>
+          <MenuV2.Item badge="New">Inspect element</MenuV2.Item>
+          <MenuV2.Item disabled>Delete</MenuV2.Item>
         </MenuV2.Context.Content>
       </MenuV2.Context.Portal>
     </MenuV2.Context>
