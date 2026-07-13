@@ -8,12 +8,19 @@ import { usePlatform } from "@/context/platform"
 import { useServer } from "@/context/server"
 import { useServerSDK } from "@/context/server-sdk"
 import { showToast } from "@/utils/toast"
-import { DialogMcpRemove } from "./dialog-mcp-remove"
+import { DialogMcpAdd } from "./dialog-mcp-add"
+import { DialogMcpImport } from "./dialog-mcp-import"
 import { DialogMcp } from "./dialog-mcp"
-import type { McpFormResult } from "./mcp-form"
+import { DialogMcpRemove } from "./dialog-mcp-remove"
+import type { McpForm, McpFormResult } from "./mcp-form"
 import { mcpManagementRows, type McpManagementRow } from "./mcp-model"
 
 type Translate = ReturnType<typeof useLanguage>["t"]
+type DialogActionsOptions = {
+  dialog: ReturnType<typeof useDialog>
+  entries: Accessor<McpConfigEntry[]>
+  management: ReturnType<typeof createManagementMutations>
+}
 
 /** Owns desktop MCP queries, mutations, runtime toggles, and dialogs. */
 export function useMcpSettings() {
@@ -61,16 +68,16 @@ export function useMcpSettings() {
   }
 }
 
-function createDialogActions(options: {
-  dialog: ReturnType<typeof useDialog>
-  entries: Accessor<McpConfigEntry[]>
-  management: ReturnType<typeof createManagementMutations>
-}) {
+function createDialogActions(options: DialogActionsOptions) {
   const openAdd = () =>
     options.dialog.push(() => (
-      <DialogMcp
-        existingNames={options.entries().map((entry) => entry.name)}
-        onSubmit={options.management.create.mutateAsync}
+      <DialogMcpAdd
+        onManual={() => replaceCreateDialog(options)}
+        onImport={() =>
+          options.dialog.replace(() => (
+            <DialogMcpImport scope="project" onContinue={(form) => replaceCreateDialog(options, form)} />
+          ))
+        }
       />
     ))
   const openEdit = (row: McpManagementRow) => {
@@ -90,6 +97,16 @@ function createDialogActions(options: {
     ))
   }
   return { openAdd, openEdit, openRemove }
+}
+
+function replaceCreateDialog(options: DialogActionsOptions, form?: McpForm) {
+  return options.dialog.replace(() => (
+    <DialogMcp
+      initialForm={form}
+      existingNames={options.entries().map((entry) => entry.name)}
+      onSubmit={options.management.create.mutateAsync}
+    />
+  ))
 }
 
 function createManagementMutations(

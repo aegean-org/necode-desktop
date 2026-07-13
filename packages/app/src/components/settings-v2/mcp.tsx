@@ -67,7 +67,7 @@ export function SettingsMcpV2() {
 function McpHeader(props: { desktop: boolean; onAdd: () => void }) {
   const language = useLanguage()
   return (
-    <div class="settings-v2-tab-header">
+    <div class="settings-v2-tab-header settings-v2-mcp-header">
       <div class="settings-v2-tab-header-row">
         <h2 class="settings-v2-tab-title">{language.t("settings.mcp.title")}</h2>
         <Show when={props.desktop}>

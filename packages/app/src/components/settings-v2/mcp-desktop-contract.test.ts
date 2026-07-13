@@ -29,7 +29,11 @@ describe("desktop MCP settings contract", () => {
 
   test("exposes desktop add, edit, and remove actions", async () => {
     expect(settings).toContain('data-action="mcp-add"')
-    expect(settings).toContain("DialogMcp")
+    expect(mcpSource).toContain('class="settings-v2-tab-header settings-v2-mcp-header"')
+    expect(controllerSource).toContain("<DialogMcpAdd")
+    expect(controllerSource).toContain("<DialogMcpImport")
+    expect(controllerSource).toContain("initialForm={form}")
+    expect(controllerSource).toContain("options.dialog.replace")
     expect(settings).toContain("DialogMcpRemove")
     expect(await menuFile.exists()).toBe(true)
     const menu = await menuFile.text()
@@ -53,6 +57,18 @@ describe("desktop MCP settings contract", () => {
       "settings.mcp.scope.global",
       "settings.mcp.scope.builtin",
       "settings.mcp.overridden.project",
+      "settings.mcp.addMethod.title",
+      "settings.mcp.addMethod.import",
+      "settings.mcp.addMethod.manual",
+      "settings.mcp.import.title",
+      "settings.mcp.import.config",
+      "settings.mcp.import.placeholder",
+      "settings.mcp.import.scope",
+      "settings.mcp.import.check",
+      "settings.mcp.import.error.invalidJsonc",
+      "settings.mcp.import.error.singleEntry",
+      "settings.mcp.import.error.invalidEntry",
+      "settings.mcp.import.error.unsupportedField",
     ]
     translations.forEach((translation) => keys.forEach((key) => expect(translation).toContain(`"${key}"`)))
   })
