@@ -5,7 +5,7 @@ import { Switch } from "@opencode-ai/ui/switch"
 import { Tabs } from "@opencode-ai/ui/tabs"
 import { showToast } from "@/utils/toast"
 import { useNavigate } from "@solidjs/router"
-import { type Accessor, createEffect, createMemo, For, type JSXElement, onCleanup, Show } from "solid-js"
+import { type Accessor, createEffect, createMemo, For, onCleanup, Show } from "solid-js"
 import { createStore } from "solid-js/store"
 import { ServerHealthIndicator, ServerRow } from "@/components/server/server-row"
 import { useLanguage } from "@/context/language"
@@ -17,18 +17,8 @@ import { useGlobal } from "@/context/global"
 import { useSettings } from "@/context/settings"
 import { useMcpToggle } from "@/context/mcp"
 import { mcpDisplayName, sortMcpNames, statusLabelKey } from "./ne-mcp"
-
-const pluginEmptyMessage = (value: string, file: string): JSXElement => {
-  const parts = value.split(file)
-  if (parts.length === 1) return value
-  return (
-    <>
-      {parts[0]}
-      <code class="bg-surface-raised-base px-1.5 py-0.5 rounded-sm text-text-base">{file}</code>
-      {parts.slice(1).join(file)}
-    </>
-  )
-}
+import { usePluginStatusQuery } from "./plugin-status-query"
+import { StatusPopoverPlugins } from "./status-popover-plugins"
 
 const listServersByHealth = (
   list: ServerConnection.Any[],
@@ -285,11 +275,13 @@ export function StatusPopoverBody(props: { shown: Accessor<boolean> }) {
   const mcpConnected = createMemo(() => mcpNames().filter((name) => mcpStatus(name) === "connected").length)
   const lspItems = createMemo(() => sync().data.lsp ?? [])
   const lspCount = createMemo(() => lspItems().length)
-  const plugins = createMemo(() =>
-    (sync().data.config.plugin ?? []).map((item) => (typeof item === "string" ? item : item[0])),
-  )
+  const pluginQuery = usePluginStatusQuery(props.shown)
+  const plugins = createMemo(() => pluginQuery.data ?? [])
   const pluginCount = createMemo(() => plugins().length)
-  const pluginEmpty = createMemo(() => pluginEmptyMessage(language.t("dialog.plugins.empty"), "opencode.json"))
+  const openPluginSettings = async () => {
+    const x = await import("@/components/settings-v2")
+    dialog.show(() => <x.DialogSettings defaultTab="plugins" />)
+  }
 
   return (
     <div class="flex items-center gap-1 w-[360px] rounded-xl shadow-[var(--shadow-lg-border-base)]">
@@ -495,23 +487,13 @@ export function StatusPopoverBody(props: { shown: Accessor<boolean> }) {
         </Tabs.Content>
 
         <Tabs.Content value="plugins">
-          <div class="flex flex-col px-2 pb-2">
-            <div class="flex flex-col p-3 bg-background-base rounded-sm min-h-14">
-              <Show
-                when={plugins().length > 0}
-                fallback={<div class="text-14-regular text-text-base text-center my-auto">{pluginEmpty()}</div>}
-              >
-                <For each={plugins()}>
-                  {(plugin) => (
-                    <div class="flex items-center gap-2 w-full px-2 py-1">
-                      <div class="size-1.5 rounded-full shrink-0 bg-icon-success-base" />
-                      <span class="text-14-regular text-text-base truncate">{plugin}</span>
-                    </div>
-                  )}
-                </For>
-              </Show>
-            </div>
-          </div>
+          <StatusPopoverPlugins
+            plugins={plugins()}
+            loading={pluginQuery.isLoading}
+            error={pluginQuery.error}
+            onManage={() => void openPluginSettings()}
+            t={language.t}
+          />
         </Tabs.Content>
       </Tabs>
     </div>

@@ -745,6 +745,8 @@ export const dict = {
   "status.popover.tab.mcp": "MCP",
   "status.popover.tab.lsp": "LSP",
   "status.popover.tab.plugins": "Plugins",
+  "status.popover.plugins.empty": "No plugins reported by the runtime",
+  "status.popover.plugins.manage": "Manage plugins",
   "status.popover.action.manageServers": "Manage servers",
 
   "session.share.popover.title": "Publish on web",
