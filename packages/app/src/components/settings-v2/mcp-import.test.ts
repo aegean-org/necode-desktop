@@ -38,9 +38,9 @@ describe("desktop MCP JSONC import parser", () => {
     ).toEqual({ error: "invalid_jsonc" })
   })
 
-  test("imports a direct entry named mcp", () => {
+  test("rejects a direct entry named mcp because the root key is reserved for the wrapper", () => {
     expect(parseMcpImport(`{"mcp":{"type":"local","command":["demo"]}}`, "project")).toEqual({
-      form: expect.objectContaining({ name: "mcp", command: [{ value: "demo" }] }),
+      error: "single_entry",
     })
   })
 
@@ -106,6 +106,24 @@ describe("desktop MCP JSONC import parser", () => {
     })
   })
 
+  test("rejects duplicate nested environment, header, and OAuth properties", () => {
+    expect(
+      parseMcpImport(`{"demo":{"type":"local","command":["demo"],"environment":{"TOKEN":"a","TOKEN":"b"}}}`, "project"),
+    ).toEqual({ error: "invalid_jsonc" })
+    expect(
+      parseMcpImport(
+        `{"demo":{"type":"remote","url":"https://example.com/mcp","headers":{"TOKEN":"a","TOKEN":"b"}}}`,
+        "project",
+      ),
+    ).toEqual({ error: "invalid_jsonc" })
+    expect(
+      parseMcpImport(
+        `{"demo":{"type":"remote","url":"https://example.com/mcp","oauth":{"clientId":"a","clientId":"b"}}}`,
+        "project",
+      ),
+    ).toEqual({ error: "invalid_jsonc" })
+  })
+
   test("rejects unsupported properties", () => {
     expect(parseMcpImport(`{"demo":{"type":"local","command":["demo"],"args":[]}}`, "project")).toEqual({
       error: "unsupported_field",
@@ -127,6 +145,30 @@ describe("desktop MCP JSONC import parser", () => {
   test.each(["__proto__", "constructor", "toString"])("imports the prototype-sensitive name %s", (name) => {
     expect(parseMcpImport(`{"${name}":{"type":"local","command":["demo"]}}`, "project")).toEqual({
       form: expect.objectContaining({ name }),
+    })
+  })
+
+  test("preserves prototype-sensitive environment and header keys", () => {
+    const values = `{"__proto__":"proto","constructor":"ctor","toString":"string"}`
+    const rows = [
+      { key: "__proto__", value: "proto" },
+      { key: "constructor", value: "ctor" },
+      { key: "toString", value: "string" },
+    ]
+    expect(parseMcpImport(`{"local":{"type":"local","command":["demo"],"environment":${values}}}`, "project")).toEqual({
+      form: expect.objectContaining({ environment: rows }),
+    })
+    expect(
+      parseMcpImport(`{"remote":{"type":"remote","url":"https://example.com/mcp","headers":${values}}}`, "project"),
+    ).toEqual({ form: expect.objectContaining({ headers: rows }) })
+  })
+
+  test("maps disabled and omitted OAuth configuration to distinct form modes", () => {
+    expect(
+      parseMcpImport(`{"disabled":{"type":"remote","url":"https://example.com/mcp","oauth":false}}`, "project"),
+    ).toEqual({ form: expect.objectContaining({ oauthMode: "disabled" }) })
+    expect(parseMcpImport(`{"auto":{"type":"remote","url":"https://example.com/mcp"}}`, "project")).toEqual({
+      form: expect.objectContaining({ oauthMode: "auto" }),
     })
   })
 })

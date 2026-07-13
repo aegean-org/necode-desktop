@@ -59,7 +59,7 @@ function readNode(node: Node): unknown {
 function readSingleEntry(input: unknown): EntryResult {
   if (!isRecord(input)) return { error: "invalid_entry" }
   const mcp = readOwn(input, "mcp")
-  const wrapped = Object.hasOwn(input, "mcp") && !isDirectConfig(mcp)
+  const wrapped = Object.hasOwn(input, "mcp")
   if (wrapped && hasUnsupportedFields(input, ["mcp"])) return { error: "unsupported_field" }
   const entries = wrapped ? mcp : input
   if (!isRecord(entries)) return { error: "invalid_entry" }
@@ -207,12 +207,6 @@ function hasUnsupportedFields(input: Record<string, unknown>, supported: readonl
 
 function isRecord(input: unknown): input is Record<string, unknown> {
   return typeof input === "object" && input !== null && !Array.isArray(input)
-}
-
-function isDirectConfig(input: unknown) {
-  if (!isRecord(input)) return false
-  const type = readOwn(input, "type")
-  return type === "local" || type === "remote"
 }
 
 function isCommand(input: unknown): input is string[] {
