@@ -848,13 +848,7 @@
   padding-bottom: 24px;
 }
 
-.settings-v2-rag-header .settings-v2-tab-header-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-}
-
+.settings-v2-rag-header .settings-v2-tab-header-row,
 .settings-v2-mcp-header .settings-v2-tab-header-row {
   display: flex;
   align-items: center;

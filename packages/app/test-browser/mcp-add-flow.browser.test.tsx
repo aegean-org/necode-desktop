@@ -1,6 +1,6 @@
 import { DialogProvider, useDialog } from "@opencode-ai/ui/context/dialog"
 import { afterEach, describe, expect, mock, test } from "bun:test"
-import { onMount, type JSX } from "solid-js"
+import { createSignal, type JSX } from "solid-js"
 import { render } from "solid-js/web"
 import { createMcpForm } from "../src/components/settings-v2/mcp-form"
 
@@ -33,6 +33,7 @@ const labels: Record<string, string> = {
   "settings.mcp.dialog.local.environment": "Environment",
   "settings.mcp.dialog.local.environmentKey": "NAME",
   "settings.mcp.dialog.local.environmentValue": "Value",
+  "settings.mcp.dialog.error.duplicate": "This name already exists",
   "common.cancel": "Cancel",
   "common.save": "Save",
 }
@@ -44,6 +45,7 @@ mock.module("@/context/language", () => ({
 const { DialogMcpAdd } = await import("../src/components/settings-v2/dialog-mcp-add")
 const { DialogMcpImport } = await import("../src/components/settings-v2/dialog-mcp-import")
 const { DialogMcp } = await import("../src/components/settings-v2/dialog-mcp")
+const { McpCreateDialogFlow } = await import("../src/components/settings-v2/mcp-create-dialog-flow")
 const LOCAL_CONFIG = `{"mcp":{"demo":{"type":"local","command":["demo"]}}}`
 const disposers: Array<() => void> = []
 
@@ -53,6 +55,45 @@ afterEach(() => {
 })
 
 describe("desktop MCP browser add flow", () => {
+  test("imports through the shared flow and persists only from the editable form", async () => {
+    const [existingNames, setExistingNames] = createSignal<readonly string[]>([])
+    const onSubmit = mock(async () => {})
+    const dialog = mountProvider()
+    await dialog.push(() => <div data-testid="parent">Parent</div>)
+    await dialog.push(() => <McpCreateDialogFlow existingNames={existingNames} onSubmit={onSubmit} />)
+    ;(await button("Paste MCP config")).click()
+    input(await element("textarea"), LOCAL_CONFIG)
+    ;(await button("Check config")).click()
+
+    expect(onSubmit).not.toHaveBeenCalled()
+    expect(((await element("#mcp-name")) as HTMLInputElement).value).toBe("demo")
+    expect(document.querySelector('[data-testid="parent"]')).not.toBeNull()
+
+    setExistingNames(["demo"])
+    ;(await button("Save")).click()
+    expect(await text("This name already exists")).toBeTruthy()
+    expect(onSubmit).not.toHaveBeenCalled()
+
+    setExistingNames([])
+    ;(await button("Save")).click()
+    await find(() => onSubmit.mock.calls.length === 1)
+    expect(document.querySelector('[data-testid="parent"]')).not.toBeNull()
+  })
+
+  test("manual creation replaces only the method picker", async () => {
+    const dialog = mountProvider()
+    await dialog.push(() => <div data-testid="parent">Parent</div>)
+    await dialog.push(() => <McpCreateDialogFlow existingNames={() => []} onSubmit={async () => {}} />)
+    ;(await button("Manual config")).click()
+
+    expect(await element("#mcp-name")).toBeTruthy()
+    expect(document.querySelector('[data-testid="parent"]')).not.toBeNull()
+    expect(document.querySelectorAll("[data-dialog-layer]")).toHaveLength(2)
+    expect([...document.querySelectorAll("button")].some((item) => item.textContent?.trim() === "Manual config")).toBe(
+      false,
+    )
+  })
+
   test("method buttons invoke manual and import callbacks", async () => {
     const onManual = mock()
     const onImport = mock()
@@ -99,23 +140,30 @@ describe("desktop MCP browser add flow", () => {
 })
 
 function mountDialog(open: () => JSX.Element) {
+  const dialog = mountProvider()
+  void dialog.show(open)
+}
+
+function mountProvider() {
+  let dialog: ReturnType<typeof useDialog> | undefined
   const root = document.createElement("div")
   document.body.append(root)
   disposers.push(
     render(
       () => (
         <DialogProvider>
-          <OpenDialog open={open} />
+          <CaptureDialog onReady={(value) => (dialog = value)} />
         </DialogProvider>
       ),
       root,
     ),
   )
+  if (!dialog) throw new Error("Dialog context not initialized")
+  return dialog
 }
 
-function OpenDialog(props: { open: () => JSX.Element }) {
-  const dialog = useDialog()
-  onMount(() => void dialog.show(props.open))
+function CaptureDialog(props: { onReady: (dialog: ReturnType<typeof useDialog>) => void }) {
+  props.onReady(useDialog())
   return null
 }
 

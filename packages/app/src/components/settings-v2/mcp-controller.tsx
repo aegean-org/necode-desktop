@@ -8,11 +8,10 @@ import { usePlatform } from "@/context/platform"
 import { useServer } from "@/context/server"
 import { useServerSDK } from "@/context/server-sdk"
 import { showToast } from "@/utils/toast"
-import { DialogMcpAdd } from "./dialog-mcp-add"
-import { DialogMcpImport } from "./dialog-mcp-import"
 import { DialogMcp } from "./dialog-mcp"
 import { DialogMcpRemove } from "./dialog-mcp-remove"
-import type { McpForm, McpFormResult } from "./mcp-form"
+import { McpCreateDialogFlow } from "./mcp-create-dialog-flow"
+import type { McpFormResult } from "./mcp-form"
 import { mcpManagementRows, type McpManagementRow } from "./mcp-model"
 
 type Translate = ReturnType<typeof useLanguage>["t"]
@@ -71,13 +70,9 @@ export function useMcpSettings() {
 function createDialogActions(options: DialogActionsOptions) {
   const openAdd = () =>
     options.dialog.push(() => (
-      <DialogMcpAdd
-        onManual={() => replaceCreateDialog(options)}
-        onImport={() =>
-          options.dialog.replace(() => (
-            <DialogMcpImport scope="project" onContinue={(form) => replaceCreateDialog(options, form)} />
-          ))
-        }
+      <McpCreateDialogFlow
+        existingNames={() => options.entries().map((entry) => entry.name)}
+        onSubmit={options.management.create.mutateAsync}
       />
     ))
   const openEdit = (row: McpManagementRow) => {
@@ -97,16 +92,6 @@ function createDialogActions(options: DialogActionsOptions) {
     ))
   }
   return { openAdd, openEdit, openRemove }
-}
-
-function replaceCreateDialog(options: DialogActionsOptions, form?: McpForm) {
-  return options.dialog.replace(() => (
-    <DialogMcp
-      initialForm={form}
-      existingNames={options.entries().map((entry) => entry.name)}
-      onSubmit={options.management.create.mutateAsync}
-    />
-  ))
 }
 
 function createManagementMutations(

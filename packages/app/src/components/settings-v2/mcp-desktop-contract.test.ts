@@ -2,6 +2,8 @@ import { describe, expect, test } from "bun:test"
 
 const mcpSource = await Bun.file(new URL("./mcp.tsx", import.meta.url)).text()
 const controllerSource = await Bun.file(new URL("./mcp-controller.tsx", import.meta.url)).text()
+const createFlowSource = await Bun.file(new URL("./mcp-create-dialog-flow.tsx", import.meta.url)).text()
+const cssSource = await Bun.file(new URL("./settings-v2.css", import.meta.url)).text()
 const settings = `${mcpSource}\n${controllerSource}`
 const menuFile = Bun.file(new URL("./mcp-row-menu.tsx", import.meta.url))
 const translations = await Promise.all(
@@ -30,10 +32,11 @@ describe("desktop MCP settings contract", () => {
   test("exposes desktop add, edit, and remove actions", async () => {
     expect(settings).toContain('data-action="mcp-add"')
     expect(mcpSource).toContain('class="settings-v2-tab-header settings-v2-mcp-header"')
-    expect(controllerSource).toContain("<DialogMcpAdd")
-    expect(controllerSource).toContain("<DialogMcpImport")
-    expect(controllerSource).toContain("initialForm={form}")
-    expect(controllerSource).toContain("options.dialog.replace")
+    expect(controllerSource).toContain("<McpCreateDialogFlow")
+    expect(createFlowSource).toContain("<DialogMcpAdd")
+    expect(createFlowSource).toContain("<DialogMcpImport")
+    expect(createFlowSource).toContain("initialForm={form}")
+    expect(createFlowSource).toContain("dialog.replace")
     expect(settings).toContain("DialogMcpRemove")
     expect(await menuFile.exists()).toBe(true)
     const menu = await menuFile.text()
@@ -75,5 +78,11 @@ describe("desktop MCP settings contract", () => {
 
   test("keeps the settings component below the file-size limit", () => {
     expect(mcpSource.split(/\r?\n/).length).toBeLessThanOrEqual(300)
+  })
+
+  test("shares the title-row layout rule with the RAG header", () => {
+    expect(cssSource).toContain(
+      ".settings-v2-rag-header .settings-v2-tab-header-row,\n.settings-v2-mcp-header .settings-v2-tab-header-row",
+    )
   })
 })
