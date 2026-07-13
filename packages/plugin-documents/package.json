@@ -1,0 +1,38 @@
+{
+  "name": "@necode-ai/plugin-documents",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "bun test --timeout 60000",
+    "typecheck": "tsgo --noEmit"
+  },
+  "exports": {
+    ".": "./src/index.ts",
+    "./server": "./src/server.ts"
+  },
+  "files": [
+    "src",
+    "skills"
+  ],
+  "necode": {
+    "plugin": {
+      "id": "documents",
+      "name": "Documents",
+      "description": "创建、读取和修订 Word 文档",
+      "skills": [
+        "./skills/"
+      ]
+    }
+  },
+  "dependencies": {
+    "@opencode-ai/plugin": "workspace:*",
+    "@necode-ai/plugin-artifacts": "workspace:*",
+    "docx": "9.5.1",
+    "markit-ai": "0.5.3"
+  },
+  "devDependencies": {
+    "@tsconfig/node22": "catalog:",
+    "@types/node": "catalog:",
+    "@typescript/native-preview": "catalog:"
+  }
+}
