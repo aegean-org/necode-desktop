@@ -128,23 +128,33 @@ function init() {
   }
 
   const push = (element: DialogElement, owner: Owner, onClose?: () => void) => {
-    if (timer.current !== undefined) {
-      clearTimeout(timer.current)
-      timer.current = undefined
-    }
-    lock.value = false
+    prepareMount()
     mount(element, owner, onClose, stack().length)
   }
 
   const show = (element: DialogElement, owner: Owner, onClose?: () => void) => {
     for (const item of stack()) item.dispose()
     setStack([])
+    prepareMount()
+    mount(element, owner, onClose, 0)
+  }
+
+  const replace = (element: DialogElement, owner: Owner, onClose?: () => void) => {
+    const current = stack().at(-1)
+    if (current) {
+      current.dispose()
+      setStack((items) => items.slice(0, -1))
+    }
+    prepareMount()
+    mount(element, owner, onClose, stack().length)
+  }
+
+  const prepareMount = () => {
     if (timer.current !== undefined) {
       clearTimeout(timer.current)
       timer.current = undefined
     }
     lock.value = false
-    mount(element, owner, onClose, 0)
   }
 
   return {
@@ -152,6 +162,7 @@ function init() {
     close,
     show,
     push,
+    replace,
   }
 }
 
@@ -189,6 +200,11 @@ export function useDialog() {
     push(element: DialogElement, onClose?: () => void) {
       const base = ctx.stack().at(-1)?.owner ?? owner
       return startTransition(() => ctx.push(element, base, onClose))
+    },
+    /** Replaces only the active dialog while preserving lower stack layers. */
+    replace(element: DialogElement, onClose?: () => void) {
+      const base = ctx.stack().at(-1)?.owner ?? owner
+      return startTransition(() => ctx.replace(element, base, onClose))
     },
     close() {
       ctx.close()

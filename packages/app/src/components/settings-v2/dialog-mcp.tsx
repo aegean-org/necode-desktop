@@ -22,11 +22,9 @@ import { McpRemoteFields } from "./mcp-remote-fields"
 import "./settings-v2.css"
 
 type DialogMcpProps = {
-  entry?: McpConfigEntry
-  initialForm?: McpForm
   existingNames: readonly string[]
   onSubmit: (result: McpFormResult) => Promise<void>
-}
+} & ({ entry: McpConfigEntry; initialForm?: never } | { entry?: never; initialForm?: McpForm })
 type Controller = ReturnType<typeof useMcpDialog>
 
 /** Creates or edits one writable persistent MCP configuration. */
