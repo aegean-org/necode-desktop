@@ -77,6 +77,11 @@ const getTuiPluginOrigins = (directory: string) =>
     Effect.provide(TuiConfig.defaultLayer.pipe(Layer.provide(Layer.succeed(CurrentWorkingDirectory, directory)))),
   )
 
+const clearLegacyPluginEnabled = (directory: string) =>
+  TuiConfig.Service.use((svc) => svc.clearLegacyPluginEnabled()).pipe(
+    Effect.provide(TuiConfig.defaultLayer.pipe(Layer.provide(Layer.succeed(CurrentWorkingDirectory, directory)))),
+  )
+
 it.instance("keeps server and tui plugin merge semantics aligned", () =>
   withCleanState(
     Effect.gen(function* () {
@@ -842,6 +847,49 @@ it.instance("merges plugin_enabled flags across config layers", () =>
         "demo.plugin": false,
         "local.plugin": true,
       })
+    }),
+  ),
+)
+
+it.effect(
+  "translates legacy TUI plugin IDs into stable configuration keys without losing special keys",
+  Effect.sync(() => {
+    const migrated = TuiConfig.mergePluginEnabled({
+      configured: Object.fromEntries([["__proto__", true]]),
+      legacy: { "demo.plugin": false, "internal:sidebar-context": false },
+      keys: new Map([["demo.plugin", "npm:@scope/demo"]]),
+    })
+
+    expect(Object.hasOwn(migrated, "__proto__")).toBe(true)
+    expect(migrated["npm:@scope/demo"]).toBe(false)
+    expect(migrated["internal:sidebar-context"]).toBe(false)
+  }),
+)
+
+it.instance("clears migrated plugin_enabled fields from legacy TUI JSONC only after requested", () =>
+  withCleanState(
+    Effect.gen(function* () {
+      const fs = yield* FSUtil.Service
+      const test = yield* TestInstance
+      const source = path.join(test.directory, "tui.jsonc")
+      yield* fs.writeFileString(
+        source,
+        `{
+  // keep this comment
+  "tui": {
+    "plugin_enabled": { "demo.plugin": false }
+  }
+}`,
+      )
+
+      expect((yield* getTuiConfig(test.directory)).plugin_enabled?.["demo.plugin"]).toBe(false)
+      expect(yield* fs.readFileString(source)).toContain("plugin_enabled")
+
+      yield* clearLegacyPluginEnabled(test.directory)
+
+      const text = yield* fs.readFileString(source)
+      expect(text).toContain("// keep this comment")
+      expect(text).not.toContain("plugin_enabled")
     }),
   ),
 )
