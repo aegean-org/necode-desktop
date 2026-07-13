@@ -292,13 +292,13 @@ describe("buildWorkflowTasks", () => {
     expect(workflowTaskMeta(tasks[0]).map((item) => item.id)).toEqual(["status", "updated"])
   })
 
-  test("keeps home task row selection separate from opening sessions", () => {
+  test("opens home task rows while keeping hover preview", () => {
     const actionsSource = rowSource.slice(rowSource.indexOf("actions={"), rowSource.indexOf("onSelect="))
 
     expect(rowSource).toContain('data-component="home-workflow-task-row"')
     expect(actionsSource).toContain("props.onOpen(props.task.session)")
-    expect(rowSource).toContain("onSelect={props.onPreview}")
-    expect(rowSource).not.toContain("props.onPreview()\n          props.onOpen(props.task.session)")
+    expect(rowSource).toContain("onPointerEnter={props.onPreview}")
+    expect(rowSource).toContain("onSelect={() => props.onOpen(props.task.session)}")
   })
 
   test("keeps home task rows using compact workflow actions", () => {
