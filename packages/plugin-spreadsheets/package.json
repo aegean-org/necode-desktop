@@ -1,0 +1,38 @@
+{
+  "name": "@necode-ai/plugin-spreadsheets",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "bun test --timeout 60000",
+    "typecheck": "tsgo --noEmit"
+  },
+  "exports": {
+    ".": "./src/index.ts",
+    "./server": "./src/server.ts"
+  },
+  "files": [
+    "src",
+    "skills"
+  ],
+  "necode": {
+    "plugin": {
+      "id": "spreadsheets",
+      "name": "Spreadsheets",
+      "description": "创建、读取和更新 Excel 工作簿",
+      "skills": [
+        "./skills/"
+      ]
+    }
+  },
+  "dependencies": {
+    "@opencode-ai/plugin": "workspace:*",
+    "@necode-ai/plugin-artifacts": "workspace:*",
+    "exceljs": "4.4.0",
+    "sharp": "0.33.5"
+  },
+  "devDependencies": {
+    "@tsconfig/node22": "catalog:",
+    "@types/node": "catalog:",
+    "@typescript/native-preview": "catalog:"
+  }
+}
