@@ -1,0 +1,63 @@
+import { describe, expect, test } from "bun:test"
+
+const mcpSource = await Bun.file(new URL("./mcp.tsx", import.meta.url)).text()
+const controllerSource = await Bun.file(new URL("./mcp-controller.tsx", import.meta.url)).text()
+const settings = `${mcpSource}\n${controllerSource}`
+const menuFile = Bun.file(new URL("./mcp-row-menu.tsx", import.meta.url))
+const translations = await Promise.all(
+  ["../../i18n/en.ts", "../../i18n/zh.ts", "../../i18n/zht.ts"].map((file) =>
+    Bun.file(new URL(file, import.meta.url)).text(),
+  ),
+)
+
+describe("desktop MCP settings contract", () => {
+  test("gates persistent configuration behind the desktop platform", () => {
+    expect(settings).toContain('platform.platform === "desktop"')
+    expect(settings).toContain("enabled: desktop() && !!directory()")
+    expect(settings).toContain('[serverSDK().scope, directory(), "settings", "mcp-config"]')
+    expect(settings).toContain("mcpDisplayItems(controller.status.data ?? {})")
+  })
+
+  test("uses the generated persistent MCP client and refreshes both views", () => {
+    expect(settings).toContain(".mcp.config.list()")
+    expect(settings).toContain(".mcp.config.create({")
+    expect(settings).toContain(".mcp.config.update({")
+    expect(settings).toContain(".mcp.config.remove({ entryID: entry.id })")
+    expect(settings).toContain("await config.refetch()")
+    expect(settings).toContain("await status.refetch()")
+  })
+
+  test("exposes desktop add, edit, and remove actions", async () => {
+    expect(settings).toContain('data-action="mcp-add"')
+    expect(settings).toContain("DialogMcp")
+    expect(settings).toContain("DialogMcpRemove")
+    expect(await menuFile.exists()).toBe(true)
+    const menu = await menuFile.text()
+    expect(menu).toContain("props.entry.canManage")
+    expect(menu).toContain('language.t("settings.mcp.action.edit")')
+    expect(menu).toContain('language.t("settings.mcp.action.remove")')
+  })
+
+  test("keeps overridden entries read-only at runtime", () => {
+    expect(settings).toContain("entry.canToggle")
+    expect(settings).toContain("entry.overriddenBy")
+    expect(settings).toContain("settings.mcp.overridden.${props.entry.overriddenBy}")
+  })
+
+  test("defines the list management vocabulary in every dictionary", () => {
+    const keys = [
+      "settings.mcp.action.add",
+      "settings.mcp.action.edit",
+      "settings.mcp.action.remove",
+      "settings.mcp.scope.project",
+      "settings.mcp.scope.global",
+      "settings.mcp.scope.builtin",
+      "settings.mcp.overridden.project",
+    ]
+    translations.forEach((translation) => keys.forEach((key) => expect(translation).toContain(`"${key}"`)))
+  })
+
+  test("keeps the settings component below the file-size limit", () => {
+    expect(mcpSource.split(/\r?\n/).length).toBeLessThanOrEqual(300)
+  })
+})

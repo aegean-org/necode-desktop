@@ -8,10 +8,7 @@ const files = [
   "dialog-mcp-remove.tsx",
 ] as const
 
-const source = async (file: (typeof files)[number]) =>
-  Bun.file(new URL(`./${file}`, import.meta.url))
-    .text()
-    .catch(() => "")
+const source = (file: (typeof files)[number]) => Bun.file(new URL(`./${file}`, import.meta.url)).text()
 
 const dialogSource = await source("dialog-mcp.tsx")
 const localSource = await source("mcp-local-fields.tsx")

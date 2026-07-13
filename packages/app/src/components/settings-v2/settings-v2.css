@@ -676,6 +676,13 @@
   gap: 16px;
 }
 
+.settings-v2-mcp-actions {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 8px;
+}
+
 .settings-v2-mcp-row:not(:last-child) {
   padding-bottom: 16px;
   margin-bottom: 16px;
