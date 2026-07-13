@@ -2565,6 +2565,41 @@ export type PermissionNotFoundError = {
   message: string
 }
 
+export type PluginEntry = {
+  key: string
+  id: string
+  name: string
+  description?: string
+  version?: string
+  spec: string
+  target?: string
+  source: "builtin" | "npm" | "file"
+  scope: "builtin" | "global" | "local"
+  enabled: boolean
+  status: "active" | "disabled" | "failed" | "incompatible"
+  system: boolean
+  canDisable: boolean
+  canUninstall: boolean
+  capabilities: Array<string>
+  tools: Array<string>
+  skills: Array<string>
+  error?: {
+    stage: string
+    message: string
+  }
+}
+
+export type PluginConfigEntry = {
+  key: string
+  spec: string
+  source: "builtin" | "npm" | "file"
+  scope: "builtin" | "global" | "local"
+  enabled: boolean
+  system: boolean
+  canDisable: boolean
+  canUninstall: boolean
+}
+
 export type PluginConfigInvalidError = {
   _tag: "PluginConfigInvalidError"
   message: string
@@ -7664,29 +7699,7 @@ export type PluginListResponses = {
   /**
    * Plugin runtime status
    */
-  200: Array<{
-    key: string
-    id: string
-    name: string
-    description?: string
-    version?: string
-    spec: string
-    target?: string
-    source: "builtin" | "npm" | "file"
-    scope: "builtin" | "global" | "local"
-    enabled: boolean
-    status: "active" | "disabled" | "failed" | "incompatible"
-    system: boolean
-    canDisable: boolean
-    canUninstall: boolean
-    capabilities: Array<string>
-    tools: Array<string>
-    skills: Array<string>
-    error?: {
-      stage: string
-      message: string
-    }
-  }>
+  200: Array<PluginEntry>
 }
 
 export type PluginListResponse = PluginListResponses[keyof PluginListResponses]
@@ -7718,16 +7731,7 @@ export type PluginConfigListResponses = {
   /**
    * Persistent plugin configuration
    */
-  200: Array<{
-    key: string
-    spec: string
-    source: "builtin" | "npm" | "file"
-    scope: "builtin" | "global" | "local"
-    enabled: boolean
-    system: boolean
-    canDisable: boolean
-    canUninstall: boolean
-  }>
+  200: Array<PluginConfigEntry>
 }
 
 export type PluginConfigListResponse = PluginConfigListResponses[keyof PluginConfigListResponses]
@@ -7766,16 +7770,7 @@ export type PluginConfigInstallResponses = {
   /**
    * Persistent plugin configuration
    */
-  200: Array<{
-    key: string
-    spec: string
-    source: "builtin" | "npm" | "file"
-    scope: "builtin" | "global" | "local"
-    enabled: boolean
-    system: boolean
-    canDisable: boolean
-    canUninstall: boolean
-  }>
+  200: Array<PluginConfigEntry>
 }
 
 export type PluginConfigInstallResponse = PluginConfigInstallResponses[keyof PluginConfigInstallResponses]
@@ -7813,16 +7808,7 @@ export type PluginConfigRemoveResponses = {
   /**
    * Persistent plugin configuration
    */
-  200: Array<{
-    key: string
-    spec: string
-    source: "builtin" | "npm" | "file"
-    scope: "builtin" | "global" | "local"
-    enabled: boolean
-    system: boolean
-    canDisable: boolean
-    canUninstall: boolean
-  }>
+  200: Array<PluginConfigEntry>
 }
 
 export type PluginConfigRemoveResponse = PluginConfigRemoveResponses[keyof PluginConfigRemoveResponses]
@@ -7866,16 +7852,7 @@ export type PluginConfigUpdateResponses = {
   /**
    * Persistent plugin configuration
    */
-  200: Array<{
-    key: string
-    spec: string
-    source: "builtin" | "npm" | "file"
-    scope: "builtin" | "global" | "local"
-    enabled: boolean
-    system: boolean
-    canDisable: boolean
-    canUninstall: boolean
-  }>
+  200: Array<PluginConfigEntry>
 }
 
 export type PluginConfigUpdateResponse = PluginConfigUpdateResponses[keyof PluginConfigUpdateResponses]

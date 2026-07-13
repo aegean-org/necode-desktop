@@ -29,7 +29,7 @@ export namespace PluginRegistry {
     tools: Schema.Array(Schema.String),
     skills: Schema.Array(Schema.String),
     error: Schema.optional(Failure),
-  })
+  }).annotate({ identifier: "PluginEntry" })
   export type Entry = typeof Entry.Type
 
   /** Creates the runtime representation for an explicitly disabled plugin. */

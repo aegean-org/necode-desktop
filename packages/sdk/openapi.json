@@ -5382,102 +5382,7 @@
                 "schema": {
                   "type": "array",
                   "items": {
-                    "type": "object",
-                    "properties": {
-                      "key": {
-                        "type": "string"
-                      },
-                      "id": {
-                        "type": "string"
-                      },
-                      "name": {
-                        "type": "string"
-                      },
-                      "description": {
-                        "type": "string"
-                      },
-                      "version": {
-                        "type": "string"
-                      },
-                      "spec": {
-                        "type": "string"
-                      },
-                      "target": {
-                        "type": "string"
-                      },
-                      "source": {
-                        "type": "string",
-                        "enum": ["builtin", "npm", "file"]
-                      },
-                      "scope": {
-                        "type": "string",
-                        "enum": ["builtin", "global", "local"]
-                      },
-                      "enabled": {
-                        "type": "boolean"
-                      },
-                      "status": {
-                        "type": "string",
-                        "enum": ["active", "disabled", "failed", "incompatible"]
-                      },
-                      "system": {
-                        "type": "boolean"
-                      },
-                      "canDisable": {
-                        "type": "boolean"
-                      },
-                      "canUninstall": {
-                        "type": "boolean"
-                      },
-                      "capabilities": {
-                        "type": "array",
-                        "items": {
-                          "type": "string"
-                        }
-                      },
-                      "tools": {
-                        "type": "array",
-                        "items": {
-                          "type": "string"
-                        }
-                      },
-                      "skills": {
-                        "type": "array",
-                        "items": {
-                          "type": "string"
-                        }
-                      },
-                      "error": {
-                        "type": "object",
-                        "properties": {
-                          "stage": {
-                            "type": "string"
-                          },
-                          "message": {
-                            "type": "string"
-                          }
-                        },
-                        "required": ["stage", "message"],
-                        "additionalProperties": false
-                      }
-                    },
-                    "required": [
-                      "key",
-                      "id",
-                      "name",
-                      "spec",
-                      "source",
-                      "scope",
-                      "enabled",
-                      "status",
-                      "system",
-                      "canDisable",
-                      "canUninstall",
-                      "capabilities",
-                      "tools",
-                      "skills"
-                    ],
-                    "additionalProperties": false
+                    "$ref": "#/components/schemas/PluginEntry"
                   },
                   "description": "Plugin runtime status"
                 }
@@ -5535,37 +5440,7 @@
                 "schema": {
                   "type": "array",
                   "items": {
-                    "type": "object",
-                    "properties": {
-                      "key": {
-                        "type": "string"
-                      },
-                      "spec": {
-                        "type": "string"
-                      },
-                      "source": {
-                        "type": "string",
-                        "enum": ["builtin", "npm", "file"]
-                      },
-                      "scope": {
-                        "type": "string",
-                        "enum": ["builtin", "global", "local"]
-                      },
-                      "enabled": {
-                        "type": "boolean"
-                      },
-                      "system": {
-                        "type": "boolean"
-                      },
-                      "canDisable": {
-                        "type": "boolean"
-                      },
-                      "canUninstall": {
-                        "type": "boolean"
-                      }
-                    },
-                    "required": ["key", "spec", "source", "scope", "enabled", "system", "canDisable", "canUninstall"],
-                    "additionalProperties": false
+                    "$ref": "#/components/schemas/PluginConfigEntry"
                   },
                   "description": "Persistent plugin configuration"
                 }
@@ -5638,37 +5513,7 @@
                 "schema": {
                   "type": "array",
                   "items": {
-                    "type": "object",
-                    "properties": {
-                      "key": {
-                        "type": "string"
-                      },
-                      "spec": {
-                        "type": "string"
-                      },
-                      "source": {
-                        "type": "string",
-                        "enum": ["builtin", "npm", "file"]
-                      },
-                      "scope": {
-                        "type": "string",
-                        "enum": ["builtin", "global", "local"]
-                      },
-                      "enabled": {
-                        "type": "boolean"
-                      },
-                      "system": {
-                        "type": "boolean"
-                      },
-                      "canDisable": {
-                        "type": "boolean"
-                      },
-                      "canUninstall": {
-                        "type": "boolean"
-                      }
-                    },
-                    "required": ["key", "spec", "source", "scope", "enabled", "system", "canDisable", "canUninstall"],
-                    "additionalProperties": false
+                    "$ref": "#/components/schemas/PluginConfigEntry"
                   },
                   "description": "Persistent plugin configuration"
                 }
@@ -5784,37 +5629,7 @@
                 "schema": {
                   "type": "array",
                   "items": {
-                    "type": "object",
-                    "properties": {
-                      "key": {
-                        "type": "string"
-                      },
-                      "spec": {
-                        "type": "string"
-                      },
-                      "source": {
-                        "type": "string",
-                        "enum": ["builtin", "npm", "file"]
-                      },
-                      "scope": {
-                        "type": "string",
-                        "enum": ["builtin", "global", "local"]
-                      },
-                      "enabled": {
-                        "type": "boolean"
-                      },
-                      "system": {
-                        "type": "boolean"
-                      },
-                      "canDisable": {
-                        "type": "boolean"
-                      },
-                      "canUninstall": {
-                        "type": "boolean"
-                      }
-                    },
-                    "required": ["key", "spec", "source", "scope", "enabled", "system", "canDisable", "canUninstall"],
-                    "additionalProperties": false
+                    "$ref": "#/components/schemas/PluginConfigEntry"
                   },
                   "description": "Persistent plugin configuration"
                 }
@@ -5931,37 +5746,7 @@
                 "schema": {
                   "type": "array",
                   "items": {
-                    "type": "object",
-                    "properties": {
-                      "key": {
-                        "type": "string"
-                      },
-                      "spec": {
-                        "type": "string"
-                      },
-                      "source": {
-                        "type": "string",
-                        "enum": ["builtin", "npm", "file"]
-                      },
-                      "scope": {
-                        "type": "string",
-                        "enum": ["builtin", "global", "local"]
-                      },
-                      "enabled": {
-                        "type": "boolean"
-                      },
-                      "system": {
-                        "type": "boolean"
-                      },
-                      "canDisable": {
-                        "type": "boolean"
-                      },
-                      "canUninstall": {
-                        "type": "boolean"
-                      }
-                    },
-                    "required": ["key", "spec", "source", "scope", "enabled", "system", "canDisable", "canUninstall"],
-                    "additionalProperties": false
+                    "$ref": "#/components/schemas/PluginConfigEntry"
                   },
                   "description": "Persistent plugin configuration"
                 }
@@ -23436,6 +23221,137 @@
           }
         },
         "required": ["_tag", "requestID", "message"],
+        "additionalProperties": false
+      },
+      "PluginEntry": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "version": {
+            "type": "string"
+          },
+          "spec": {
+            "type": "string"
+          },
+          "target": {
+            "type": "string"
+          },
+          "source": {
+            "type": "string",
+            "enum": ["builtin", "npm", "file"]
+          },
+          "scope": {
+            "type": "string",
+            "enum": ["builtin", "global", "local"]
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "status": {
+            "type": "string",
+            "enum": ["active", "disabled", "failed", "incompatible"]
+          },
+          "system": {
+            "type": "boolean"
+          },
+          "canDisable": {
+            "type": "boolean"
+          },
+          "canUninstall": {
+            "type": "boolean"
+          },
+          "capabilities": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "tools": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "skills": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "error": {
+            "type": "object",
+            "properties": {
+              "stage": {
+                "type": "string"
+              },
+              "message": {
+                "type": "string"
+              }
+            },
+            "required": ["stage", "message"],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "key",
+          "id",
+          "name",
+          "spec",
+          "source",
+          "scope",
+          "enabled",
+          "status",
+          "system",
+          "canDisable",
+          "canUninstall",
+          "capabilities",
+          "tools",
+          "skills"
+        ],
+        "additionalProperties": false
+      },
+      "PluginConfigEntry": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "spec": {
+            "type": "string"
+          },
+          "source": {
+            "type": "string",
+            "enum": ["builtin", "npm", "file"]
+          },
+          "scope": {
+            "type": "string",
+            "enum": ["builtin", "global", "local"]
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "system": {
+            "type": "boolean"
+          },
+          "canDisable": {
+            "type": "boolean"
+          },
+          "canUninstall": {
+            "type": "boolean"
+          }
+        },
+        "required": ["key", "spec", "source", "scope", "enabled", "system", "canDisable", "canUninstall"],
         "additionalProperties": false
       },
       "PluginConfigInvalidError": {

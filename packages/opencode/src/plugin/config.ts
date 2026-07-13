@@ -26,7 +26,7 @@ export const Entry = Schema.Struct({
   system: Schema.Boolean,
   canDisable: Schema.Boolean,
   canUninstall: Schema.Boolean,
-})
+}).annotate({ identifier: "PluginConfigEntry" })
 export type Entry = typeof Entry.Type
 
 /** Plugin installation request accepted by the management API. */
