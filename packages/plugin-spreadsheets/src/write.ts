@@ -1,5 +1,6 @@
 import type { CellInput, SheetInput } from "./schema.js"
 import { validateSheets } from "./schema.js"
+import { renderChart } from "./chart.js"
 
 type Workbook = import("exceljs").Workbook
 
@@ -7,7 +8,7 @@ type Workbook = import("exceljs").Workbook
 export async function writeWorkbook(filePath: string, sheets: readonly SheetInput[]) {
   validateSheets(sheets)
   const workbook = await newWorkbook()
-  sheets.forEach((sheet) => applySheet(workbook, sheet))
+  for (const sheet of sheets) await applySheet(workbook, sheet)
   await workbook.xlsx.writeFile(filePath)
   await verifyWorkbook(filePath, sheets)
 }
@@ -16,7 +17,7 @@ export async function writeWorkbook(filePath: string, sheets: readonly SheetInpu
 export async function updateWorkbook(sourcePath: string, outputPath: string, sheets: readonly SheetInput[]) {
   validateSheets(sheets)
   const workbook = await loadWorkbook(sourcePath)
-  sheets.forEach((sheet) => applySheet(workbook, sheet))
+  for (const sheet of sheets) await applySheet(workbook, sheet)
   await workbook.xlsx.writeFile(outputPath)
   await verifyWorkbook(outputPath, sheets)
 }
@@ -32,10 +33,17 @@ async function loadWorkbook(filePath: string) {
   return workbook
 }
 
-function applySheet(workbook: Workbook, input: SheetInput) {
+async function applySheet(workbook: Workbook, input: SheetInput) {
   const name = input.name.trim()
   const sheet = workbook.getWorksheet(name) ?? workbook.addWorksheet(name)
   input.cells.forEach((cell) => applyCell(sheet, cell))
+  for (const chart of input.charts ?? []) {
+    const image = workbook.addImage({
+      base64: `data:image/png;base64,${(await renderChart(chart)).toString("base64")}`,
+      extension: "png",
+    })
+    sheet.addImage(image, chart.range)
+  }
 }
 
 function applyCell(sheet: import("exceljs").Worksheet, input: CellInput) {
@@ -52,6 +60,9 @@ async function verifyWorkbook(filePath: string, sheets: readonly SheetInput[]) {
     if (!sheet) throw new Error(`Reopened workbook is missing worksheet: ${sheetInput.name}`)
     sheetInput.cells.forEach((cell) => verifyCell(sheet, cell))
   }
+  const chartCount = sheets.reduce((total, sheet) => total + (sheet.charts?.length ?? 0), 0)
+  const reopenedChartCount = workbook.worksheets.reduce((total, sheet) => total + sheet.getImages().length, 0)
+  if (reopenedChartCount < chartCount) throw new Error("Reopened workbook is missing embedded chart images")
 }
 
 function verifyCell(sheet: import("exceljs").Worksheet, input: CellInput) {

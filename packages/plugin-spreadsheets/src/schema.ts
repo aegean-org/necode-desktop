@@ -1,4 +1,5 @@
 import { tool } from "@opencode-ai/plugin"
+import { validateChart, type ChartInput } from "./chart.js"
 
 export type CellInput = {
   address: string
@@ -7,7 +8,7 @@ export type CellInput = {
   numberFormat?: string
 }
 
-export type SheetInput = { name: string; cells: CellInput[] }
+export type SheetInput = { name: string; cells: CellInput[]; charts?: ChartInput[] }
 
 /** Cell mutation schema accepted by create and update tools. */
 export const CellInputSchema = tool.schema.object({
@@ -17,10 +18,20 @@ export const CellInputSchema = tool.schema.object({
   numberFormat: tool.schema.string().optional(),
 })
 
+/** Embedded chart image schema accepted by create and update tools. */
+export const ChartInputSchema = tool.schema.object({
+  type: tool.schema.enum(["bar", "line", "pie"]),
+  title: tool.schema.string(),
+  labels: tool.schema.array(tool.schema.string()),
+  values: tool.schema.array(tool.schema.number()),
+  range: tool.schema.string(),
+})
+
 /** Worksheet mutation schema accepted by create and update tools. */
 export const SheetInputSchema = tool.schema.object({
   name: tool.schema.string(),
   cells: tool.schema.array(CellInputSchema),
+  charts: tool.schema.array(ChartInputSchema).optional(),
 })
 
 /** Validates workbook operations before any file is written. */
@@ -33,6 +44,7 @@ export function validateSheets(sheets: readonly SheetInput[]) {
     if (names.has(name)) throw new Error(`Duplicate worksheet name: ${name}`)
     names.add(name)
     sheet.cells.forEach(validateCell)
+    sheet.charts?.forEach(validateChart)
   }
 }
 

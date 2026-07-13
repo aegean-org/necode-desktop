@@ -16,7 +16,15 @@ export const SpreadsheetsManifest = {
 /** First-party Spreadsheets plugin entrypoint. */
 export const SpreadsheetsPlugin: Plugin = async () => ({ tool: SpreadsheetTools })
 
+export { renderChart, validateChart, type ChartInput } from "./chart.js"
 export { readWorkbook } from "./read.js"
-export { CellInputSchema, SheetInputSchema, validateSheets, type CellInput, type SheetInput } from "./schema.js"
+export {
+  CellInputSchema,
+  ChartInputSchema,
+  SheetInputSchema,
+  validateSheets,
+  type CellInput,
+  type SheetInput,
+} from "./schema.js"
 export { SpreadsheetTools } from "./server.js"
 export { updateWorkbook, writeWorkbook } from "./write.js"
