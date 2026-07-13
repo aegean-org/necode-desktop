@@ -22,6 +22,7 @@ const remoteSource = await source("mcp-remote-fields.tsx")
 const removeSource = await source("dialog-mcp-remove.tsx")
 const keyValueSource = await source("mcp-key-value-editor.tsx")
 const iconSource = await Bun.file(new URL("../../../../ui/src/v2/components/icon.tsx", import.meta.url)).text()
+const settingsCss = await Bun.file(new URL("./settings-v2.css", import.meta.url)).text()
 const translations = await Promise.all(
   ["../../i18n/en.ts", "../../i18n/zh.ts", "../../i18n/zht.ts"].map((file) =>
     Bun.file(new URL(file, import.meta.url)).text(),
@@ -70,6 +71,10 @@ describe("desktop MCP dialog contract", () => {
     expect(scroll).toBeGreaterThanOrEqual(0)
     expect(footer).toBeGreaterThan(scroll)
     expect(form.slice(scroll, footer)).toContain("</div>")
+  })
+
+  test("keeps the add-method buttons clear of the fitted dialog edge", () => {
+    expect(settingsCss).toMatch(/\.settings-v2-mcp-add-methods\s*\{[\s\S]*padding-block-end:\s*20px;/)
   })
 
   test("accepts a parsed create form without replacing edit initialization", () => {

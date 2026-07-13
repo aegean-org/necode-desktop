@@ -977,6 +977,10 @@
   margin-inline: 20px;
 }
 
+.settings-v2-mcp-add-methods {
+  padding-block-end: 20px;
+}
+
 .settings-v2-mcp-form,
 .settings-v2-mcp-fields {
   display: flex;
