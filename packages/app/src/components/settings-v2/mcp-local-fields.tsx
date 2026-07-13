@@ -85,14 +85,16 @@ function CommandEditorRow(props: FieldProps & { row: CommandRow; index: number; 
         disabled={props.form.submitting}
         onInput={(event) => props.setForm("command", props.index, "value", event.currentTarget.value)}
       />
-      <ButtonV2
-        type="button"
-        variant="ghost-muted"
-        icon="trash"
-        aria-label={language.t("settings.mcp.dialog.local.removeCommand", { row: props.index + 1 })}
-        disabled={props.form.submitting}
-        onClick={() => props.onRemove(props.index)}
-      />
+      <Show when={props.index > 0}>
+        <ButtonV2
+          type="button"
+          variant="ghost-muted"
+          icon="xmark-small"
+          aria-label={language.t("settings.mcp.dialog.local.removeCommand", { row: props.index + 1 })}
+          disabled={props.form.submitting}
+          onClick={() => props.onRemove(props.index)}
+        />
+      </Show>
       <Show when={hasError()}>
         <span id={errorId} class="settings-v2-mcp-error">
           {language.t("settings.mcp.dialog.error.required")}

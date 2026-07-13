@@ -2,6 +2,8 @@ import { describe, expect, test } from "bun:test"
 
 const files = [
   "dialog-mcp.tsx",
+  "dialog-mcp-add.tsx",
+  "dialog-mcp-import.tsx",
   "mcp-key-value-editor.tsx",
   "mcp-local-fields.tsx",
   "mcp-remote-fields.tsx",
@@ -15,6 +17,9 @@ const localSource = await source("mcp-local-fields.tsx")
 const remoteSource = await source("mcp-remote-fields.tsx")
 const removeSource = await source("dialog-mcp-remove.tsx")
 const keyValueSource = await source("mcp-key-value-editor.tsx")
+const iconSource = await Bun.file(
+  new URL("../../../../ui/src/v2/components/icon.tsx", import.meta.url),
+).text()
 const translations = await Promise.all(
   ["../../i18n/en.ts", "../../i18n/zh.ts", "../../i18n/zht.ts"].map((file) =>
     Bun.file(new URL(file, import.meta.url)).text(),
@@ -35,6 +40,34 @@ describe("desktop MCP dialog contract", () => {
     expect(dialogSource).toContain('language.t("settings.mcp.dialog.typeSwitch.message")')
     expect(dialogSource).toContain('language.t("settings.mcp.dialog.typeSwitch.cancel")')
     expect(dialogSource).toContain('language.t("settings.mcp.dialog.typeSwitch.confirm")')
+  })
+
+  test("keeps the form footer fixed outside a dedicated scroll region", () => {
+    const form = functionBody(dialogSource, "DialogMcp")
+    const scroll = form.indexOf('class="settings-v2-mcp-form-scroll"')
+    const footer = form.indexOf("<McpFormFooter")
+    expect(scroll).toBeGreaterThanOrEqual(0)
+    expect(footer).toBeGreaterThan(scroll)
+    expect(form.slice(scroll, footer)).toContain("</div>")
+  })
+
+  test("accepts a parsed create form without replacing edit initialization", () => {
+    expect(dialogSource).toContain("initialForm?: McpForm")
+    expect(dialogSource).toContain("props.initialForm ?? createMcpForm(props.entry)")
+  })
+
+  test("keeps the executable row fixed and uses explicit remove icons", () => {
+    const commandRow = functionBody(localSource, "CommandEditorRow")
+    expect(commandRow).toContain("<Show when={props.index > 0}>")
+    expect(commandRow).toContain('icon="xmark-small"')
+    expect(keyValueSource).toContain('icon="xmark-small"')
+    expect(localSource).not.toContain('icon="trash"')
+    expect(keyValueSource).not.toContain('icon="trash"')
+  })
+
+  test("fails explicitly for unregistered v2 icons", () => {
+    expect(iconSource).toContain("throw new Error")
+    expect(iconSource).not.toContain(': "plus"')
   })
 
   test("labels every SelectV2 trigger explicitly", () => {

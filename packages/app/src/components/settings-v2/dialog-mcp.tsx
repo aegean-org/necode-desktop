@@ -13,6 +13,7 @@ import {
   replaceTypeFields,
   validateMcpForm,
   type McpFormErrorCode,
+  type McpForm,
   type McpFormResult,
   type McpFormStore,
 } from "./mcp-form"
@@ -22,6 +23,7 @@ import "./settings-v2.css"
 
 type DialogMcpProps = {
   entry?: McpConfigEntry
+  initialForm?: McpForm
   existingNames: readonly string[]
   onSubmit: (result: McpFormResult) => Promise<void>
 }
@@ -39,15 +41,17 @@ export function DialogMcp(props: DialogMcpProps) {
       class="settings-v2-mcp-dialog"
     >
       <form class="settings-v2-mcp-form" onSubmit={controller.submit}>
-        <GeneralFields controller={controller} />
-        <EnabledField controller={controller} />
-        <TypeSwitchConfirm controller={controller} />
-        <Show
-          when={controller.form.type === "local"}
-          fallback={<McpRemoteFields form={controller.form} setForm={controller.setForm} />}
-        >
-          <McpLocalFields form={controller.form} setForm={controller.setForm} />
-        </Show>
+        <div class="settings-v2-mcp-form-scroll">
+          <GeneralFields controller={controller} />
+          <EnabledField controller={controller} />
+          <TypeSwitchConfirm controller={controller} />
+          <Show
+            when={controller.form.type === "local"}
+            fallback={<McpRemoteFields form={controller.form} setForm={controller.setForm} />}
+          >
+            <McpLocalFields form={controller.form} setForm={controller.setForm} />
+          </Show>
+        </div>
         <McpFormFooter controller={controller} />
       </form>
     </Dialog>
@@ -57,7 +61,7 @@ export function DialogMcp(props: DialogMcpProps) {
 function useMcpDialog(props: DialogMcpProps) {
   const dialog = useDialog()
   const [form, setForm] = createStore<McpFormStore>({
-    ...createMcpForm(props.entry),
+    ...(props.initialForm ?? createMcpForm(props.entry)),
     errors: {},
     submitting: false,
   })

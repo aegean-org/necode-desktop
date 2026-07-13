@@ -68,7 +68,7 @@ function KeyValueEditorRow(
       <ButtonV2
         type="button"
         variant="ghost-muted"
-        icon="trash"
+        icon="xmark-small"
         aria-label={translation("remove")}
         disabled={props.form.submitting}
         onClick={() => props.onRemove(props.index)}

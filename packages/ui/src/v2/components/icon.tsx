@@ -111,7 +111,7 @@ export interface IconProps extends ComponentProps<"svg"> {
 
 export function Icon(props: IconProps) {
   const [split, rest] = splitProps(props, ["name", "size"])
-  const iconName = () => (icons[split.name as keyof typeof icons] ? (split.name as keyof typeof icons) : "plus")
+  const iconName = () => requireIcon(split.name)
   const icon = () => icons[iconName()]
   const pixelSize = split.size === "small" ? 14 : split.size === "large" ? 20 : 16
   onMount(ensureSprite)
@@ -130,4 +130,9 @@ export function Icon(props: IconProps) {
       <use href={`#${symbol(iconName())}`} />
     </svg>
   )
+}
+
+function requireIcon(name: string) {
+  if (Object.hasOwn(icons, name)) return name as keyof typeof icons
+  throw new Error(`Unknown v2 icon: ${name}`)
 }
