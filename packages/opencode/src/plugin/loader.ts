@@ -74,7 +74,7 @@ export namespace PluginLoader {
   }
 
   // Normalize a config item into the loader's internal representation.
-  function plan(item: ConfigPluginV1.Spec): Plan {
+  export function plan(item: ConfigPluginV1.Spec): Plan {
     const spec = ConfigPlugin.pluginSpecifier(item)
     return { spec, options: ConfigPlugin.pluginOptions(item), deprecated: isDeprecatedPlugin(spec) }
   }

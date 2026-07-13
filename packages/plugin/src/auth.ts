@@ -31,7 +31,7 @@ type Prompt =
 /** Provider authentication methods contributed by a plugin. */
 export type AuthHook = {
   provider: string
-  loader?: (auth: () => Promise<Auth>, provider: Provider) => Promise<Record<string, unknown>>
+  loader?: (auth: () => Promise<Auth>, provider: Provider) => Promise<Record<string, any>>
   methods: Array<
     | {
         type: "oauth"
