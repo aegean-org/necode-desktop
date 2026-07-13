@@ -652,6 +652,17 @@
         "@opentui/solid",
       ],
     },
+    "packages/plugin-artifacts": {
+      "name": "@necode-ai/plugin-artifacts",
+      "dependencies": {
+        "@opencode-ai/plugin": "workspace:*",
+      },
+      "devDependencies": {
+        "@tsconfig/node22": "catalog:",
+        "@types/node": "catalog:",
+        "@typescript/native-preview": "catalog:",
+      },
+    },
     "packages/script": {
       "name": "@opencode-ai/script",
       "dependencies": {
@@ -1688,6 +1699,8 @@
     "@napi-rs/wasm-runtime": ["@napi-rs/wasm-runtime@1.1.4", "", { "dependencies": { "@tybys/wasm-util": "^0.10.1" }, "peerDependencies": { "@emnapi/core": "^1.7.1", "@emnapi/runtime": "^1.7.1" } }, "sha512-3NQNNgA1YSlJb/kMH1ildASP9HW7/7kYnRI2szWJaofaS1hWmbGI4H+d3+22aGzXXN9IJ+n+GiFVcGipJP18ow=="],
 
     "@necode-ai/desktop": ["@necode-ai/desktop@workspace:packages/desktop"],
+
+    "@necode-ai/plugin-artifacts": ["@necode-ai/plugin-artifacts@workspace:packages/plugin-artifacts"],
 
     "@noble/hashes": ["@noble/hashes@2.2.0", "", {}, "sha512-IYqDGiTXab6FniAgnSdZwgWbomxpy9FtYvLKs7wCUs2a8RkITG+DFGO1DM9cr+E3/RgADRpFjrKVaJ1z6sjtEg=="],
 

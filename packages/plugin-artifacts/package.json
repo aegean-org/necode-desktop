@@ -1,0 +1,20 @@
+{
+  "name": "@necode-ai/plugin-artifacts",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "bun test",
+    "typecheck": "tsgo --noEmit"
+  },
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@opencode-ai/plugin": "workspace:*"
+  },
+  "devDependencies": {
+    "@tsconfig/node22": "catalog:",
+    "@types/node": "catalog:",
+    "@typescript/native-preview": "catalog:"
+  }
+}
