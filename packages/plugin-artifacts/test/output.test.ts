@@ -54,6 +54,7 @@ describe("plugin artifact boundaries", () => {
     expect((await requireReadableInput(fixture.context, source)).path).toBe(source)
     expect(normalizeExtractedText("  第一章\n 正文  ")).toBe("第一章 正文")
     expect(requireExpectedText("第一章 正文", "# 第一章\n\n正文")).toBeUndefined()
+    expect(requireExpectedText("# 第一章\n\n- 正文", "# 第一章\n\n- 正文")).toBeUndefined()
     await expect(requireReadableInput(fixture.context, path.join(fixture.worktree, "missing.docx"))).rejects.toThrow(
       "does not exist",
     )
