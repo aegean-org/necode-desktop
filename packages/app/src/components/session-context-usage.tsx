@@ -113,10 +113,12 @@ export function SessionContextUsage(props: SessionContextUsageProps) {
           </>
         )}
       </Show>
-      <div class="flex items-center gap-2">
-        <span class="text-text-invert-strong">{metrics().sessionTotal.toLocaleString(language.intl())}</span>
-        <span class="text-text-invert-base">{language.t("context.usage.sessionTokens")}</span>
-      </div>
+      <Show when={metrics().showSessionTotal}>
+        <div class="flex items-center gap-2">
+          <span class="text-text-invert-strong">{metrics().sessionTotal.toLocaleString(language.intl())}</span>
+          <span class="text-text-invert-base">{language.t("context.usage.sessionTokens")}</span>
+        </div>
+      </Show>
       <Switch>
         <Match when={metrics().billing === "compute"}>
           <Show

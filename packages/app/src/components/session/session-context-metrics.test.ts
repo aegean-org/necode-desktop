@@ -80,6 +80,18 @@ describe("getSessionContextMetrics", () => {
 
     expect(metrics.billing).toBe("compute")
     expect(metrics.sessionTotal).toBe(1_575)
+    expect(metrics.showSessionTotal).toBe(true)
+  })
+
+  test("hides session usage when it duplicates the current context total", () => {
+    const metrics = getSessionContextMetrics(
+      [assistant("a1", { input: 40, output: 10, reasoning: 0, read: 0, write: 0 }, 0, "ne", "qwen3.5")],
+      undefined,
+      { input: 40, output: 10, reasoning: 0, cache: { read: 0, write: 0 } },
+    )
+
+    expect(metrics.sessionTotal).toBe(50)
+    expect(metrics.showSessionTotal).toBe(false)
   })
 
   test("preserves fallback labels and null usage when model metadata is missing", () => {
@@ -113,6 +125,7 @@ describe("getSessionContextMetrics", () => {
     expect(metrics.totalCost).toBe(0)
     expect(metrics.billing).toBe("usd")
     expect(metrics.sessionTotal).toBe(0)
+    expect(metrics.showSessionTotal).toBe(false)
     expect(metrics.context).toBeUndefined()
   })
 })

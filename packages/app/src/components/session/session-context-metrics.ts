@@ -32,6 +32,7 @@ type Context = {
 type Metrics = {
   billing: "compute" | "usd"
   sessionTotal: number
+  showSessionTotal: boolean
   totalCost: number
   context: Context | undefined
 }
@@ -60,7 +61,7 @@ const build = (messages: Message[] = [], providers: Provider[] = [], sessionToke
   const totalCost = messages.reduce((sum, msg) => sum + (msg.role === "assistant" ? msg.cost : 0), 0)
   const sessionTotal = sessionTokenTotal(sessionTokens)
   const message = lastAssistantWithTokens(messages)
-  if (!message) return { billing: "usd", sessionTotal, totalCost, context: undefined }
+  if (!message) return { billing: "usd", sessionTotal, showSessionTotal: sessionTotal > 0, totalCost, context: undefined }
 
   const provider = providers.find((item) => item.id === message.providerID)
   const model = provider?.models[message.modelID]
@@ -70,6 +71,7 @@ const build = (messages: Message[] = [], providers: Provider[] = [], sessionToke
   return {
     billing: message.providerID === "ne" ? "compute" : "usd",
     sessionTotal,
+    showSessionTotal: sessionTotal > 0 && sessionTotal !== total,
     totalCost,
     context: {
       message,
