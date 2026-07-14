@@ -8,6 +8,23 @@ describe("attachmentMime", () => {
     expect(await attachmentMime(file)).toBe("application/pdf")
   })
 
+  test("keeps Office attachments by mime or extension", async () => {
+    const formats = [
+      ["report.docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"],
+      ["slides.pptx", "application/vnd.openxmlformats-officedocument.presentationml.presentation"],
+      ["data.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"],
+    ] as const
+
+    for (const [name, mime] of formats) {
+      expect(await attachmentMime(new File([Uint8Array.of(80, 75, 3, 4)], name, { type: mime }))).toBe(mime)
+      expect(
+        await attachmentMime(
+          new File([Uint8Array.of(80, 75, 3, 4)], name, { type: "application/octet-stream" }),
+        ),
+      ).toBe(mime)
+    }
+  })
+
   test("normalizes structured text types to text/plain", async () => {
     const file = new File(['{"ok":true}\n'], "data.json", { type: "application/json" })
     expect(await attachmentMime(file)).toBe("text/plain")
@@ -27,11 +44,16 @@ describe("attachmentMime", () => {
 describe("pickAttachmentFiles", () => {
   test("reads the current project directory for every native picker invocation", async () => {
     const paths: string[] = []
+    const accepts: string[][] = []
     const files: File[] = []
     const file = new File(["hello"], "hello.txt", { type: "text/plain" })
     let directory = "C:\\Projects\\LoremIpsum"
-    const picker = async (options?: { defaultPath?: string }, onFile?: (file: File) => Promise<unknown>) => {
+    const picker = async (
+      options?: { defaultPath?: string; accept?: string[] },
+      onFile?: (file: File) => Promise<unknown>,
+    ) => {
       paths.push(options?.defaultPath ?? "")
+      accepts.push(options?.accept ?? [])
       await onFile?.(file)
     }
 
@@ -54,6 +76,13 @@ describe("pickAttachmentFiles", () => {
     await Promise.resolve()
     expect(files).toEqual([file, file])
     expect(paths).toEqual(["C:\\Projects\\LoremIpsum", "C:\\Projects\\DolorSit"])
+    expect(accepts[0]).toEqual(
+      expect.arrayContaining([
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      ]),
+    )
   })
 
   test("uses the browser file input when no native picker exists", async () => {

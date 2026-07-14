@@ -71,6 +71,13 @@ globalThis.AI_SDK_LOG_WARNINGS = false
 const decodeMessageInfo = Schema.decodeUnknownExit(SessionV1.Info)
 const decodeMessagePart = Schema.decodeUnknownExit(SessionV1.Part)
 
+function attachmentReader(mime: string) {
+  if (mime === "application/pdf") return "pdf_read"
+  if (mime === "application/vnd.openxmlformats-officedocument.wordprocessingml.document") return "document_read"
+  if (mime === "application/vnd.openxmlformats-officedocument.presentationml.presentation") return "presentation_read"
+  if (mime === "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet") return "spreadsheet_read"
+}
+
 const STRUCTURED_OUTPUT_DESCRIPTION = `Use this tool to return your final response in the requested structured format.
 
 IMPORTANT:
@@ -817,8 +824,9 @@ export const layer = Layer.effect(
                   { ...part, messageID: info.id, sessionID: input.sessionID },
                 ]
               }
-              if (part.mime === "application/pdf" && part.filename && path.isAbsolute(part.filename)) {
-                const reader = (yield* registry.all()).find((item) => item.id === "pdf_read")
+              const readerID = attachmentReader(part.mime)
+              if (readerID && part.filename && path.isAbsolute(part.filename)) {
+                const reader = (yield* registry.all()).find((item) => item.id === readerID)
                 if (!reader) break
                 const controller = new AbortController()
                 const args = { sourcePath: part.filename }
@@ -841,7 +849,7 @@ export const layer = Layer.effect(
                       sessionID: input.sessionID,
                       type: "text",
                       synthetic: true,
-                      text: `Called the pdf_read tool with the following input: ${JSON.stringify(args)}`,
+                      text: `Called the ${readerID} tool with the following input: ${JSON.stringify(args)}`,
                     },
                     {
                       messageID: info.id,
@@ -853,7 +861,11 @@ export const layer = Layer.effect(
                   ]
                 }
                 const error = Cause.squash(exit.cause)
-                yield* Effect.logError("failed to read PDF attachment", { error, file: part.filename })
+                yield* Effect.logError("failed to read productivity attachment", {
+                  error,
+                  file: part.filename,
+                  tool: readerID,
+                })
                 const message = error instanceof Error ? error.message : String(error)
                 yield* events.publish(Session.Event.Error, {
                   sessionID: input.sessionID,
@@ -865,7 +877,7 @@ export const layer = Layer.effect(
                     sessionID: input.sessionID,
                     type: "text",
                     synthetic: true,
-                    text: `pdf_read failed to read ${part.filename}: ${message}`,
+                    text: `${readerID} failed to read ${part.filename}: ${message}`,
                   },
                 ]
               }

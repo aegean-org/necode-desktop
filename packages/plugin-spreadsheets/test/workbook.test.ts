@@ -45,6 +45,11 @@ describe("spreadsheets plugin", () => {
     expect(sheet?.getCell("B2").value).toBe(42)
     expect(sheet?.getCell("B2").numFmt).toBe("0.00")
     expect(sheet?.getCell("D2").value).toEqual(expect.objectContaining({ formula: "B2*2" }))
+    const overview = requireObject(
+      await SpreadsheetTools.spreadsheet_read.execute({ sourcePath: filePath }, fixture.context),
+    )
+    expect(overview.output).toContain('"address":"B2"')
+    expect(overview.output).toContain('"value":42')
     const read = requireObject(
       await SpreadsheetTools.spreadsheet_read.execute(
         { sourcePath: filePath, sheet: "数据", range: "A1:B2" },

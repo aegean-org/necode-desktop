@@ -3,7 +3,27 @@ export async function readWorkbook(filePath: string, input: { sheet?: string; ra
   const ExcelJS = (await import("exceljs")).default
   const workbook = new ExcelJS.Workbook()
   await workbook.xlsx.readFile(filePath)
-  if (!input.sheet) return JSON.stringify({ sheets: workbook.worksheets.map(sheetSummary) })
+  if (!input.sheet) {
+    const state = { remaining: 500, omitted: 0 }
+    const sheets = workbook.worksheets.map((sheet) => {
+      const cells: ReturnType<typeof cellOutput>[] = []
+      sheet.eachRow((row) =>
+        row.eachCell((cell) => {
+          if (state.remaining > 0) {
+            cells.push(cellOutput(cell))
+            state.remaining -= 1
+            return
+          }
+          state.omitted += 1
+        }),
+      )
+      return { ...sheetSummary(sheet), cells }
+    })
+    return JSON.stringify({
+      sheets,
+      ...(state.omitted > 0 ? { truncated: true, omittedCells: state.omitted } : {}),
+    })
+  }
   const sheet = workbook.getWorksheet(input.sheet)
   if (!sheet) throw new Error(`Worksheet not found: ${input.sheet}`)
   if (!input.range) return JSON.stringify({ sheet: sheetSummary(sheet) })
