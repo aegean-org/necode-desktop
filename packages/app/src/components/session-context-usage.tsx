@@ -1,4 +1,5 @@
 import { Match, Show, Switch, createMemo } from "solid-js"
+import { useQuery } from "@tanstack/solid-query"
 import { Tooltip, type TooltipProps } from "@opencode-ai/ui/tooltip"
 import { ProgressCircle } from "@opencode-ai/ui/progress-circle"
 import { Button } from "@opencode-ai/ui/button"
@@ -7,6 +8,7 @@ import { useFile } from "@/context/file"
 import { useLayout } from "@/context/layout"
 import { useSync } from "@/context/sync"
 import { useLanguage } from "@/context/language"
+import { useSDK } from "@/context/sdk"
 import { useProviders } from "@/hooks/use-providers"
 import { getSessionContextMetrics } from "@/components/session/session-context-metrics"
 import { useSessionLayout } from "@/pages/session/session-layout"
@@ -33,6 +35,7 @@ export function SessionContextUsage(props: SessionContextUsageProps) {
   const file = useFile()
   const layout = useLayout()
   const language = useLanguage()
+  const sdk = useSDK()
   const providers = useProviders()
   const { params, tabs, view } = useSessionLayout()
 
@@ -51,9 +54,22 @@ export function SessionContextUsage(props: SessionContextUsageProps) {
         currency: "USD",
       }),
   )
+  const compute = createMemo(
+    () =>
+      new Intl.NumberFormat(language.intl(), {
+        maximumFractionDigits: 2,
+      }),
+  )
 
   const metrics = createMemo(() => getSessionContextMetrics(messages(), [...providers.all().values()]))
   const context = createMemo(() => metrics().context)
+  const account = useQuery(() => ({
+    queryKey: [sdk().scope, sdk().directory, "ne-token-account", context()?.message.id] as const,
+    enabled: metrics().billing === "compute",
+    retry: false,
+    staleTime: 30_000,
+    queryFn: () => sdk().client.provider.neAccount().then((result) => result.data),
+  }))
   const cost = createMemo(() => {
     return usd().format(metrics().totalCost)
   })
@@ -94,10 +110,38 @@ export function SessionContextUsage(props: SessionContextUsageProps) {
           </>
         )}
       </Show>
-      <div class="flex items-center gap-2">
-        <span class="text-text-invert-strong">{cost()}</span>
-        <span class="text-text-invert-base">{language.t("context.usage.cost")}</span>
-      </div>
+      <Switch>
+        <Match when={metrics().billing === "compute"}>
+          <Show
+            when={account.data}
+            fallback={
+              <div class="text-text-invert-base">
+                {language.t(account.isPending ? "context.usage.computeLoading" : "context.usage.computeUnavailable")}
+              </div>
+            }
+          >
+            {(value) => (
+              <>
+                <div class="flex items-center gap-2">
+                  <span class="text-text-invert-strong">{compute().format(value().remaining)}</span>
+                  <span class="text-text-invert-base">{language.t("context.usage.computeRemaining")}</span>
+                </div>
+                <div class="flex items-center gap-2">
+                  <span class="text-text-invert-strong">{compute().format(value().totalConsumed)}</span>
+                  <span class="text-text-invert-base">{language.t("context.usage.computeConsumed")}</span>
+                </div>
+                <div class="mt-1 text-xs text-text-invert-weak">{language.t("context.usage.computeDelayed")}</div>
+              </>
+            )}
+          </Show>
+        </Match>
+        <Match when={true}>
+          <div class="flex items-center gap-2">
+            <span class="text-text-invert-strong">{cost()}</span>
+            <span class="text-text-invert-base">{language.t("context.usage.cost")}</span>
+          </div>
+        </Match>
+      </Switch>
     </div>
   )
 

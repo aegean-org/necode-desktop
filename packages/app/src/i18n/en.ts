@@ -471,6 +471,11 @@ export const dict = {
   "context.usage.tokens": "Tokens",
   "context.usage.usage": "Usage",
   "context.usage.cost": "Cost",
+  "context.usage.computeRemaining": "Compute remaining",
+  "context.usage.computeConsumed": "Total compute consumed",
+  "context.usage.computeLoading": "Loading compute balance...",
+  "context.usage.computeUnavailable": "Compute balance is temporarily unavailable",
+  "context.usage.computeDelayed": "Charges may take a moment to update",
   "context.usage.clickToView": "Click to view context",
   "context.usage.view": "View context usage",
 

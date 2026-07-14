@@ -413,6 +413,11 @@ export const dict = {
   "context.usage.tokens": "Token",
   "context.usage.usage": "使用率",
   "context.usage.cost": "成本",
+  "context.usage.computeRemaining": "剩余算力",
+  "context.usage.computeConsumed": "累计消耗",
+  "context.usage.computeLoading": "正在加载算力信息...",
+  "context.usage.computeUnavailable": "算力信息暂不可用",
+  "context.usage.computeDelayed": "扣费可能会延迟更新",
   "context.usage.clickToView": "点击查看上下文",
   "context.usage.view": "查看上下文用量",
 

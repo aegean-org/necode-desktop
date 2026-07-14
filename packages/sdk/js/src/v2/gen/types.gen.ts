@@ -2682,6 +2682,18 @@ export type ProviderAuthMethod = {
   >
 }
 
+export type NeTokenAccount = {
+  remaining: number
+  totalExpense: number
+  totalWriteOff: number
+  totalConsumed: number
+  updateTime?: string
+}
+
+export type ProviderNeAccountError = {
+  message: string
+}
+
 export type ProviderAuthAuthorization = {
   url: string
   method: "auto" | "code"
@@ -7920,6 +7932,38 @@ export type ProviderAuthResponses = {
 }
 
 export type ProviderAuthResponse = ProviderAuthResponses[keyof ProviderAuthResponses]
+
+export type ProviderNeAccountData = {
+  body?: never
+  path?: never
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/provider/ne/account"
+}
+
+export type ProviderNeAccountErrors = {
+  /**
+   * Bad request
+   */
+  400: BadRequestError
+  /**
+   * ProviderNeAccountError
+   */
+  503: ProviderNeAccountError
+}
+
+export type ProviderNeAccountError2 = ProviderNeAccountErrors[keyof ProviderNeAccountErrors]
+
+export type ProviderNeAccountResponses = {
+  /**
+   * NE token account balance and consumption
+   */
+  200: NeTokenAccount
+}
+
+export type ProviderNeAccountResponse = ProviderNeAccountResponses[keyof ProviderNeAccountResponses]
 
 export type ProviderOauthAuthorizeData = {
   body?: {

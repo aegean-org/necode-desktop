@@ -159,6 +159,8 @@ import type {
   ProviderAuthResponses,
   ProviderListErrors,
   ProviderListResponses,
+  ProviderNeAccountErrors,
+  ProviderNeAccountResponses,
   ProviderOauthAuthorizeErrors,
   ProviderOauthAuthorizeResponses,
   ProviderOauthCallbackErrors,
@@ -3642,6 +3644,36 @@ export class Provider extends HeyApiClient {
     )
     return (options?.client ?? this.client).get<ProviderAuthResponses, ProviderAuthErrors, ThrowOnError>({
       url: "/provider/auth",
+      ...options,
+      ...params,
+    })
+  }
+
+  /**
+   * Get NE token account
+   *
+   * Retrieve the authenticated NE user's remaining compute balance and cumulative consumption.
+   */
+  public neAccount<ThrowOnError extends boolean = false>(
+    parameters?: {
+      directory?: string
+      workspace?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).get<ProviderNeAccountResponses, ProviderNeAccountErrors, ThrowOnError>({
+      url: "/provider/ne/account",
       ...options,
       ...params,
     })

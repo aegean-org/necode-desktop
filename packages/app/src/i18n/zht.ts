@@ -384,6 +384,11 @@ export const dict = {
   "context.usage.tokens": "Token",
   "context.usage.usage": "使用量",
   "context.usage.cost": "成本",
+  "context.usage.computeRemaining": "剩餘算力",
+  "context.usage.computeConsumed": "累計消耗",
+  "context.usage.computeLoading": "正在載入算力資訊...",
+  "context.usage.computeUnavailable": "算力資訊暫時無法使用",
+  "context.usage.computeDelayed": "扣費可能會延遲更新",
   "context.usage.clickToView": "點擊查看上下文",
   "context.usage.view": "檢視上下文用量",
 
