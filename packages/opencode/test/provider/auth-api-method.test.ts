@@ -28,6 +28,7 @@ const pluginLayer = Layer.succeed(
   Plugin.Service,
   Plugin.Service.of({
     init: () => Effect.void,
+    entries: () => Effect.succeed([]),
     list: () =>
       Effect.succeed([
         {

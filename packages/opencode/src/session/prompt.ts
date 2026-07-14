@@ -71,6 +71,13 @@ globalThis.AI_SDK_LOG_WARNINGS = false
 const decodeMessageInfo = Schema.decodeUnknownExit(SessionV1.Info)
 const decodeMessagePart = Schema.decodeUnknownExit(SessionV1.Part)
 
+function attachmentReader(mime: string) {
+  if (mime === "application/pdf") return "pdf_read"
+  if (mime === "application/vnd.openxmlformats-officedocument.wordprocessingml.document") return "document_read"
+  if (mime === "application/vnd.openxmlformats-officedocument.presentationml.presentation") return "presentation_read"
+  if (mime === "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet") return "spreadsheet_read"
+}
+
 const STRUCTURED_OUTPUT_DESCRIPTION = `Use this tool to return your final response in the requested structured format.
 
 IMPORTANT:
@@ -815,6 +822,63 @@ export const layer = Layer.effect(
                     text: decodeDataUrl(part.url),
                   },
                   { ...part, messageID: info.id, sessionID: input.sessionID },
+                ]
+              }
+              const readerID = attachmentReader(part.mime)
+              if (readerID && part.filename && path.isAbsolute(part.filename)) {
+                const reader = (yield* registry.all()).find((item) => item.id === readerID)
+                if (!reader) break
+                const controller = new AbortController()
+                const args = { sourcePath: part.filename }
+                const exit = yield* reader
+                  .execute(args, {
+                    sessionID: input.sessionID,
+                    abort: controller.signal,
+                    agent: info.agent,
+                    messageID: info.id,
+                    extra: { bypassCwdCheck: true },
+                    messages: [],
+                    metadata: () => Effect.void,
+                    ask: () => Effect.void,
+                  })
+                  .pipe(Effect.onInterrupt(() => Effect.sync(() => controller.abort())), Effect.exit)
+                if (Exit.isSuccess(exit)) {
+                  return [
+                    {
+                      messageID: info.id,
+                      sessionID: input.sessionID,
+                      type: "text",
+                      synthetic: true,
+                      text: `Called the ${readerID} tool with the following input: ${JSON.stringify(args)}`,
+                    },
+                    {
+                      messageID: info.id,
+                      sessionID: input.sessionID,
+                      type: "text",
+                      synthetic: true,
+                      text: exit.value.output,
+                    },
+                  ]
+                }
+                const error = Cause.squash(exit.cause)
+                yield* Effect.logError("failed to read productivity attachment", {
+                  error,
+                  file: part.filename,
+                  tool: readerID,
+                })
+                const message = error instanceof Error ? error.message : String(error)
+                yield* events.publish(Session.Event.Error, {
+                  sessionID: input.sessionID,
+                  error: new NamedError.Unknown({ message }).toObject(),
+                })
+                return [
+                  {
+                    messageID: info.id,
+                    sessionID: input.sessionID,
+                    type: "text",
+                    synthetic: true,
+                    text: `${readerID} failed to read ${part.filename}: ${message}`,
+                  },
                 ]
               }
               break

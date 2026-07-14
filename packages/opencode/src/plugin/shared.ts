@@ -5,6 +5,8 @@ import semver from "semver"
 import { Filesystem } from "@/util/filesystem"
 import { isRecord } from "@/util/record"
 import { Npm } from "@opencode-ai/core/npm"
+import { PluginManifest } from "@opencode-ai/plugin"
+import { Schema } from "effect"
 
 // Old npm package names for plugins that are now built-in
 export const DEPRECATED_PLUGIN_PACKAGES = ["opencode-openai-codex-auth", "opencode-copilot-auth"]
@@ -41,6 +43,11 @@ export type PluginPackage = {
   dir: string
   pkg: string
   json: Record<string, unknown>
+}
+
+export type ResolvedPluginManifest = Omit<typeof PluginManifest.Type, "icon" | "skills"> & {
+  icon?: string
+  skills: string[]
 }
 
 export type PluginEntry = {
@@ -94,6 +101,42 @@ function resolvePackageFile(spec: string, raw: string, kind: string, pkg: Plugin
     throw new Error(`Plugin ${spec} resolved ${kind} entry outside plugin directory`)
   }
   return next
+}
+
+async function resolveManifestFile(spec: string, raw: string, kind: string, pkg: PluginPackage) {
+  if (raw.startsWith("file://") || isAbsolutePath(raw)) {
+    throw new TypeError(`Plugin ${spec} ${kind} path must be relative: ${raw}`)
+  }
+  const file = resolvePackageFile(spec, raw, kind, pkg)
+  if (!(await Filesystem.exists(file))) throw new TypeError(`Plugin ${spec} ${kind} path does not exist: ${raw}`)
+  return file
+}
+
+/** Read and resolve optional NeCode or Pi display metadata from a plugin package. */
+export async function readPluginManifest(spec: string, pkg: PluginPackage): Promise<ResolvedPluginManifest | undefined> {
+  const necode = pkg.json.necode
+  if (necode !== undefined) {
+    if (!isRecord(necode) || !isRecord(necode.plugin)) throw new TypeError(`Plugin ${spec} has invalid necode.plugin metadata`)
+    const manifest = Schema.decodeUnknownSync(PluginManifest)(necode.plugin)
+    return {
+      ...manifest,
+      icon: manifest.icon ? await resolveManifestFile(spec, manifest.icon, "icon", pkg) : undefined,
+      skills: await Promise.all((manifest.skills ?? []).map((item) => resolveManifestFile(spec, item, "skill", pkg))),
+    }
+  }
+
+  const pi = pkg.json.pi
+  if (!isRecord(pi) || pi.skills === undefined) return
+  const name = Schema.decodeUnknownSync(Schema.NonEmptyString)(pkg.json.name)
+  return {
+    id: name,
+    name,
+    skills: await Promise.all(
+      Schema.decodeUnknownSync(Schema.Array(Schema.NonEmptyString))(pi.skills).map((item) =>
+        resolveManifestFile(spec, item, "skill", pkg),
+      ),
+    ),
+  }
 }
 
 function resolvePackagePath(spec: string, raw: string, kind: PluginKind, pkg: PluginPackage) {

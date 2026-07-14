@@ -30,8 +30,8 @@ test("desktop package workflow builds unsigned Windows and macOS artifacts manua
     "release_prerelease:",
     "package-windows:",
     "runs-on: windows-latest",
-    "NECODE_SKIP_CODE_SIGNING: \"true\"",
-    "CSC_IDENTITY_AUTO_DISCOVERY: \"false\"",
+    'NECODE_SKIP_CODE_SIGNING: "true"',
+    'CSC_IDENTITY_AUTO_DISCOVERY: "false"',
     "bun run build",
     "bun run package:win",
     "name: necode-desktop-windows",
@@ -42,7 +42,7 @@ test("desktop package workflow builds unsigned Windows and macOS artifacts manua
     "APPLE_API_KEY_CONTENT:",
     "Write Apple notarization API key",
     "Package macOS unsigned",
-    "OPENCODE_CHANNEL: \"prod\"",
+    'OPENCODE_CHANNEL: "prod"',
     "bun x --no-install electron-builder --mac --publish never --config electron-builder.config.ts",
     "-c.mac.identity=null",
     "-c.mac.notarize=false",
@@ -84,11 +84,16 @@ test("desktop package workflow builds unsigned Windows and macOS artifacts manua
 
 test("electron builder exposes an explicit unsigned CI switch", async () => {
   expectIncludes(await builderConfigText(), [
-    "const shouldSkipCodeSigning = process.env.NECODE_SKIP_CODE_SIGNING === \"true\"",
+    'const shouldSkipCodeSigning = process.env.NECODE_SKIP_CODE_SIGNING === "true"',
     "notarize: shouldSkipCodeSigning ? false : true",
     "sign: shouldSkipCodeSigning ? false : true",
-    "target: [\"dmg\"]",
+    'target: ["dmg"]',
     "signtoolOptions: shouldSkipCodeSigning ? undefined : {",
   ])
-  expect(await builderConfigText()).not.toContain("target: [\"dmg\", \"zip\"]")
+  expect(await builderConfigText()).not.toContain('target: ["dmg", "zip"]')
+})
+
+test("desktop prebuild verifies productivity plugin runtime assets", async () => {
+  const text = await Bun.file(new URL("./scripts/prebuild.ts", import.meta.url)).text()
+  expect(text).toContain("verifyProductivityRuntime")
 })

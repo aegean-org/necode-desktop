@@ -1,6 +1,9 @@
 import { ProviderAuth } from "@/provider/auth"
+import { Auth } from "@/auth"
 import { Config } from "@/config/config"
 import { ModelsDev } from "@opencode-ai/core/models-dev"
+import { fetchNeTokenAccount } from "@/ne/account"
+import { NE_PROVIDER_ID } from "@/ne/constants"
 import { Provider } from "@/provider/provider"
 
 import { mapValues } from "remeda"
@@ -8,7 +11,7 @@ import { Effect, Schema } from "effect"
 import { HttpServerRequest, HttpServerResponse } from "effect/unstable/http"
 import { HttpApiBuilder } from "effect/unstable/httpapi"
 import { InstanceHttpApi } from "../api"
-import { ProviderAuthApiError } from "../groups/provider"
+import { ProviderAuthApiError, ProviderNeAccountApiError } from "../groups/provider"
 import { ProviderV2 } from "@opencode-ai/core/provider"
 
 function mapProviderAuthError<A, R>(self: Effect.Effect<A, ProviderAuth.Error, R>) {
@@ -37,6 +40,7 @@ function mapProviderAuthError<A, R>(self: Effect.Effect<A, ProviderAuth.Error, R
 export const providerHandlers = HttpApiBuilder.group(InstanceHttpApi, "provider", (handlers) =>
   Effect.gen(function* () {
     const cfg = yield* Config.Service
+    const storedAuth = yield* Auth.Service
     const provider = yield* Provider.Service
     const svc = yield* ProviderAuth.Service
 
@@ -63,6 +67,23 @@ export const providerHandlers = HttpApiBuilder.group(InstanceHttpApi, "provider"
 
     const auth = Effect.fn("ProviderHttpApi.auth")(function* () {
       return yield* svc.methods()
+    })
+
+    const neAccount = Effect.fn("ProviderHttpApi.neAccount")(function* () {
+      const stored = yield* storedAuth
+        .get(NE_PROVIDER_ID)
+        .pipe(Effect.mapError((error) => new ProviderNeAccountApiError({ message: error.message })))
+      const config = yield* cfg.get()
+      const configured = config.provider?.[NE_PROVIDER_ID]?.options?.apiKey
+      const token = stored?.type === "api" ? stored.key : typeof configured === "string" ? configured.trim() : ""
+      if (!token) return yield* new ProviderNeAccountApiError({ message: "NE authentication is not configured." })
+      return yield* Effect.tryPromise({
+        try: () => fetchNeTokenAccount(token),
+        catch: (error) =>
+          new ProviderNeAccountApiError({
+            message: error instanceof Error ? error.message : "NE token account request failed.",
+          }),
+      })
     })
 
     const authorize = Effect.fn("ProviderHttpApi.authorize")(function* (ctx: {
@@ -110,6 +131,7 @@ export const providerHandlers = HttpApiBuilder.group(InstanceHttpApi, "provider"
     return handlers
       .handle("list", list)
       .handle("auth", auth)
+      .handle("neAccount", neAccount)
       .handleRaw("authorize", authorizeRaw)
       .handle("callback", callback)
   }),

@@ -1,8 +1,9 @@
 import { Glob } from "@opencode-ai/core/util/glob"
 import { ConfigPluginV1 } from "@opencode-ai/core/v1/config/plugin"
-import { pathToFileURL } from "url"
+import { fileURLToPath, pathToFileURL } from "url"
 import { isPathPluginSpec, parsePluginSpecifier, resolvePathPluginTarget } from "@/plugin/shared"
 import path from "path"
+import { Filesystem } from "@/util/filesystem"
 
 export type Scope = "global" | "local"
 
@@ -35,6 +36,14 @@ export function pluginSpecifier(plugin: ConfigPluginV1.Spec): string {
 
 export function pluginOptions(plugin: ConfigPluginV1.Spec): ConfigPluginV1.Options | undefined {
   return Array.isArray(plugin) ? plugin[1] : undefined
+}
+
+/** Return the stable configuration identity for an npm or local plugin spec. */
+export function key(plugin: ConfigPluginV1.Spec) {
+  const spec = pluginSpecifier(plugin)
+  if (!isPathPluginSpec(spec)) return `npm:${parsePluginSpecifier(spec).pkg}`
+  const file = spec.startsWith("file://") ? fileURLToPath(spec) : spec
+  return `file:${Filesystem.resolve(file)}`
 }
 
 // Path-like specs are resolved relative to the config file that declared them so merges later on do not

@@ -60,11 +60,38 @@ describe("getSessionContextMetrics", () => {
     const metrics = getSessionContextMetrics(messages, providers)
 
     expect(metrics.totalCost).toBe(1.75)
+    expect(metrics.billing).toBe("usd")
     expect(metrics.context?.message.id).toBe("a2")
     expect(metrics.context?.total).toBe(500)
     expect(metrics.context?.usage).toBe(50)
     expect(metrics.context?.providerLabel).toBe("OpenAI")
     expect(metrics.context?.modelLabel).toBe("GPT-4.1")
+  })
+
+  test("marks NE sessions as compute billed instead of USD billed", () => {
+    const metrics = getSessionContextMetrics([
+      assistant("a1", { input: 40, output: 10, reasoning: 0, read: 0, write: 0 }, 0, "ne", "qwen3.5"),
+    ], undefined, {
+      input: 1_000,
+      output: 200,
+      reasoning: 50,
+      cache: { read: 300, write: 25 },
+    })
+
+    expect(metrics.billing).toBe("compute")
+    expect(metrics.sessionTotal).toBe(1_575)
+    expect(metrics.showSessionTotal).toBe(true)
+  })
+
+  test("hides session usage when it duplicates the current context total", () => {
+    const metrics = getSessionContextMetrics(
+      [assistant("a1", { input: 40, output: 10, reasoning: 0, read: 0, write: 0 }, 0, "ne", "qwen3.5")],
+      undefined,
+      { input: 40, output: 10, reasoning: 0, cache: { read: 0, write: 0 } },
+    )
+
+    expect(metrics.sessionTotal).toBe(50)
+    expect(metrics.showSessionTotal).toBe(false)
   })
 
   test("preserves fallback labels and null usage when model metadata is missing", () => {
@@ -96,6 +123,9 @@ describe("getSessionContextMetrics", () => {
     const metrics = getSessionContextMetrics(undefined, undefined)
 
     expect(metrics.totalCost).toBe(0)
+    expect(metrics.billing).toBe("usd")
+    expect(metrics.sessionTotal).toBe(0)
+    expect(metrics.showSessionTotal).toBe(false)
     expect(metrics.context).toBeUndefined()
   })
 })

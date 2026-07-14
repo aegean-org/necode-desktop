@@ -9,13 +9,6 @@ export type Event =
   | EventPluginAdded
   | EventIntegrationUpdated
   | EventCatalogUpdated
-  | EventSessionCreated
-  | EventSessionUpdated
-  | EventSessionDeleted
-  | EventMessageUpdated
-  | EventMessageRemoved
-  | EventMessagePartUpdated
-  | EventMessagePartRemoved
   | EventSessionNextAgentSwitched
   | EventSessionNextModelSwitched
   | EventSessionNextMoved
@@ -47,6 +40,13 @@ export type Event =
   | EventSessionNextCompactionStarted
   | EventSessionNextCompactionDelta
   | EventSessionNextCompactionEnded
+  | EventSessionCreated
+  | EventSessionUpdated
+  | EventSessionDeleted
+  | EventMessageUpdated
+  | EventMessageRemoved
+  | EventMessagePartUpdated
+  | EventMessagePartRemoved
   | EventMessagePartDelta
   | EventSessionDiff
   | EventSessionError
@@ -145,6 +145,12 @@ export type MoveSessionError = {
   data: {
     message: string
   }
+}
+
+export type Prompt = {
+  text: string
+  files?: Array<PromptFileAttachment>
+  agents?: Array<PromptAgentAttachment>
 }
 
 export type SnapshotFileDiff = {
@@ -637,12 +643,6 @@ export type Part =
   | RetryPart
   | CompactionPart
 
-export type Prompt = {
-  text: string
-  files?: Array<PromptFileAttachment>
-  agents?: Array<PromptAgentAttachment>
-}
-
 export type Pty = {
   id: string
   title: string
@@ -757,64 +757,6 @@ export type GlobalEvent = {
         type: "catalog.updated"
         properties: {
           [key: string]: unknown
-        }
-      }
-    | {
-        id: string
-        type: "session.created"
-        properties: {
-          sessionID: string
-          info: Session
-        }
-      }
-    | {
-        id: string
-        type: "session.updated"
-        properties: {
-          sessionID: string
-          info: Session
-        }
-      }
-    | {
-        id: string
-        type: "session.deleted"
-        properties: {
-          sessionID: string
-          info: Session
-        }
-      }
-    | {
-        id: string
-        type: "message.updated"
-        properties: {
-          sessionID: string
-          info: Message
-        }
-      }
-    | {
-        id: string
-        type: "message.removed"
-        properties: {
-          sessionID: string
-          messageID: string
-        }
-      }
-    | {
-        id: string
-        type: "message.part.updated"
-        properties: {
-          sessionID: string
-          part: Part
-          time: number
-        }
-      }
-    | {
-        id: string
-        type: "message.part.removed"
-        properties: {
-          sessionID: string
-          messageID: string
-          partID: string
         }
       }
     | {
@@ -1207,6 +1149,64 @@ export type GlobalEvent = {
           reason: "auto" | "manual"
           text: string
           recent: string
+        }
+      }
+    | {
+        id: string
+        type: "session.created"
+        properties: {
+          sessionID: string
+          info: Session
+        }
+      }
+    | {
+        id: string
+        type: "session.updated"
+        properties: {
+          sessionID: string
+          info: Session
+        }
+      }
+    | {
+        id: string
+        type: "session.deleted"
+        properties: {
+          sessionID: string
+          info: Session
+        }
+      }
+    | {
+        id: string
+        type: "message.updated"
+        properties: {
+          sessionID: string
+          info: Message
+        }
+      }
+    | {
+        id: string
+        type: "message.removed"
+        properties: {
+          sessionID: string
+          messageID: string
+        }
+      }
+    | {
+        id: string
+        type: "message.part.updated"
+        properties: {
+          sessionID: string
+          part: Part
+          time: number
+        }
+      }
+    | {
+        id: string
+        type: "message.part.removed"
+        properties: {
+          sessionID: string
+          messageID: string
+          partID: string
         }
       }
     | {
@@ -1626,13 +1626,6 @@ export type GlobalEvent = {
         }
       }
     | EventServerInstanceDisposed
-    | SyncEventSessionCreated
-    | SyncEventSessionUpdated
-    | SyncEventSessionDeleted
-    | SyncEventMessageUpdated
-    | SyncEventMessageRemoved
-    | SyncEventMessagePartUpdated
-    | SyncEventMessagePartRemoved
     | SyncEventSessionNextAgentSwitched
     | SyncEventSessionNextModelSwitched
     | SyncEventSessionNextMoved
@@ -1660,6 +1653,13 @@ export type GlobalEvent = {
     | SyncEventSessionNextRetried
     | SyncEventSessionNextCompactionStarted
     | SyncEventSessionNextCompactionEnded
+    | SyncEventSessionCreated
+    | SyncEventSessionUpdated
+    | SyncEventSessionDeleted
+    | SyncEventMessageUpdated
+    | SyncEventMessageRemoved
+    | SyncEventMessagePartUpdated
+    | SyncEventMessagePartRemoved
 }
 
 /**
@@ -1941,6 +1941,9 @@ export type Config = {
         },
       ]
   >
+  plugin_enabled?: {
+    [key: string]: boolean
+  }
   share?: "manual" | "auto" | "disabled"
   autoshare?: boolean
   /**
@@ -2562,6 +2565,90 @@ export type PermissionNotFoundError = {
   message: string
 }
 
+export type PluginEntry = {
+  key: string
+  id: string
+  name: string
+  description?: string
+  version?: string
+  spec: string
+  target?: string
+  source: "builtin" | "npm" | "file"
+  scope: "builtin" | "global" | "local"
+  enabled: boolean
+  status: "active" | "disabled" | "failed" | "incompatible"
+  system: boolean
+  canDisable: boolean
+  canUninstall: boolean
+  capabilities: Array<string>
+  tools: Array<string>
+  skills: Array<string>
+  error?: {
+    stage: string
+    message: string
+  }
+}
+
+export type PluginConfigEntry = {
+  key: string
+  spec: string
+  source: "builtin" | "npm" | "file"
+  scope: "builtin" | "global" | "local"
+  enabled: boolean
+  system: boolean
+  canDisable: boolean
+  canUninstall: boolean
+}
+
+export type PluginConfigInvalidError = {
+  _tag: "PluginConfigInvalidError"
+  message: string
+  field?: string
+}
+
+export type PluginConfigPersistenceError = {
+  _tag: "PluginConfigPersistenceError"
+  message: string
+  path?: string
+  cause?:
+    | {
+        message: string
+        name?: string
+        stack?: string
+      }
+    | unknown
+}
+
+export type PluginConfigInstallError = {
+  _tag: "PluginConfigInstallError"
+  message: string
+  stage: string
+}
+
+export type PluginConfigConflictError = {
+  _tag: "PluginConfigConflictError"
+  message: string
+  pluginKey: string
+}
+
+export type PluginConfigNotFoundError = {
+  _tag: "PluginConfigNotFoundError"
+  message: string
+  pluginKey: string
+}
+
+export type PluginConfigImmutableError = {
+  _tag: "PluginConfigImmutableError"
+  message: string
+  pluginKey: string
+}
+
+export type PluginConfigBuiltinRemovalError = {
+  _tag: "PluginConfigBuiltinRemovalError"
+  message: string
+  pluginKey: string
+}
+
 export type ProviderAuthMethod = {
   type: "oauth" | "api"
   label: string
@@ -2593,6 +2680,18 @@ export type ProviderAuthMethod = {
         }
       }
   >
+}
+
+export type NeTokenAccount = {
+  remaining: number
+  totalExpense: number
+  totalWriteOff: number
+  totalConsumed: number
+  updateTime?: string
+}
+
+export type ProviderNeAccountError = {
+  message: string
 }
 
 export type ProviderAuthAuthorization = {
@@ -3036,113 +3135,6 @@ export type EventServerInstanceDisposed = {
   type: "server.instance.disposed"
   properties: {
     directory: string
-  }
-}
-
-export type SyncEventSessionCreated = {
-  type: "sync"
-  id: string
-  syncEvent: {
-    type: "session.created.1"
-    id: string
-    seq: number
-    aggregateID: string
-    data: {
-      sessionID: string
-      info: Session
-    }
-  }
-}
-
-export type SyncEventSessionUpdated = {
-  type: "sync"
-  id: string
-  syncEvent: {
-    type: "session.updated.1"
-    id: string
-    seq: number
-    aggregateID: string
-    data: {
-      sessionID: string
-      info: Session
-    }
-  }
-}
-
-export type SyncEventSessionDeleted = {
-  type: "sync"
-  id: string
-  syncEvent: {
-    type: "session.deleted.1"
-    id: string
-    seq: number
-    aggregateID: string
-    data: {
-      sessionID: string
-      info: Session
-    }
-  }
-}
-
-export type SyncEventMessageUpdated = {
-  type: "sync"
-  id: string
-  syncEvent: {
-    type: "message.updated.1"
-    id: string
-    seq: number
-    aggregateID: string
-    data: {
-      sessionID: string
-      info: Message
-    }
-  }
-}
-
-export type SyncEventMessageRemoved = {
-  type: "sync"
-  id: string
-  syncEvent: {
-    type: "message.removed.1"
-    id: string
-    seq: number
-    aggregateID: string
-    data: {
-      sessionID: string
-      messageID: string
-    }
-  }
-}
-
-export type SyncEventMessagePartUpdated = {
-  type: "sync"
-  id: string
-  syncEvent: {
-    type: "message.part.updated.1"
-    id: string
-    seq: number
-    aggregateID: string
-    data: {
-      sessionID: string
-      part: Part
-      time: number
-    }
-  }
-}
-
-export type SyncEventMessagePartRemoved = {
-  type: "sync"
-  id: string
-  syncEvent: {
-    type: "message.part.removed.1"
-    id: string
-    seq: number
-    aggregateID: string
-    data: {
-      sessionID: string
-      messageID: string
-      partID: string
-    }
   }
 }
 
@@ -3680,6 +3672,113 @@ export type SyncEventSessionNextCompactionEnded = {
       reason: "auto" | "manual"
       text: string
       recent: string
+    }
+  }
+}
+
+export type SyncEventSessionCreated = {
+  type: "sync"
+  id: string
+  syncEvent: {
+    type: "session.created.1"
+    id: string
+    seq: number
+    aggregateID: string
+    data: {
+      sessionID: string
+      info: Session
+    }
+  }
+}
+
+export type SyncEventSessionUpdated = {
+  type: "sync"
+  id: string
+  syncEvent: {
+    type: "session.updated.1"
+    id: string
+    seq: number
+    aggregateID: string
+    data: {
+      sessionID: string
+      info: Session
+    }
+  }
+}
+
+export type SyncEventSessionDeleted = {
+  type: "sync"
+  id: string
+  syncEvent: {
+    type: "session.deleted.1"
+    id: string
+    seq: number
+    aggregateID: string
+    data: {
+      sessionID: string
+      info: Session
+    }
+  }
+}
+
+export type SyncEventMessageUpdated = {
+  type: "sync"
+  id: string
+  syncEvent: {
+    type: "message.updated.1"
+    id: string
+    seq: number
+    aggregateID: string
+    data: {
+      sessionID: string
+      info: Message
+    }
+  }
+}
+
+export type SyncEventMessageRemoved = {
+  type: "sync"
+  id: string
+  syncEvent: {
+    type: "message.removed.1"
+    id: string
+    seq: number
+    aggregateID: string
+    data: {
+      sessionID: string
+      messageID: string
+    }
+  }
+}
+
+export type SyncEventMessagePartUpdated = {
+  type: "sync"
+  id: string
+  syncEvent: {
+    type: "message.part.updated.1"
+    id: string
+    seq: number
+    aggregateID: string
+    data: {
+      sessionID: string
+      part: Part
+      time: number
+    }
+  }
+}
+
+export type SyncEventMessagePartRemoved = {
+  type: "sync"
+  id: string
+  syncEvent: {
+    type: "message.part.removed.1"
+    id: string
+    seq: number
+    aggregateID: string
+    data: {
+      sessionID: string
+      messageID: string
+      partID: string
     }
   }
 }
@@ -4347,71 +4446,6 @@ export type EventCatalogUpdated = {
   }
 }
 
-export type EventSessionCreated = {
-  id: string
-  type: "session.created"
-  properties: {
-    sessionID: string
-    info: Session
-  }
-}
-
-export type EventSessionUpdated = {
-  id: string
-  type: "session.updated"
-  properties: {
-    sessionID: string
-    info: Session
-  }
-}
-
-export type EventSessionDeleted = {
-  id: string
-  type: "session.deleted"
-  properties: {
-    sessionID: string
-    info: Session
-  }
-}
-
-export type EventMessageUpdated = {
-  id: string
-  type: "message.updated"
-  properties: {
-    sessionID: string
-    info: Message
-  }
-}
-
-export type EventMessageRemoved = {
-  id: string
-  type: "message.removed"
-  properties: {
-    sessionID: string
-    messageID: string
-  }
-}
-
-export type EventMessagePartUpdated = {
-  id: string
-  type: "message.part.updated"
-  properties: {
-    sessionID: string
-    part: Part
-    time: number
-  }
-}
-
-export type EventMessagePartRemoved = {
-  id: string
-  type: "message.part.removed"
-  properties: {
-    sessionID: string
-    messageID: string
-    partID: string
-  }
-}
-
 export type EventSessionNextAgentSwitched = {
   id: string
   type: "session.next.agent.switched"
@@ -4832,6 +4866,71 @@ export type EventSessionNextCompactionEnded = {
     reason: "auto" | "manual"
     text: string
     recent: string
+  }
+}
+
+export type EventSessionCreated = {
+  id: string
+  type: "session.created"
+  properties: {
+    sessionID: string
+    info: Session
+  }
+}
+
+export type EventSessionUpdated = {
+  id: string
+  type: "session.updated"
+  properties: {
+    sessionID: string
+    info: Session
+  }
+}
+
+export type EventSessionDeleted = {
+  id: string
+  type: "session.deleted"
+  properties: {
+    sessionID: string
+    info: Session
+  }
+}
+
+export type EventMessageUpdated = {
+  id: string
+  type: "message.updated"
+  properties: {
+    sessionID: string
+    info: Message
+  }
+}
+
+export type EventMessageRemoved = {
+  id: string
+  type: "message.removed"
+  properties: {
+    sessionID: string
+    messageID: string
+  }
+}
+
+export type EventMessagePartUpdated = {
+  id: string
+  type: "message.part.updated"
+  properties: {
+    sessionID: string
+    part: Part
+    time: number
+  }
+}
+
+export type EventMessagePartRemoved = {
+  id: string
+  type: "message.part.removed"
+  properties: {
+    sessionID: string
+    messageID: string
+    partID: string
   }
 }
 
@@ -7589,6 +7688,187 @@ export type PermissionReplyResponses = {
 
 export type PermissionReplyResponse = PermissionReplyResponses[keyof PermissionReplyResponses]
 
+export type PluginListData = {
+  body?: never
+  path?: never
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/plugin"
+}
+
+export type PluginListErrors = {
+  /**
+   * Bad request
+   */
+  400: BadRequestError
+}
+
+export type PluginListError = PluginListErrors[keyof PluginListErrors]
+
+export type PluginListResponses = {
+  /**
+   * Plugin runtime status
+   */
+  200: Array<PluginEntry>
+}
+
+export type PluginListResponse = PluginListResponses[keyof PluginListResponses]
+
+export type PluginConfigListData = {
+  body?: never
+  path?: never
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/plugin/config"
+}
+
+export type PluginConfigListErrors = {
+  /**
+   * PluginConfigInvalidError | InvalidRequestError
+   */
+  400: PluginConfigInvalidError | InvalidRequestError
+  /**
+   * PluginConfigPersistenceError
+   */
+  500: PluginConfigPersistenceError
+}
+
+export type PluginConfigListError = PluginConfigListErrors[keyof PluginConfigListErrors]
+
+export type PluginConfigListResponses = {
+  /**
+   * Persistent plugin configuration
+   */
+  200: Array<PluginConfigEntry>
+}
+
+export type PluginConfigListResponse = PluginConfigListResponses[keyof PluginConfigListResponses]
+
+export type PluginConfigInstallData = {
+  body?: {
+    scope: "global" | "local"
+    spec: string
+  }
+  path?: never
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/plugin/config"
+}
+
+export type PluginConfigInstallErrors = {
+  /**
+   * PluginConfigInvalidError | PluginConfigInstallError | InvalidRequestError
+   */
+  400: PluginConfigInvalidError | PluginConfigInstallError | InvalidRequestError
+  /**
+   * PluginConfigConflictError
+   */
+  409: PluginConfigConflictError
+  /**
+   * PluginConfigPersistenceError
+   */
+  500: PluginConfigPersistenceError
+}
+
+export type PluginConfigInstallError2 = PluginConfigInstallErrors[keyof PluginConfigInstallErrors]
+
+export type PluginConfigInstallResponses = {
+  /**
+   * Persistent plugin configuration
+   */
+  200: Array<PluginConfigEntry>
+}
+
+export type PluginConfigInstallResponse = PluginConfigInstallResponses[keyof PluginConfigInstallResponses]
+
+export type PluginConfigRemoveData = {
+  body?: never
+  path: {
+    pluginKey: string
+  }
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/plugin/config/{pluginKey}"
+}
+
+export type PluginConfigRemoveErrors = {
+  /**
+   * PluginConfigInvalidError | PluginConfigBuiltinRemovalError | InvalidRequestError
+   */
+  400: PluginConfigInvalidError | PluginConfigBuiltinRemovalError | InvalidRequestError
+  /**
+   * PluginConfigNotFoundError
+   */
+  404: PluginConfigNotFoundError
+  /**
+   * PluginConfigPersistenceError
+   */
+  500: PluginConfigPersistenceError
+}
+
+export type PluginConfigRemoveError = PluginConfigRemoveErrors[keyof PluginConfigRemoveErrors]
+
+export type PluginConfigRemoveResponses = {
+  /**
+   * Persistent plugin configuration
+   */
+  200: Array<PluginConfigEntry>
+}
+
+export type PluginConfigRemoveResponse = PluginConfigRemoveResponses[keyof PluginConfigRemoveResponses]
+
+export type PluginConfigUpdateData = {
+  body?: {
+    enabled: boolean
+  }
+  path: {
+    pluginKey: string
+  }
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/plugin/config/{pluginKey}"
+}
+
+export type PluginConfigUpdateErrors = {
+  /**
+   * PluginConfigInvalidError | InvalidRequestError
+   */
+  400: PluginConfigInvalidError | InvalidRequestError
+  /**
+   * PluginConfigNotFoundError
+   */
+  404: PluginConfigNotFoundError
+  /**
+   * PluginConfigImmutableError
+   */
+  409: PluginConfigImmutableError
+  /**
+   * PluginConfigPersistenceError
+   */
+  500: PluginConfigPersistenceError
+}
+
+export type PluginConfigUpdateError = PluginConfigUpdateErrors[keyof PluginConfigUpdateErrors]
+
+export type PluginConfigUpdateResponses = {
+  /**
+   * Persistent plugin configuration
+   */
+  200: Array<PluginConfigEntry>
+}
+
+export type PluginConfigUpdateResponse = PluginConfigUpdateResponses[keyof PluginConfigUpdateResponses]
+
 export type ProviderListData = {
   body?: never
   path?: never
@@ -7652,6 +7932,38 @@ export type ProviderAuthResponses = {
 }
 
 export type ProviderAuthResponse = ProviderAuthResponses[keyof ProviderAuthResponses]
+
+export type ProviderNeAccountData = {
+  body?: never
+  path?: never
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/provider/ne/account"
+}
+
+export type ProviderNeAccountErrors = {
+  /**
+   * Bad request
+   */
+  400: BadRequestError
+  /**
+   * ProviderNeAccountError
+   */
+  503: ProviderNeAccountError
+}
+
+export type ProviderNeAccountError2 = ProviderNeAccountErrors[keyof ProviderNeAccountErrors]
+
+export type ProviderNeAccountResponses = {
+  /**
+   * NE token account balance and consumption
+   */
+  200: NeTokenAccount
+}
+
+export type ProviderNeAccountResponse = ProviderNeAccountResponses[keyof ProviderNeAccountResponses]
 
 export type ProviderOauthAuthorizeData = {
   body?: {

@@ -21,6 +21,10 @@ import { ConfigVariable } from "@/config/variable"
 import { Npm } from "@opencode-ai/core/npm"
 import { FormatError, FormatUnknownError } from "@/cli/error"
 import { TuiConfig } from "@opencode-ai/tui/config"
+import { EffectFlock } from "@opencode-ai/core/util/effect-flock"
+import { clearLegacyPluginEnabledSources, type ClearLegacyPluginEnabledError } from "./tui-plugin-enabled"
+
+export { mergePluginEnabled } from "./tui-plugin-enabled"
 
 export const Info = TuiConfig.Info
 export type Info = TuiConfig.Info
@@ -28,6 +32,7 @@ export type Info = TuiConfig.Info
 type Acc = {
   result: Info
   plugin_origins: ConfigPlugin.Origin[]
+  plugin_enabled_sources: string[]
 }
 
 export type Resolved = TuiConfig.Resolved
@@ -39,6 +44,7 @@ export type HostMetadata = {
 export interface Interface {
   readonly get: () => Effect.Effect<Resolved>
   readonly pluginOrigins: () => Effect.Effect<ConfigPlugin.Origin[]>
+  readonly clearLegacyPluginEnabled: () => Effect.Effect<void, ClearLegacyPluginEnabledError>
   readonly waitForDependencies: () => Effect.Effect<void>
 }
 
@@ -151,6 +157,7 @@ const loadState = Effect.fn("TuiConfig.loadState")(function* (ctx: { directory: 
         appliedOrder += 1
         yield* Effect.logInfo("applying tui config", { path: file, order: appliedOrder })
       }
+      if (data.plugin_enabled && Object.keys(data.plugin_enabled).length) acc.plugin_enabled_sources.push(file)
       acc.result = mergeDeep(acc.result, data)
       if (!data.plugin?.length) return
 
@@ -176,6 +183,7 @@ const loadState = Effect.fn("TuiConfig.loadState")(function* (ctx: { directory: 
   const acc: Acc = {
     result: {},
     plugin_origins: [],
+    plugin_enabled_sources: [],
   }
 
   // 1. Global tui config (lowest precedence).
@@ -219,6 +227,7 @@ const loadState = Effect.fn("TuiConfig.loadState")(function* (ctx: { directory: 
   return {
     config: result,
     pluginOrigins: acc.plugin_origins,
+    pluginEnabledSources: unique(acc.plugin_enabled_sources),
     dirs: result.plugin?.length ? dirs : [],
   }
 })
@@ -228,6 +237,8 @@ export const layer = Layer.effect(
   Effect.gen(function* () {
     const directory = yield* CurrentWorkingDirectory
     const npm = yield* Npm.Service
+    const fs = yield* FSUtil.Service
+    const flock = yield* EffectFlock.Service
     const data = yield* loadState({ directory })
     const deps = yield* Effect.forEach(
       data.dirs,
@@ -249,15 +260,22 @@ export const layer = Layer.effect(
 
     const get = Effect.fn("TuiConfig.get")(() => Effect.succeed(data.config))
     const pluginOrigins = Effect.fn("TuiConfig.pluginOrigins")(() => Effect.succeed(data.pluginOrigins))
+    const clearLegacyPluginEnabled = Effect.fn("TuiConfig.clearLegacyPluginEnabled")(() =>
+      clearLegacyPluginEnabledSources({ fs, flock, sources: data.pluginEnabledSources }),
+    )
 
     const waitForDependencies = Effect.fn("TuiConfig.waitForDependencies")(() =>
       Effect.forEach(deps, Fiber.join, { concurrency: "unbounded" }).pipe(Effect.ignore(), Effect.asVoid),
     )
-    return Service.of({ get, pluginOrigins, waitForDependencies })
+    return Service.of({ get, pluginOrigins, clearLegacyPluginEnabled, waitForDependencies })
   }).pipe(Effect.withSpan("TuiConfig.layer")),
 )
 
-export const defaultLayer = layer.pipe(Layer.provide(Npm.defaultLayer), Layer.provide(FSUtil.defaultLayer))
+export const defaultLayer = layer.pipe(
+  Layer.provide(EffectFlock.defaultLayer),
+  Layer.provide(Npm.defaultLayer),
+  Layer.provide(FSUtil.defaultLayer),
+)
 
 const { runPromise } = makeRuntime(Service, defaultLayer)
 
@@ -271,4 +289,9 @@ export async function get() {
 
 export async function pluginOrigins() {
   return runPromise((svc) => svc.pluginOrigins())
+}
+
+/** Removes legacy TUI plugin enablement after top-level persistence succeeds. */
+export async function clearLegacyPluginEnabled() {
+  return runPromise((svc) => svc.clearLegacyPluginEnabled())
 }

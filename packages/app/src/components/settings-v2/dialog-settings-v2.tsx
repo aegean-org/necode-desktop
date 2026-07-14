@@ -12,6 +12,7 @@ import "./settings-v2.css"
 import { SettingsServersV2 } from "./servers"
 import { SettingsMcpV2 } from "./mcp"
 import { SettingsRagV2 } from "./rag"
+import { SettingsPluginsV2 } from "./plugins"
 import { SettingsSkillsV2 } from "./skills"
 import { SettingsPermissionsV2 } from "./permissions"
 
@@ -23,6 +24,7 @@ export type SettingsV2Tab =
   | "models"
   | "mcp"
   | "rag"
+  | "plugins"
   | "skills"
   | "permissions"
 
@@ -32,7 +34,12 @@ export const DialogSettings: Component<{ defaultTab?: SettingsV2Tab }> = (props)
 
   return (
     <Dialog size="x-large" variant="settings" class="settings-v2-dialog">
-      <TabsV2 orientation="vertical" variant="settings" defaultValue={props.defaultTab ?? "general"} class="settings-v2">
+      <TabsV2
+        orientation="vertical"
+        variant="settings"
+        defaultValue={props.defaultTab ?? "general"}
+        class="settings-v2"
+      >
         <TabsV2.List>
           <div class="flex flex-col justify-between h-full w-full">
             <div class="flex flex-col gap-3 w-full">
@@ -69,6 +76,10 @@ export const DialogSettings: Component<{ defaultTab?: SettingsV2Tab }> = (props)
                     <TabsV2.Trigger value="mcp">
                       <Icon name="mcp" />
                       {language.t("settings.mcp.title")}
+                    </TabsV2.Trigger>
+                    <TabsV2.Trigger value="plugins">
+                      <Icon name="code" />
+                      {language.t("settings.plugins.title")}
                     </TabsV2.Trigger>
                     <TabsV2.Trigger value="rag">
                       <Icon name="archive" />
@@ -109,6 +120,9 @@ export const DialogSettings: Component<{ defaultTab?: SettingsV2Tab }> = (props)
         </TabsV2.Content>
         <TabsV2.Content value="mcp" class="settings-v2-panel">
           <SettingsMcpV2 />
+        </TabsV2.Content>
+        <TabsV2.Content value="plugins" class="settings-v2-panel">
+          <SettingsPluginsV2 />
         </TabsV2.Content>
         <TabsV2.Content value="rag" class="settings-v2-panel">
           <SettingsRagV2 />

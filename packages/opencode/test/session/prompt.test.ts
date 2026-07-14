@@ -57,6 +57,10 @@ import { RuntimeFlags } from "@/effect/runtime-flags"
 import { ProviderV2 } from "@opencode-ai/core/provider"
 import { ModelV2 } from "@opencode-ai/core/model"
 import { Auth } from "../../src/auth"
+import { createPdf } from "@necode-ai/plugin-pdf"
+import { writeDocument } from "@necode-ai/plugin-documents"
+import { writePresentation } from "@necode-ai/plugin-presentations"
+import { writeWorkbook } from "@necode-ai/plugin-spreadsheets"
 
 const summary = Layer.succeed(
   SessionSummary.Service,
@@ -2062,6 +2066,120 @@ noLLMServer.instance(
       yield* sessions.remove(session.id)
     }),
   { config: cfg },
+)
+
+noLLMServer.instance(
+  "reads local PDF attachments through the PDF plugin before model input",
+  () =>
+    Effect.gen(function* () {
+      const { directory: dir } = yield* TestInstance
+      const file = path.join(dir, "attachment.pdf")
+      yield* Effect.promise(() => createPdf(file, { title: "Attachment", content: "PDF attachment text" }))
+      const prompt = yield* SessionPrompt.Service
+      const sessions = yield* Session.Service
+      const session = yield* sessions.create({})
+
+      const msg = yield* prompt.prompt({
+        sessionID: session.id,
+        agent: "build",
+        noReply: true,
+        parts: [
+          {
+            type: "file",
+            mime: "application/pdf",
+            url: `data:application/pdf;base64,${Buffer.from(yield* Effect.promise(() => Bun.file(file).arrayBuffer())).toString("base64")}`,
+            filename: file,
+          },
+          { type: "text", text: "summarize" },
+        ],
+      })
+
+      if (msg.info.role !== "user") throw new Error("expected user message")
+      const stored = yield* MessageV2.get({ sessionID: session.id, messageID: msg.info.id })
+      const text = stored.parts.filter((part) => part.type === "text").map((part) => part.text)
+
+      expect(text.some((value) => value.includes("Called the pdf_read tool"))).toBe(true)
+      expect(text.some((value) => value.includes("PDF attachment text"))).toBe(true)
+      expect(stored.parts.some((part) => part.type === "file" && part.mime === "application/pdf")).toBe(false)
+
+      yield* sessions.remove(session.id)
+    }),
+  { config: cfg },
+  20_000,
+)
+
+noLLMServer.instance(
+  "reads local Office attachments through productivity plugins before model input",
+  () =>
+    Effect.gen(function* () {
+      const { directory: dir } = yield* TestInstance
+      const docx = path.join(dir, "attachment.docx")
+      const pptx = path.join(dir, "attachment.pptx")
+      const xlsx = path.join(dir, "attachment.xlsx")
+      const files = [
+        {
+          path: docx,
+          mime: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          tool: "document_read",
+          text: "DOCX attachment text",
+          write: () => writeDocument(docx, { title: "Attachment", content: "DOCX attachment text" }),
+        },
+        {
+          path: pptx,
+          mime: "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+          tool: "presentation_read",
+          text: "PPTX attachment text",
+          write: () =>
+            writePresentation(pptx, {
+              title: "Attachment",
+              slides: [{ layout: "title", title: "PPTX attachment text" }],
+            }),
+        },
+        {
+          path: xlsx,
+          mime: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+          tool: "spreadsheet_read",
+          text: "XLSX attachment text",
+          write: () =>
+            writeWorkbook(xlsx, [
+              { name: "Sheet1", cells: [{ address: "A1", value: "XLSX attachment text" }] },
+            ]),
+        },
+      ]
+      const prompt = yield* SessionPrompt.Service
+      const sessions = yield* Session.Service
+      const session = yield* sessions.create({})
+
+      for (const file of files) {
+        yield* Effect.promise(file.write)
+        const data = Buffer.from(yield* Effect.promise(() => Bun.file(file.path).arrayBuffer())).toString("base64")
+        const msg = yield* prompt.prompt({
+          sessionID: session.id,
+          agent: "build",
+          noReply: true,
+          parts: [
+            {
+              type: "file",
+              mime: file.mime,
+              url: `data:${file.mime};base64,${data}`,
+              filename: file.path,
+            },
+            { type: "text", text: "summarize" },
+          ],
+        })
+
+        if (msg.info.role !== "user") throw new Error("expected user message")
+        const stored = yield* MessageV2.get({ sessionID: session.id, messageID: msg.info.id })
+        const text = stored.parts.filter((part) => part.type === "text").map((part) => part.text)
+        expect(text.some((value) => value.includes(`Called the ${file.tool} tool`))).toBe(true)
+        expect(text.some((value) => value.includes(file.text))).toBe(true)
+        expect(stored.parts.some((part) => part.type === "file" && part.mime === file.mime)).toBe(false)
+      }
+
+      yield* sessions.remove(session.id)
+    }),
+  { config: cfg },
+  60_000,
 )
 
 // Special characters in filenames

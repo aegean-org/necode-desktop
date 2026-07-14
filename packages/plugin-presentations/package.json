@@ -1,0 +1,48 @@
+{
+  "name": "@necode-ai/plugin-presentations",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "bun test --timeout 60000",
+    "typecheck": "tsgo --noEmit"
+  },
+  "exports": {
+    ".": {
+      "bun": "./src/index.ts",
+      "node": "./dist/index.js",
+      "default": "./src/index.ts"
+    },
+    "./server": {
+      "bun": "./src/server.ts",
+      "node": "./dist/server.js",
+      "default": "./src/server.ts"
+    }
+  },
+  "files": [
+    "src",
+    "dist",
+    "skills"
+  ],
+  "necode": {
+    "plugin": {
+      "id": "presentations",
+      "name": "Presentations",
+      "description": "创建、读取和修订 PowerPoint 演示文稿",
+      "skills": [
+        "./skills/"
+      ]
+    }
+  },
+  "dependencies": {
+    "@opencode-ai/plugin": "workspace:*",
+    "@necode-ai/plugin-artifacts": "workspace:*",
+    "@zip.js/zip.js": "2.7.62",
+    "markit-ai": "0.5.3",
+    "pptxgenjs": "4.0.1"
+  },
+  "devDependencies": {
+    "@tsconfig/node22": "catalog:",
+    "@types/node": "catalog:",
+    "@typescript/native-preview": "catalog:"
+  }
+}

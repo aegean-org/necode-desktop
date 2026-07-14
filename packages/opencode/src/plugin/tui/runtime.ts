@@ -115,6 +115,7 @@ type RuntimeState = {
   plugins: PluginEntry[]
   plugins_by_id: Map<string, PluginEntry>
   pending: Map<string, ConfigPlugin.Origin>
+  plugin_enabled: Record<string, boolean>
   dispose_timeout_ms: number
 }
 
@@ -473,18 +474,22 @@ function readPluginEnabledMap(value: unknown) {
   )
 }
 
-function pluginEnabledState(state: RuntimeState, config: TuiConfig.Resolved) {
+function legacyPluginEnabledState(state: RuntimeState, config: TuiConfig.Resolved) {
   return {
     ...readPluginEnabledMap(config.plugin_enabled),
     ...readPluginEnabledMap(state.api.kv.get(KV_KEY, {})),
   }
 }
 
-function writePluginEnabledState(api: Api, id: string, enabled: boolean) {
-  api.kv.set(KV_KEY, {
-    ...readPluginEnabledMap(api.kv.get(KV_KEY, {})),
-    [id]: enabled,
-  })
+function stablePluginKey(plugin: PluginEntry) {
+  if (plugin.load.source === "internal") return plugin.id
+  return ConfigPlugin.key(plugin.load.origin.spec)
+}
+
+async function persistPluginEnabled(state: RuntimeState, plugin: PluginEntry, enabled: boolean) {
+  const next = { ...state.plugin_enabled, [stablePluginKey(plugin)]: enabled }
+  await state.api.client.global.config.update({ config: { plugin_enabled: next } }, { throwOnError: true })
+  state.plugin_enabled = next
 }
 
 function listPluginStatus(state: RuntimeState): TuiPluginStatus[] {
@@ -499,8 +504,8 @@ function listPluginStatus(state: RuntimeState): TuiPluginStatus[] {
 }
 
 async function deactivatePluginEntry(state: RuntimeState, plugin: PluginEntry, persist: boolean) {
+  if (persist) await persistPluginEnabled(state, plugin, false)
   plugin.enabled = false
-  if (persist) writePluginEnabledState(state.api, plugin.id, false)
   if (!plugin.scope) {
     state.view.update({ status: listPluginStatus(state) })
     return true
@@ -513,8 +518,8 @@ async function deactivatePluginEntry(state: RuntimeState, plugin: PluginEntry, p
 }
 
 async function activatePluginEntry(state: RuntimeState, plugin: PluginEntry, persist: boolean) {
+  if (persist) await persistPluginEnabled(state, plugin, true)
   plugin.enabled = true
-  if (persist) writePluginEnabledState(state.api, plugin.id, true)
   if (plugin.scope) {
     state.view.update({ status: listPluginStatus(state) })
     return true
@@ -663,10 +668,21 @@ function addPluginEntry(state: RuntimeState, plugin: PluginEntry) {
   return true
 }
 
-function applyInitialPluginEnabledState(state: RuntimeState, config: TuiConfig.Resolved) {
-  const map = pluginEnabledState(state, config)
+async function applyInitialPluginEnabledState(state: RuntimeState, config: TuiConfig.Resolved) {
+  const legacy = legacyPluginEnabledState(state, config)
+  const map = TuiConfig.mergePluginEnabled({
+    configured: readPluginEnabledMap(state.api.state.config.plugin_enabled),
+    legacy,
+    keys: new Map(state.plugins.map((plugin) => [plugin.id, stablePluginKey(plugin)])),
+  })
+  state.plugin_enabled = map
+  if (Object.keys(legacy).length) {
+    await state.api.client.global.config.update({ config: { plugin_enabled: map } }, { throwOnError: true })
+    await TuiConfig.clearLegacyPluginEnabled()
+    state.api.kv.set(KV_KEY, {})
+  }
   for (const plugin of state.plugins) {
-    const enabled = map[plugin.id]
+    const enabled = map[stablePluginKey(plugin)]
     if (enabled === undefined) continue
     plugin.enabled = enabled
   }
@@ -1066,6 +1082,7 @@ async function load(input: {
     plugins: [],
     plugins_by_id: new Map(),
     pending: new Map(),
+    plugin_enabled: {},
     dispose_timeout_ms: input.disposeTimeoutMs ?? DISPOSE_TIMEOUT_MS,
   }
   runtime = next
@@ -1105,7 +1122,7 @@ async function load(input: {
     const ready = await resolveExternalPlugins(records, () => TuiConfig.waitForDependencies())
     await addExternalPluginEntries(next, ready)
 
-    applyInitialPluginEnabledState(next, config)
+    await applyInitialPluginEnabledState(next, config)
     for (const plugin of next.plugins) {
       if (!plugin.enabled) continue
       // Keep plugin execution sequential for deterministic side effects:

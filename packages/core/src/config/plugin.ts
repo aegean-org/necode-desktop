@@ -11,3 +11,6 @@ export const Plugin = Schema.Union([Schema.String, Entry])
 export type Plugin = typeof Plugin.Type
 
 export const Plugins = Plugin.pipe(Schema.Array)
+
+export const Enabled = Schema.Record(Schema.String, Schema.Boolean)
+export type Enabled = typeof Enabled.Type

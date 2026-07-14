@@ -1,5 +1,6 @@
 import { ProviderAuth } from "@/provider/auth"
 import { Provider } from "@/provider/provider"
+import { TokenAccount } from "@/ne/account"
 
 import { Schema } from "effect"
 import { HttpApi, HttpApiEndpoint, HttpApiGroup, OpenApi } from "effect/unstable/httpapi"
@@ -32,6 +33,15 @@ export class ProviderAuthApiError extends Schema.ErrorClass<ProviderAuthApiError
   { httpApiStatus: 400 },
 ) {}
 
+export class ProviderNeAccountApiError extends Schema.ErrorClass<ProviderNeAccountApiError>(
+  "ProviderNeAccountError",
+)(
+  {
+    message: Schema.String,
+  },
+  { httpApiStatus: 503 },
+) {}
+
 export const ProviderApi = HttpApi.make("provider")
   .add(
     HttpApiGroup.make("provider")
@@ -54,6 +64,17 @@ export const ProviderApi = HttpApi.make("provider")
             identifier: "provider.auth",
             summary: "Get provider auth methods",
             description: "Retrieve available authentication methods for all AI providers.",
+          }),
+        ),
+        HttpApiEndpoint.get("neAccount", `${root}/ne/account`, {
+          query: WorkspaceRoutingQuery,
+          success: described(TokenAccount, "NE token account balance and consumption"),
+          error: ProviderNeAccountApiError,
+        }).annotateMerge(
+          OpenApi.annotations({
+            identifier: "provider.neAccount",
+            summary: "Get NE token account",
+            description: "Retrieve the authenticated NE user's remaining compute balance and cumulative consumption.",
           }),
         ),
         HttpApiEndpoint.post("authorize", `${root}/:providerID/oauth/authorize`, {
