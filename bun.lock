@@ -332,7 +332,7 @@
     },
     "packages/desktop": {
       "name": "@necode-ai/desktop",
-      "version": "0.0.1",
+      "version": "0.0.2",
       "dependencies": {
         "@necode-ai/plugin-artifacts": "workspace:*",
         "@necode-ai/plugin-documents": "workspace:*",
