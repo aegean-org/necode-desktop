@@ -1,4 +1,4 @@
-import { tool } from "@opencode-ai/plugin"
+import { tool } from "@opencode-ai/plugin/tool"
 
 export type SlideLayout = "title" | "title-and-content" | "section" | "blank"
 export type SlideInput = {

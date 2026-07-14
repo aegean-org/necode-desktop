@@ -1,4 +1,4 @@
-import { tool, type ToolContext } from "@opencode-ai/plugin"
+import { tool, type ToolContext } from "@opencode-ai/plugin/tool"
 import { artifactAttachment, requireReadableInput, resolveArtifactOutput } from "@necode-ai/plugin-artifacts"
 import path from "node:path"
 import { readWorkbook } from "./read.ts"

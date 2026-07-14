@@ -1,4 +1,4 @@
-import { tool, type ToolContext } from "@opencode-ai/plugin"
+import { tool, type ToolContext } from "@opencode-ai/plugin/tool"
 import {
   artifactAttachment,
   requireExpectedText,

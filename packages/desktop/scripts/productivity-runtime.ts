@@ -8,9 +8,14 @@ const PLUGINS = [
   "@necode-ai/plugin-presentations",
   "@necode-ai/plugin-spreadsheets",
 ] as const
+const RUNTIME_PACKAGES = ["@necode-ai/plugin-artifacts", ...PLUGINS] as const
 
 /** Fails desktop prebuild when a packaged productivity entry, skill, or licensed asset is missing. */
 export function verifyProductivityRuntime() {
+  RUNTIME_PACKAGES.forEach((spec) => {
+    const root = fileURLToPath(new URL("..", import.meta.resolve(spec)))
+    requirePath(path.join(root, "dist", "index.js"), `${spec} Node entry`)
+  })
   PLUGINS.forEach((spec) => {
     const root = fileURLToPath(new URL("..", import.meta.resolve(spec)))
     requirePath(path.join(root, "package.json"), spec)

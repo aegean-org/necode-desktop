@@ -53,11 +53,20 @@ describe("desktop server bundle runtime dependencies", () => {
       "@necode-ai/plugin-presentations",
       "@necode-ai/plugin-spreadsheets",
     ]
-    const child = Bun.spawn([electron, "--input-type=module", "--eval", `await Promise.all(${JSON.stringify(specs)}.map((spec) => import(spec)))`], {
-      cwd: fileURLToPath(new URL("../..", import.meta.url)),
-      env: { ...process.env, ELECTRON_RUN_AS_NODE: "1" },
-      stderr: "pipe",
-    })
+    const child = Bun.spawn(
+      [
+        electron,
+        "--preserve-symlinks",
+        "--input-type=module",
+        "--eval",
+        `await Promise.all(${JSON.stringify(specs)}.map((spec) => import(spec)))`,
+      ],
+      {
+        cwd: fileURLToPath(new URL("../..", import.meta.url)),
+        env: { ...process.env, ELECTRON_RUN_AS_NODE: "1" },
+        stderr: "pipe",
+      },
+    )
     const error = await new Response(child.stderr).text()
 
     expect(await child.exited, error).toBe(0)

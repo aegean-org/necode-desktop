@@ -7,11 +7,20 @@
     "typecheck": "tsgo --noEmit"
   },
   "exports": {
-    ".": "./src/index.ts",
-    "./server": "./src/server.ts"
+    ".": {
+      "bun": "./src/index.ts",
+      "node": "./dist/index.js",
+      "default": "./src/index.ts"
+    },
+    "./server": {
+      "bun": "./src/server.ts",
+      "node": "./dist/server.js",
+      "default": "./src/server.ts"
+    }
   },
   "files": [
     "src",
+    "dist",
     "skills",
     "assets"
   ],
