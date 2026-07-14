@@ -817,6 +817,58 @@ export const layer = Layer.effect(
                   { ...part, messageID: info.id, sessionID: input.sessionID },
                 ]
               }
+              if (part.mime === "application/pdf" && part.filename && path.isAbsolute(part.filename)) {
+                const reader = (yield* registry.all()).find((item) => item.id === "pdf_read")
+                if (!reader) break
+                const controller = new AbortController()
+                const args = { sourcePath: part.filename }
+                const exit = yield* reader
+                  .execute(args, {
+                    sessionID: input.sessionID,
+                    abort: controller.signal,
+                    agent: info.agent,
+                    messageID: info.id,
+                    extra: { bypassCwdCheck: true },
+                    messages: [],
+                    metadata: () => Effect.void,
+                    ask: () => Effect.void,
+                  })
+                  .pipe(Effect.onInterrupt(() => Effect.sync(() => controller.abort())), Effect.exit)
+                if (Exit.isSuccess(exit)) {
+                  return [
+                    {
+                      messageID: info.id,
+                      sessionID: input.sessionID,
+                      type: "text",
+                      synthetic: true,
+                      text: `Called the pdf_read tool with the following input: ${JSON.stringify(args)}`,
+                    },
+                    {
+                      messageID: info.id,
+                      sessionID: input.sessionID,
+                      type: "text",
+                      synthetic: true,
+                      text: exit.value.output,
+                    },
+                  ]
+                }
+                const error = Cause.squash(exit.cause)
+                yield* Effect.logError("failed to read PDF attachment", { error, file: part.filename })
+                const message = error instanceof Error ? error.message : String(error)
+                yield* events.publish(Session.Event.Error, {
+                  sessionID: input.sessionID,
+                  error: new NamedError.Unknown({ message }).toObject(),
+                })
+                return [
+                  {
+                    messageID: info.id,
+                    sessionID: input.sessionID,
+                    type: "text",
+                    synthetic: true,
+                    text: `pdf_read failed to read ${part.filename}: ${message}`,
+                  },
+                ]
+              }
               break
             case "file:": {
               yield* Effect.logInfo("file", { mime: part.mime })

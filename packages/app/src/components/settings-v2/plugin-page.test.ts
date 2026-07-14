@@ -5,6 +5,7 @@ const page = await Bun.file(new URL("./plugins.tsx", import.meta.url)).text()
 const row = await Bun.file(new URL("./plugin-row.tsx", import.meta.url)).text()
 const controller = await Bun.file(new URL("./plugin-controller.tsx", import.meta.url)).text()
 const detail = await Bun.file(new URL("./dialog-plugin-detail.tsx", import.meta.url)).text()
+const styles = await Bun.file(new URL("./plugin.css", import.meta.url)).text()
 
 describe("desktop plugin settings page", () => {
   test("places the plugin tab between MCP and skills", () => {
@@ -29,5 +30,10 @@ describe("desktop plugin settings page", () => {
     expect(controller).toContain("client().list()")
     expect(detail).toContain("error().stage")
     expect(detail).toContain("error().message")
+  })
+
+  test("keeps vertical space inside the plugin list", () => {
+    expect(styles).toContain('.settings-v2-plugins [data-component="settings-v2-list"]')
+    expect(styles).toContain("padding-block: 12px")
   })
 })
