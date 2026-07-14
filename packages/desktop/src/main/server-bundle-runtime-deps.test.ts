@@ -1,4 +1,6 @@
 import { describe, expect, test } from "bun:test"
+import electron from "electron"
+import { fileURLToPath } from "node:url"
 import { verifyProductivityRuntime } from "../../scripts/productivity-runtime"
 
 const MARKIT_AI_VERSION = "0.5.3"
@@ -42,5 +44,22 @@ describe("desktop server bundle runtime dependencies", () => {
     expect(packageJson.files).toContain("assets")
     expect(await Bun.file(new URL("assets/NotoSansCJKsc-Regular.otf", pdfRoot)).exists()).toBe(true)
     expect(await Bun.file(new URL("assets/OFL.txt", pdfRoot)).text()).toContain("SIL Open Font License")
+  })
+
+  test("loads productivity plugins in the Electron Node sidecar runtime", async () => {
+    const specs = [
+      "@necode-ai/plugin-documents",
+      "@necode-ai/plugin-pdf",
+      "@necode-ai/plugin-presentations",
+      "@necode-ai/plugin-spreadsheets",
+    ]
+    const child = Bun.spawn([electron, "--input-type=module", "--eval", `await Promise.all(${JSON.stringify(specs)}.map((spec) => import(spec)))`], {
+      cwd: fileURLToPath(new URL("../..", import.meta.url)),
+      env: { ...process.env, ELECTRON_RUN_AS_NODE: "1" },
+      stderr: "pipe",
+    })
+    const error = await new Response(child.stderr).text()
+
+    expect(await child.exited, error).toBe(0)
   })
 })

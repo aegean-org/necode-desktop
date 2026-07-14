@@ -4,5 +4,5 @@ export {
   resolveArtifactOutput,
   type ArtifactOutput,
   type OutputInput,
-} from "./output.js"
-export { normalizeExtractedText, requireExpectedText } from "./text.js"
+} from "./output.ts"
+export { normalizeExtractedText, requireExpectedText } from "./text.ts"

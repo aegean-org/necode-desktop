@@ -46,6 +46,35 @@ test("resolves local plugin metadata and skill roots", async () => {
   expect(entry.resolved?.entry).toBe(pathToFileURL(path.join(tmp.path, "server.js")).href)
 })
 
+test("resolves Pi skill package metadata", async () => {
+  await using tmp = await tmpdir({
+    init: async (dir) => {
+      await Bun.write(path.join(dir, "server.js"), "export default async () => ({ config: async () => {} })")
+      await Bun.write(path.join(dir, "skills", "demo", "SKILL.md"), "---\nname: demo\n---\n")
+      await Bun.write(
+        path.join(dir, "package.json"),
+        JSON.stringify({
+          name: "demo-skills",
+          version: "1.2.3",
+          main: "./server.js",
+          pi: { skills: ["./skills"] },
+        }),
+      )
+    },
+  })
+
+  const entry = await PluginCatalog.resolveExternal({
+    origin: { spec: pathToFileURL(tmp.path).href, source: "opencode.json", scope: "local" },
+    enabled: true,
+  })
+
+  expect(entry.manifest).toEqual({
+    id: "demo-skills",
+    name: "demo-skills",
+    skills: [path.join(tmp.path, "skills")],
+  })
+})
+
 test("surfaces manifest paths that escape the plugin package", async () => {
   await using tmp = await tmpdir({
     init: async (dir) => {

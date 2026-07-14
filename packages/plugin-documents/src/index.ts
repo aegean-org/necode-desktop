@@ -1,6 +1,6 @@
 import type { Plugin, PluginManifest } from "@opencode-ai/plugin"
 import { fileURLToPath } from "node:url"
-import { DocumentTools } from "./server.js"
+import { DocumentTools } from "./server.ts"
 
 /** Package root used to resolve bundled skills in workspace and desktop layouts. */
 export const DocumentsRoot = fileURLToPath(new URL("..", import.meta.url))
@@ -16,6 +16,6 @@ export const DocumentsManifest = {
 /** First-party Documents plugin entrypoint. */
 export const DocumentsPlugin: Plugin = async () => ({ tool: DocumentTools })
 
-export { DocumentTools } from "./server.js"
-export { readDocument } from "./read.js"
-export { writeDocument } from "./write.js"
+export { DocumentTools } from "./server.ts"
+export { readDocument } from "./read.ts"
+export { writeDocument } from "./write.ts"

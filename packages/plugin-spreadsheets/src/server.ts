@@ -1,9 +1,9 @@
 import { tool, type ToolContext } from "@opencode-ai/plugin"
 import { artifactAttachment, requireReadableInput, resolveArtifactOutput } from "@necode-ai/plugin-artifacts"
 import path from "node:path"
-import { readWorkbook } from "./read.js"
-import { SheetInputSchema, type SheetInput } from "./schema.js"
-import { updateWorkbook, writeWorkbook } from "./write.js"
+import { readWorkbook } from "./read.ts"
+import { SheetInputSchema, type SheetInput } from "./schema.ts"
+import { updateWorkbook, writeWorkbook } from "./write.ts"
 
 const XLSX_MIME = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 

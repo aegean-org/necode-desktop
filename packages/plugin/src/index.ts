@@ -12,13 +12,13 @@ import type {
 } from "@opencode-ai/sdk"
 import type { Provider as ProviderV2, Model as ModelV2, Auth } from "@opencode-ai/sdk/v2"
 
-import type { BunShell } from "./shell.js"
-import { type ToolDefinition } from "./tool.js"
-import type { AuthHook } from "./auth.js"
+import type { BunShell } from "./shell.ts"
+import { type ToolDefinition } from "./tool.ts"
+import type { AuthHook } from "./auth.ts"
 
-export * from "./tool.js"
-export { PluginCapability, PluginFailureStage, PluginManifest } from "./manifest.js"
-export type { AuthHook, AuthOAuthResult, AuthOuathResult } from "./auth.js"
+export * from "./tool.ts"
+export { PluginCapability, PluginFailureStage, PluginManifest } from "./manifest.ts"
+export type { AuthHook, AuthOAuthResult, AuthOuathResult } from "./auth.ts"
 
 export type ProviderContext = {
   source: "env" | "config" | "custom" | "api"

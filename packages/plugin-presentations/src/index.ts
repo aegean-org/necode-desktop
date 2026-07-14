@@ -1,6 +1,6 @@
 import type { Plugin, PluginManifest } from "@opencode-ai/plugin"
 import { fileURLToPath } from "node:url"
-import { PresentationTools } from "./server.js"
+import { PresentationTools } from "./server.ts"
 
 /** Package root used to resolve bundled presentation skills. */
 export const PresentationsRoot = fileURLToPath(new URL("..", import.meta.url))
@@ -16,8 +16,8 @@ export const PresentationsManifest = {
 /** First-party Presentations plugin entrypoint. */
 export const PresentationsPlugin: Plugin = async () => ({ tool: PresentationTools })
 
-export { readPresentation } from "./read.js"
-export { SlideInputSchema, validateSlides, type SlideInput, type SlideLayout } from "./schema.js"
-export { PresentationTools } from "./server.js"
-export { validatePresentation } from "./validate.js"
-export { writePresentation } from "./write.js"
+export { readPresentation } from "./read.ts"
+export { SlideInputSchema, validateSlides, type SlideInput, type SlideLayout } from "./schema.ts"
+export { PresentationTools } from "./server.ts"
+export { validatePresentation } from "./validate.ts"
+export { writePresentation } from "./write.ts"

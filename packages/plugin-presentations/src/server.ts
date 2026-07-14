@@ -6,10 +6,10 @@ import {
   resolveArtifactOutput,
 } from "@necode-ai/plugin-artifacts"
 import path from "node:path"
-import { readPresentation } from "./read.js"
-import { SlideInputSchema, type SlideInput } from "./schema.js"
-import { validatePresentation } from "./validate.js"
-import { writePresentation } from "./write.js"
+import { readPresentation } from "./read.ts"
+import { SlideInputSchema, type SlideInput } from "./schema.ts"
+import { validatePresentation } from "./validate.ts"
+import { writePresentation } from "./write.ts"
 
 const PPTX_MIME = "application/vnd.openxmlformats-officedocument.presentationml.presentation"
 

@@ -1,5 +1,5 @@
 import { tool } from "@opencode-ai/plugin"
-import { validateChart, type ChartInput } from "./chart.js"
+import { validateChart, type ChartInput } from "./chart.ts"
 
 export type CellInput = {
   address: string

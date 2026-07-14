@@ -1,6 +1,6 @@
 import type { Plugin, PluginManifest } from "@opencode-ai/plugin"
 import { fileURLToPath } from "node:url"
-import { SpreadsheetTools } from "./server.js"
+import { SpreadsheetTools } from "./server.ts"
 
 /** Package root used to resolve bundled spreadsheet skills. */
 export const SpreadsheetsRoot = fileURLToPath(new URL("..", import.meta.url))
@@ -16,8 +16,8 @@ export const SpreadsheetsManifest = {
 /** First-party Spreadsheets plugin entrypoint. */
 export const SpreadsheetsPlugin: Plugin = async () => ({ tool: SpreadsheetTools })
 
-export { renderChart, validateChart, type ChartInput } from "./chart.js"
-export { readWorkbook } from "./read.js"
+export { renderChart, validateChart, type ChartInput } from "./chart.ts"
+export { readWorkbook } from "./read.ts"
 export {
   CellInputSchema,
   ChartInputSchema,
@@ -25,6 +25,6 @@ export {
   validateSheets,
   type CellInput,
   type SheetInput,
-} from "./schema.js"
-export { SpreadsheetTools } from "./server.js"
-export { updateWorkbook, writeWorkbook } from "./write.js"
+} from "./schema.ts"
+export { SpreadsheetTools } from "./server.ts"
+export { updateWorkbook, writeWorkbook } from "./write.ts"

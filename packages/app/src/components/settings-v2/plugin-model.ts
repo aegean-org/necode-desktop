@@ -10,12 +10,19 @@ const STATUS_LABEL = {
 /** Groups filtered plugin entries into product, external, and system sections. */
 export function pluginSections(entries: readonly PluginEntry[], raw: string) {
   const query = raw.trim().toLocaleLowerCase()
-  const visible = entries.filter((entry) => matchesPlugin(entry, query)).toSorted(comparePlugin)
+  const visible = entries
+    .filter((entry) => !isSkillBundle(entry))
+    .filter((entry) => matchesPlugin(entry, query))
+    .toSorted(comparePlugin)
   return {
     builtin: visible.filter((entry) => entry.source === "builtin" && !entry.system),
     installed: visible.filter((entry) => entry.source !== "builtin" && !entry.system),
     system: visible.filter((entry) => entry.system),
   }
+}
+
+function isSkillBundle(entry: PluginEntry) {
+  return entry.source !== "builtin" && entry.capabilities.length > 0 && entry.capabilities.every((item) => item === "skills")
 }
 
 /** Returns the translation key for a plugin runtime status. */

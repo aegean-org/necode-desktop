@@ -6,9 +6,9 @@ import {
   resolveArtifactOutput,
 } from "@necode-ai/plugin-artifacts"
 import path from "node:path"
-import { createPdf } from "./layout.js"
-import { mergePdfFiles, type PageRange, validatePdf, writePdfRange } from "./operations.js"
-import { readPdfText } from "./read.js"
+import { createPdf } from "./layout.ts"
+import { mergePdfFiles, type PageRange, validatePdf, writePdfRange } from "./operations.ts"
+import { readPdfText } from "./read.ts"
 
 const PDF_MIME = "application/pdf"
 

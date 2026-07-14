@@ -112,16 +112,30 @@ async function resolveManifestFile(spec: string, raw: string, kind: string, pkg:
   return file
 }
 
-/** Read and resolve optional NeCode display metadata from a plugin package. */
+/** Read and resolve optional NeCode or Pi display metadata from a plugin package. */
 export async function readPluginManifest(spec: string, pkg: PluginPackage): Promise<ResolvedPluginManifest | undefined> {
   const necode = pkg.json.necode
-  if (necode === undefined) return
-  if (!isRecord(necode) || !isRecord(necode.plugin)) throw new TypeError(`Plugin ${spec} has invalid necode.plugin metadata`)
-  const manifest = Schema.decodeUnknownSync(PluginManifest)(necode.plugin)
+  if (necode !== undefined) {
+    if (!isRecord(necode) || !isRecord(necode.plugin)) throw new TypeError(`Plugin ${spec} has invalid necode.plugin metadata`)
+    const manifest = Schema.decodeUnknownSync(PluginManifest)(necode.plugin)
+    return {
+      ...manifest,
+      icon: manifest.icon ? await resolveManifestFile(spec, manifest.icon, "icon", pkg) : undefined,
+      skills: await Promise.all((manifest.skills ?? []).map((item) => resolveManifestFile(spec, item, "skill", pkg))),
+    }
+  }
+
+  const pi = pkg.json.pi
+  if (!isRecord(pi) || pi.skills === undefined) return
+  const name = Schema.decodeUnknownSync(Schema.NonEmptyString)(pkg.json.name)
   return {
-    ...manifest,
-    icon: manifest.icon ? await resolveManifestFile(spec, manifest.icon, "icon", pkg) : undefined,
-    skills: await Promise.all((manifest.skills ?? []).map((item) => resolveManifestFile(spec, item, "skill", pkg))),
+    id: name,
+    name,
+    skills: await Promise.all(
+      Schema.decodeUnknownSync(Schema.Array(Schema.NonEmptyString))(pi.skills).map((item) =>
+        resolveManifestFile(spec, item, "skill", pkg),
+      ),
+    ),
   }
 }
 

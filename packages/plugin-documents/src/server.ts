@@ -6,8 +6,8 @@ import {
   resolveArtifactOutput,
 } from "@necode-ai/plugin-artifacts"
 import path from "node:path"
-import { readDocument } from "./read.js"
-import { writeDocument } from "./write.js"
+import { readDocument } from "./read.ts"
+import { writeDocument } from "./write.ts"
 
 const DOCX_MIME = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
 

@@ -26,6 +26,22 @@ describe("plugin settings model", () => {
     expect(pluginStatusLabel("failed")).toBe("settings.plugins.status.failed")
     expect(pluginStatusLabel("incompatible")).toBe("settings.plugins.status.incompatible")
   })
+
+  test("hides external skill bundles but keeps plugins with additional capabilities", () => {
+    const entries = [
+      entry({ key: "npm:skills", id: "skills", name: "Skills", capabilities: ["skills"], skills: ["/skills"] }),
+      entry({
+        key: "npm:mixed",
+        id: "mixed",
+        name: "Mixed",
+        capabilities: ["skills", "tools"],
+        skills: ["/skills"],
+        tools: ["demo"],
+      }),
+    ]
+
+    expect(pluginSections(entries, "").installed.map((item) => item.key)).toEqual(["npm:mixed"])
+  })
 })
 
 function entry(input: Partial<PluginEntry> & Pick<PluginEntry, "key" | "id" | "name">): PluginEntry {

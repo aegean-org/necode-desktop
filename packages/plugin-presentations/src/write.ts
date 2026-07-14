@@ -1,5 +1,5 @@
-import type { SlideInput } from "./schema.js"
-import { validateSlides } from "./schema.js"
+import type { SlideInput } from "./schema.ts"
+import { validateSlides } from "./schema.ts"
 
 const DECK = { width: 13.333, height: 7.5, margin: 0.8, titleY: 0.6, contentY: 1.7 } as const
 const FONT = "Microsoft YaHei"

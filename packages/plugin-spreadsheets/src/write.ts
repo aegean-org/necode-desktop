@@ -1,6 +1,6 @@
-import type { CellInput, SheetInput } from "./schema.js"
-import { validateSheets } from "./schema.js"
-import { renderChart } from "./chart.js"
+import type { CellInput, SheetInput } from "./schema.ts"
+import { validateSheets } from "./schema.ts"
+import { renderChart } from "./chart.ts"
 
 type Workbook = import("exceljs").Workbook
 
