@@ -470,6 +470,7 @@ export const dict = {
 
   "context.usage.tokens": "Tokens",
   "context.usage.usage": "Usage",
+  "context.usage.sessionTokens": "Session usage",
   "context.usage.cost": "Cost",
   "context.usage.computeRemaining": "Compute remaining",
   "context.usage.computeConsumed": "Total compute consumed",

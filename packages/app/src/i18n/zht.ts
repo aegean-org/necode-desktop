@@ -383,6 +383,7 @@ export const dict = {
 
   "context.usage.tokens": "Token",
   "context.usage.usage": "使用量",
+  "context.usage.sessionTokens": "本會話消耗",
   "context.usage.cost": "成本",
   "context.usage.computeRemaining": "剩餘算力",
   "context.usage.computeConsumed": "累計消耗",

@@ -46,6 +46,7 @@ export function SessionContextUsage(props: SessionContextUsageProps) {
     normalizeTab: (tab) => (tab.startsWith("file://") ? file.tab(tab) : tab),
   })
   const messages = createMemo(() => (params.id ? (sync().data.message[params.id] ?? []) : []))
+  const session = createMemo(() => sync().data.session.find((item) => item.id === params.id))
 
   const usd = createMemo(
     () =>
@@ -61,7 +62,9 @@ export function SessionContextUsage(props: SessionContextUsageProps) {
       }),
   )
 
-  const metrics = createMemo(() => getSessionContextMetrics(messages(), [...providers.all().values()]))
+  const metrics = createMemo(() =>
+    getSessionContextMetrics(messages(), [...providers.all().values()], session()?.tokens),
+  )
   const context = createMemo(() => metrics().context)
   const account = useQuery(() => ({
     queryKey: [sdk().scope, sdk().directory, "ne-token-account", context()?.message.id] as const,
@@ -110,6 +113,10 @@ export function SessionContextUsage(props: SessionContextUsageProps) {
           </>
         )}
       </Show>
+      <div class="flex items-center gap-2">
+        <span class="text-text-invert-strong">{metrics().sessionTotal.toLocaleString(language.intl())}</span>
+        <span class="text-text-invert-base">{language.t("context.usage.sessionTokens")}</span>
+      </div>
       <Switch>
         <Match when={metrics().billing === "compute"}>
           <Show

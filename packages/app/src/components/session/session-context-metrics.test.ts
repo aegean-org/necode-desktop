@@ -71,9 +71,15 @@ describe("getSessionContextMetrics", () => {
   test("marks NE sessions as compute billed instead of USD billed", () => {
     const metrics = getSessionContextMetrics([
       assistant("a1", { input: 40, output: 10, reasoning: 0, read: 0, write: 0 }, 0, "ne", "qwen3.5"),
-    ])
+    ], undefined, {
+      input: 1_000,
+      output: 200,
+      reasoning: 50,
+      cache: { read: 300, write: 25 },
+    })
 
     expect(metrics.billing).toBe("compute")
+    expect(metrics.sessionTotal).toBe(1_575)
   })
 
   test("preserves fallback labels and null usage when model metadata is missing", () => {
@@ -106,6 +112,7 @@ describe("getSessionContextMetrics", () => {
 
     expect(metrics.totalCost).toBe(0)
     expect(metrics.billing).toBe("usd")
+    expect(metrics.sessionTotal).toBe(0)
     expect(metrics.context).toBeUndefined()
   })
 })

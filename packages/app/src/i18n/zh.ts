@@ -412,6 +412,7 @@ export const dict = {
   "context.stats.lastActivity": "最后活动",
   "context.usage.tokens": "Token",
   "context.usage.usage": "使用率",
+  "context.usage.sessionTokens": "本会话消耗",
   "context.usage.cost": "成本",
   "context.usage.computeRemaining": "剩余算力",
   "context.usage.computeConsumed": "累计消耗",
