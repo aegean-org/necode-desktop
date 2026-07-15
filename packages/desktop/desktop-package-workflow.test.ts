@@ -70,6 +70,16 @@ test("desktop package workflow builds unsigned Windows and macOS artifacts manua
     "merge-multiple: true",
     "gh release create",
     "gh release upload",
+    "actions/setup-python",
+    'python-version: "3.12"',
+    "pip install qiniu==7.17.0",
+    "Upload release assets to Qiniu",
+    "QINIU_ACCESS_KEY: ${{ secrets.QINIU_ACCESS_KEY }}",
+    "QINIU_SECRET_KEY: ${{ secrets.QINIU_SECRET_KEY }}",
+    "QINIU_BUCKET: ${{ vars.QINIU_BUCKET }}",
+    "QINIU_PREFIX: ${{ vars.QINIU_PREFIX }}",
+    "QINIU_CDN_BASE: ${{ vars.QINIU_CDN_BASE }}",
+    "python script/upload-qiniu.py release-assets",
   ])
 
   expectIncludes(text, ["packages/desktop/dist/*.exe", "packages/desktop/dist/*.dmg"])

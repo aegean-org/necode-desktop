@@ -241,6 +241,14 @@ jobs:
           path: release-assets
           merge-multiple: true
 
+      - name: Setup Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with:
+          python-version: "3.12"
+
+      - name: Install Qiniu SDK
+        run: pip install qiniu==7.17.0
+
       - name: Create or update GitHub Release
         shell: bash
         env:
@@ -266,3 +274,12 @@ jobs:
           fi
 
           gh release upload "$RELEASE_TAG" "${assets[@]}" --clobber
+
+      - name: Upload release assets to Qiniu
+        env:
+          QINIU_ACCESS_KEY: ${{ secrets.QINIU_ACCESS_KEY }}
+          QINIU_SECRET_KEY: ${{ secrets.QINIU_SECRET_KEY }}
+          QINIU_BUCKET: ${{ vars.QINIU_BUCKET }}
+          QINIU_PREFIX: ${{ vars.QINIU_PREFIX }}
+          QINIU_CDN_BASE: ${{ vars.QINIU_CDN_BASE }}
+        run: python script/upload-qiniu.py release-assets
