@@ -76,6 +76,14 @@ import { showToast } from "@/utils/toast"
 import { ImagePreview } from "@opencode-ai/ui/image-preview"
 import { pathKey } from "@/utils/path-key"
 import { displayName } from "@/pages/layout/helpers"
+import { DialogPluginDetail } from "@/components/settings-v2/dialog-plugin-detail"
+import {
+  ComputerUseStatus,
+  computerUseEnabled,
+  computerUseMcpError,
+  computerUseOption,
+  trailingAtQuery,
+} from "./prompt-input/computer-use"
 
 export type PromptInputState = ReturnType<typeof usePrompt>
 
@@ -360,6 +368,8 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
     mode: "normal" | "shell"
     applyingHistory: boolean
     variantOpen: boolean
+    computerUse: boolean | undefined
+    computerUsePending: boolean
   }>({
     popover: null,
     historyIndex: -1,
@@ -369,6 +379,18 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
     mode: "normal",
     applyingHistory: false,
     variantOpen: false,
+    computerUse: undefined,
+    computerUsePending: false,
+  })
+  const computerUseActive = createMemo(() =>
+    computerUseEnabled(info()?.metadata as Record<string, unknown> | undefined, store.computerUse),
+  )
+  let computerUseSession = props.controls.session.id
+  createEffect(() => {
+    const current = props.controls.session.id
+    if (current === computerUseSession) return
+    computerUseSession = current
+    setStore("computerUse", undefined)
   })
   const [picker, setPicker] = createStore({
     projectOpen: false,
@@ -678,9 +700,110 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
       allDocumentsDescription: language.t("settings.rag.allDocumentsDescription"),
     })
   }
+  const computerUseList = async (): Promise<AtOption[]> => {
+    const entry = (await sdk().client.plugin.list()).data?.find((item) => item.key === "builtin:computer-use")
+    return entry
+      ? [
+          computerUseOption(entry, {
+            label: language.t("prompt.computerUse.option"),
+            description: language.t("prompt.computerUse.description"),
+            enableHint: language.t("prompt.computerUse.enableHint"),
+          }),
+        ]
+      : []
+  }
+
+  const requestError = (error: unknown) => {
+    if (error instanceof Error) return error.message
+    if (error && typeof error === "object" && "data" in error) {
+      const data = error.data
+      if (data && typeof data === "object" && "message" in data) return String(data.message)
+    }
+    return language.t("common.requestFailed")
+  }
+
+  const removeAtQuery = () => {
+    const selection = window.getSelection()
+    if (!selection || selection.rangeCount === 0) return closePopover()
+    const range = selection.getRangeAt(0)
+    if (!editorRef.contains(range.startContainer)) return closePopover()
+    const cursor = getCursorPosition(editorRef)
+    const text = prompt
+      .current()
+      .map((part) => ("content" in part ? part.content : ""))
+      .join("")
+    const query = trailingAtQuery(text, cursor)
+    if (!query) return closePopover()
+    setRangeEdge(editorRef, range, "start", query.start)
+    setRangeEdge(editorRef, range, "end", query.end)
+    range.deleteContents()
+    range.collapse(true)
+    selection.removeAllRanges()
+    selection.addRange(range)
+    handleInput()
+    closePopover()
+  }
+
+  const activateComputerUse = async () => {
+    const sessionID = props.controls.session.id
+    if (!sessionID) {
+      setStore("computerUsePending", true)
+      try {
+        const error = computerUseMcpError((await sdk().client.mcp.status()).data?.["cua-driver"])
+        if (error) {
+          showToast({
+            variant: "error",
+            title: language.t("prompt.computerUse.activationFailed"),
+            description: error,
+          })
+          return
+        }
+        setStore("computerUse", true)
+      } catch (error) {
+        showToast({
+          variant: "error",
+          title: language.t("prompt.computerUse.activationFailed"),
+          description: requestError(error),
+        })
+      } finally {
+        setStore("computerUsePending", false)
+      }
+      return
+    }
+    setStore("computerUsePending", true)
+    try {
+      const result = await sdk().client.session.computerUse({ sessionID, enabled: true })
+      if (!result.data?.enabled) {
+        showToast({
+          variant: "error",
+          title: language.t("prompt.computerUse.activationFailed"),
+          description: result.data?.error ?? language.t("common.requestFailed"),
+        })
+        return
+      }
+      setStore("computerUse", true)
+    } catch (error) {
+      showToast({
+        variant: "error",
+        title: language.t("prompt.computerUse.activationFailed"),
+        description: requestError(error),
+      })
+    } finally {
+      setStore("computerUsePending", false)
+    }
+  }
 
   const handleAtSelect = (option: AtOption | undefined) => {
     if (!option) return
+    if (option.type === "capability") {
+      removeAtQuery()
+      if (!option.available) {
+        dialog.push(() => <DialogPluginDetail entry={option.entry} />)
+        return
+      }
+      void activateComputerUse()
+      return
+    }
     if (option.type === "agent") {
       addPart({ type: "agent", name: option.name, content: "@" + option.name, start: 0, end: 0 })
       return
@@ -701,6 +824,7 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
 
   const atKey = (x: AtOption | undefined) => {
     if (!x) return ""
+    if (x.type === "capability") return `capability:${x.id}`
     if (x.type === "agent") return `agent:${x.name}`
     if (x.type === "rag") return `rag:${x.name}:${x.title ?? ""}`
     return `file:${x.path}`
@@ -715,32 +839,34 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
   } = useFilteredList<AtOption>({
     items: async (query) => {
       const agents = agentList()
-      const rag = await ragList()
+      const [rag, capabilities] = await Promise.all([ragList(), computerUseList()])
       const open = recent()
       const seen = new Set(open)
       const pinned: AtOption[] = open.map((path) => ({ type: "file", path, display: path, recent: true }))
-      if (!query.trim()) return [...agents, ...rag, ...pinned]
+      if (!query.trim()) return [...capabilities, ...agents, ...rag, ...pinned]
       const paths = await files.searchFilesAndDirectories(query)
       const fileOptions: AtOption[] = paths
         .filter((path) => !seen.has(path))
         .map((path) => ({ type: "file", path, display: path }))
-      return [...agents, ...rag, ...pinned, ...fileOptions]
+      return [...capabilities, ...agents, ...rag, ...pinned, ...fileOptions]
     },
     key: atKey,
     filterKeys: ["display"],
     skipFilter: (item) => item.type === "file" && !item.recent,
     groupBy: (item) => {
       if (item.type === "agent") return "agent"
+      if (item.type === "capability") return "capability"
       if (item.type === "rag") return "rag"
       if (item.recent) return "recent"
       return "file"
     },
     sortGroupsBy: (a, b) => {
       const rank = (category: string) => {
-        if (category === "agent") return 0
-        if (category === "rag") return 1
-        if (category === "recent") return 2
-        return 3
+        if (category === "capability") return 0
+        if (category === "agent") return 1
+        if (category === "rag") return 2
+        if (category === "recent") return 3
+        return 4
       }
       return rank(a.category) - rank(b.category)
     },
@@ -1184,6 +1310,7 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
       imageAttachments,
       commentCount,
       autoAccept: () => accepting(),
+      computerUse: computerUseActive,
       mode: () => store.mode,
       working,
       editor: () => editorRef,
@@ -1202,6 +1329,36 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
       onAbort: props.onAbort,
       onSubmit: props.onSubmit,
     })
+
+  const exitComputerUse = async () => {
+    const sessionID = props.controls.session.id
+    if (!sessionID) {
+      setStore("computerUse", false)
+      return
+    }
+    setStore("computerUsePending", true)
+    try {
+      if (working()) await abort()
+      const result = await sdk().client.session.computerUse({ sessionID, enabled: false })
+      if (!result.data) throw new Error(language.t("common.requestFailed"))
+      setStore("computerUse", false)
+      if (result.data.error) {
+        showToast({
+          variant: "error",
+          title: language.t("prompt.computerUse.cleanupFailed"),
+          description: result.data.error,
+        })
+      }
+    } catch (error) {
+      showToast({
+        variant: "error",
+        title: language.t("prompt.computerUse.exitFailed"),
+        description: requestError(error),
+      })
+    } finally {
+      setStore("computerUsePending", false)
+    }
+  }
 
   const handleKeyDown = (event: KeyboardEvent) => {
     if ((event.metaKey || event.ctrlKey) && !event.altKey && !event.shiftKey && event.key.toLowerCase() === "u") {
@@ -1541,6 +1698,13 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
                 onRemove={removeAttachment}
                 removeLabel={language.t("prompt.attachment.remove")}
               />
+              <ComputerUseStatus
+                active={computerUseActive()}
+                working={working()}
+                pending={store.computerUsePending}
+                onExit={() => void exitComputerUse()}
+                t={(key) => language.t(key as Parameters<typeof language.t>[0])}
+              />
               <div
                 class="relative min-h-[52px]"
                 onMouseDown={(e) => {
@@ -1714,6 +1878,13 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
               }
               onRemove={removeAttachment}
               removeLabel={language.t("prompt.attachment.remove")}
+            />
+            <ComputerUseStatus
+              active={computerUseActive()}
+              working={working()}
+              pending={store.computerUsePending}
+              onExit={() => void exitComputerUse()}
+              t={(key) => language.t(key as Parameters<typeof language.t>[0])}
             />
             <div
               class="relative"

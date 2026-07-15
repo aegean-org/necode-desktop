@@ -413,3 +413,13 @@ macOS：
 10. `@电脑` 能激活当前会话，未激活会话不承担 Cua 工具上下文成本。
 11. 用户可在不新建会话的情况下退出或停止并退出 Computer Use。
 12. 至少完成一次“UI 复现问题 → 代码/日志诊断 → UI 回归验证”的应用调试验收。
+
+## 18. 2026-07-15 实施验收记录
+
+- 当前实现位于 `computer-use` 分支；Computer Use 内置插件默认停用，避免未使用该能力时启动外部 Driver。用户在“设置 > 插件”启用一次后，`@电脑` 才允许激活会话。
+- Windows 本机通过当前实现发现 Cua Driver `0.8.1`，绝对路径为 `C:\Users\11250\AppData\Local\Programs\Cua\cua-driver\bin\cua-driver.exe`，并生成 `cua-driver mcp` 配置；未复制或打包 Driver 二进制。
+- Windows Driver 基线已完成 Notepad 的 `launch_app → get_window_state → type_text → get_window_state` 闭环；本分支未重启正在运行的 Desktop，因此新的 `@电脑` UI 尚未进行打包应用实机回归。
+- Desktop、OpenCode、App 共 68 项定向测试通过；`packages/desktop`、`packages/opencode`、`packages/app`、`packages/sdk/js` 的 `bun typecheck` 均通过。
+- `test/server/httpapi-session.test.ts` 当前 18 项中 17 项通过；`uses the persisted session directory for prompt requests` 在当前 Windows 环境超过测试自身 5 秒超时。Computer Use 的 Session helper、HTTP schema 和 SDK 生成测试均通过。
+- macOS 已完成路径顺序、`permissions status --json`、`permissions grant` 恢复指引和“不使用 `--embedded`”的静态验证；尚无 macOS 实机验收，不能宣称 macOS 完成。
+- “UI 复现问题 → 代码/日志诊断 → UI 回归验证”的完整应用调试验收尚未在本分支执行。

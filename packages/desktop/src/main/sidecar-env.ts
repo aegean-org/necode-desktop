@@ -4,7 +4,7 @@ const XDG_CACHE_ROOT = "xdg-cache"
 const XDG_CONFIG_ROOT = "xdg-config"
 const XDG_DATA_ROOT = "xdg-data"
 const XDG_STATE_ROOT = "xdg-state"
-const OPENCODE_CONFIG_DIR = "opencode"
+const DESKTOP_CONFIG_DIR = "necode-desktop"
 
 /**
  * OpenCode CLI config override variables must not leak into NeCode Desktop.
@@ -18,11 +18,11 @@ export const OPENCODE_CONFIG_OVERRIDE_KEYS = [
 /**
  * Creates the runtime environment used by the NeCode desktop sidecar.
  */
-export function createDesktopRuntimeEnv(input: { userDataPath: string; password?: string }) {
+export function createDesktopRuntimeEnv(input: { userDataPath: string; password?: string; configDir?: string }) {
   const configHome = join(input.userDataPath, XDG_CONFIG_ROOT)
   return {
     OPENCODE_CLIENT: "desktop",
-    OPENCODE_CONFIG_DIR: join(configHome, OPENCODE_CONFIG_DIR),
+    OPENCODE_CONFIG_DIR: join(configHome, input.configDir ?? DESKTOP_CONFIG_DIR),
     OPENCODE_EXPERIMENTAL_FILEWATCHER: "true",
     OPENCODE_EXPERIMENTAL_ICON_DISCOVERY: "true",
     ...(input.password !== undefined

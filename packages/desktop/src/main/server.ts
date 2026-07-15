@@ -23,6 +23,7 @@ const SIDECAR_STOP_TIMEOUT = 6_000
 
 type SpawnLocalServerOptions = {
   userDataPath: string
+  configDir: string
   onStdout?: (message: string) => void
   onStderr?: (message: string) => void
   onExit?: (code: number) => void
@@ -42,13 +43,13 @@ export function setDefaultServerUrl(url: string | null) {
   getStore().delete(DEFAULT_SERVER_URL_KEY)
 }
 
-export function preferAppEnv(userDataPath: string) {
+export function preferAppEnv(userDataPath: string, configDir: string) {
   const shell = process.platform === "win32" ? null : getUserShell()
   const shellEnv = shell ? loadShellEnv(shell, getLogger()) : {}
   for (const key of OPENCODE_CONFIG_OVERRIDE_KEYS) delete process.env[key]
   Object.assign(process.env, {
     ...sanitizeInheritedOpenCodeEnv(shellEnv ?? {}),
-    ...createDesktopRuntimeEnv({ userDataPath }),
+    ...createDesktopRuntimeEnv({ userDataPath, configDir }),
   })
 }
 
@@ -133,6 +134,7 @@ export async function spawnLocalServer(
       port,
       password,
       userDataPath: options.userDataPath,
+      configDir: options.configDir,
     })
   }).catch((error) => {
     if (!exited) child.kill()

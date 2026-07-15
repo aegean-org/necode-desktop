@@ -13,6 +13,7 @@ import { XaiAuthPlugin } from "./xai"
 import type { PluginCatalog } from "./catalog"
 import { gitlabAuthPlugin as GitlabAuthPlugin } from "opencode-gitlab-auth"
 import { PoeAuthPlugin } from "opencode-poe-auth"
+import { ComputerUsePlugin } from "./computer-use"
 
 type DefinitionInput = {
   key: `builtin:${string}`
@@ -20,6 +21,7 @@ type DefinitionInput = {
   name: string
   description: string
   server: Plugin
+  defaultEnabled?: boolean
 }
 
 type ProductivityInput = Omit<DefinitionInput, "server"> & { spec: string; exportName: string }
@@ -44,6 +46,15 @@ const productivity = (input: ProductivityInput): PluginCatalog.Builtin => ({
   },
   system: false,
   canDisable: true,
+})
+
+const managed = (input: DefinitionInput): PluginCatalog.Builtin => ({
+  key: input.key,
+  manifest: { id: input.id, name: input.name, description: input.description },
+  server: input.server,
+  system: false,
+  canDisable: true,
+  defaultEnabled: input.defaultEnabled,
 })
 
 const staticPlugins = [
@@ -120,6 +131,14 @@ const staticPlugins = [
 ] as const
 
 const productivityPlugins = [
+  managed({
+    key: "builtin:computer-use",
+    id: "computer-use",
+    name: "Computer Use",
+    description: "控制 Windows 和 macOS 桌面应用",
+    server: ComputerUsePlugin,
+    defaultEnabled: false,
+  }),
   productivity({
     key: "builtin:documents",
     spec: "@necode-ai/plugin-documents",

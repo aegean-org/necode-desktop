@@ -1,0 +1,62 @@
+import { describe, expect, test } from "bun:test"
+import type { PluginEntry } from "@opencode-ai/sdk/v2/client"
+import {
+  computerUseEnabled,
+  computerUseExitLabel,
+  computerUseMcpError,
+  computerUseOption,
+  trailingAtQuery,
+} from "./computer-use"
+
+describe("prompt Computer Use", () => {
+  test("reads persisted or draft activation state", () => {
+    expect(computerUseEnabled({ computerUse: { enabled: true } }, undefined)).toBe(true)
+    expect(computerUseEnabled(undefined, true)).toBe(true)
+    expect(computerUseEnabled({ computerUse: { enabled: false } }, undefined)).toBe(false)
+    expect(computerUseEnabled({ computerUse: { enabled: true } }, false)).toBe(false)
+  })
+
+  test("builds an available capability only from an active plugin", () => {
+    const active = computerUseOption(entry({ status: "active" }))
+    const failed = computerUseOption(entry({ status: "failed", error: { stage: "initialize", message: "missing" } }))
+
+    expect(active).toMatchObject({ type: "capability", id: "computer-use", available: true })
+    expect(failed).toMatchObject({ type: "capability", id: "computer-use", available: false, description: "missing" })
+  })
+
+  test("finds the @ query range without creating a prompt part", () => {
+    expect(trailingAtQuery("调试 @电脑", 6)).toEqual({ start: 3, end: 6 })
+    expect(trailingAtQuery("@computer ", 10)).toBeUndefined()
+  })
+
+  test("uses an explicit stop label while a session is working", () => {
+    expect(computerUseExitLabel(false)).toBe("prompt.computerUse.exit")
+    expect(computerUseExitLabel(true)).toBe("prompt.computerUse.stopAndExit")
+  })
+
+  test("requires a connected Cua MCP before activating a new session draft", () => {
+    expect(computerUseMcpError({ status: "connected" })).toBeUndefined()
+    expect(computerUseMcpError({ status: "failed", error: "driver failed" })).toBe("Cua Driver MCP failed: driver failed")
+    expect(computerUseMcpError(undefined)).toBe("Cua Driver MCP is not configured")
+  })
+})
+
+function entry(input: Partial<PluginEntry>): PluginEntry {
+  return {
+    key: "builtin:computer-use",
+    id: "computer-use",
+    name: "Computer Use",
+    spec: "builtin:computer-use",
+    source: "builtin",
+    scope: "builtin",
+    enabled: true,
+    status: "active",
+    system: false,
+    canDisable: true,
+    canUninstall: false,
+    capabilities: [],
+    tools: [],
+    skills: [],
+    ...input,
+  }
+}

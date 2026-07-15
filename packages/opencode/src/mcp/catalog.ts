@@ -50,35 +50,42 @@ export function convertTool(mcpTool: MCPToolDef, client: Client, timeout?: numbe
   return dynamicTool({
     description: mcpTool.description ?? "",
     inputSchema: jsonSchema(inputSchema),
-    execute: async (args: unknown, options) => {
-      const result = await client.callTool(
-        {
-          name: mcpTool.name,
-          arguments: (args || {}) as Record<string, unknown>,
-        },
-        CallToolResultSchema,
-        {
-          resetTimeoutOnProgress: true,
-          signal: options.abortSignal,
-          timeout,
-          // The MCP SDK only sends a progress token when this hook is present, enabling timeout resets.
-          onprogress: () => {},
-        },
-      )
-      if (result.isError)
-        throw new Error(
-          result.content
-            .flatMap((item) => (item.type === "text" ? [item.text] : []))
-            .filter((text) => text.trim())
-            .join("\n\n") || "MCP tool returned an error",
-        )
-      if (result.structuredContent === undefined || result.structuredContent === null) return result
-      return {
-        ...result,
-        content: [{ type: "text" as const, text: JSON.stringify(result.structuredContent) }],
-      }
-    },
+    execute: (args: unknown, options) =>
+      callTool(client, mcpTool.name, (args || {}) as Record<string, unknown>, timeout, options.abortSignal),
   })
+}
+
+export async function callTool(
+  client: Client,
+  name: string,
+  args: Record<string, unknown>,
+  timeout = DEFAULT_TIMEOUT,
+  signal?: AbortSignal,
+) {
+  const result = await client.callTool(
+    { name, arguments: args },
+    CallToolResultSchema,
+    {
+      resetTimeoutOnProgress: true,
+      signal,
+      timeout,
+      // The MCP SDK only sends a progress token when this hook is present, enabling timeout resets.
+      onprogress: () => {},
+    },
+  )
+  if (result.isError) {
+    throw new Error(
+      result.content
+        .flatMap((item) => (item.type === "text" ? [item.text] : []))
+        .filter((text) => text.trim())
+        .join("\n\n") || "MCP tool returned an error",
+    )
+  }
+  if (result.structuredContent === undefined || result.structuredContent === null) return result
+  return {
+    ...result,
+    content: [{ type: "text" as const, text: JSON.stringify(result.structuredContent) }],
+  }
 }
 
 export function fetch<T extends { name: string }>(

@@ -1018,4 +1018,13 @@ export const dict = {
   "error.childStore.persistedProjectIconCreateFailed": "建立持續性專案圖示失敗",
   "error.childStore.storeCreateFailed": "建立儲存區失敗",
   "terminal.connectionLost.abnormalClose": "WebSocket 異常關閉：{{code}}",
+  "prompt.computerUse.option": "@電腦 Computer Use",
+  "prompt.computerUse.description": "控制 Windows 和 macOS 桌面應用程式",
+  "prompt.computerUse.enableHint": "請先在設定 > 外掛中啟用 Computer Use",
+  "prompt.computerUse.enabled": "Computer Use 已開啟",
+  "prompt.computerUse.exit": "退出 Computer Use",
+  "prompt.computerUse.stopAndExit": "停止並退出",
+  "prompt.computerUse.activationFailed": "無法開啟 Computer Use",
+  "prompt.computerUse.cleanupFailed": "Computer Use 已退出，但 Driver 清理失敗",
+  "prompt.computerUse.exitFailed": "無法退出 Computer Use",
 } satisfies Partial<Record<Keys, string>>

@@ -1157,4 +1157,13 @@ export const dict = {
   "error.childStore.persistedProjectIconCreateFailed": "创建持久化项目图标失败",
   "error.childStore.storeCreateFailed": "创建存储失败",
   "terminal.connectionLost.abnormalClose": "WebSocket 异常关闭：{{code}}",
+  "prompt.computerUse.option": "@电脑 Computer Use",
+  "prompt.computerUse.description": "控制 Windows 和 macOS 桌面应用",
+  "prompt.computerUse.enableHint": "请先在设置 > 插件中启用 Computer Use",
+  "prompt.computerUse.enabled": "Computer Use 已开启",
+  "prompt.computerUse.exit": "退出 Computer Use",
+  "prompt.computerUse.stopAndExit": "停止并退出",
+  "prompt.computerUse.activationFailed": "无法开启 Computer Use",
+  "prompt.computerUse.cleanupFailed": "Computer Use 已退出，但 Driver 清理失败",
+  "prompt.computerUse.exitFailed": "无法退出 Computer Use",
 } satisfies Partial<Record<Keys, string>>

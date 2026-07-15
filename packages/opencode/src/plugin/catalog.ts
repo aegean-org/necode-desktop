@@ -35,6 +35,7 @@ export namespace PluginCatalog {
     server: Plugin
     system: boolean
     canDisable: boolean
+    defaultEnabled?: boolean
   }
 
   /** Resolve a built-in plugin definition and its package-relative skill paths. */

@@ -39,6 +39,7 @@ import { createWslServersController } from "./wsl/servers"
 import { registerWslIpcHandlers } from "./wsl/ipc"
 import { spawnWslSidecar } from "./wsl/sidecar"
 import { migrate } from "./migrate"
+import { migrateDesktopConfigDir } from "./config-dir"
 
 const APP_NAMES: Record<string, string> = {
   dev: "NeCode Dev",
@@ -187,7 +188,11 @@ const main = Effect.gen(function* () {
     return
   }
 
-  preferAppEnv(app.getPath("userData"))
+  const desktopConfigDir = migrateDesktopConfigDir({
+    userDataPath: app.getPath("userData"),
+    log: (message) => logger.warn(message),
+  })
+  preferAppEnv(app.getPath("userData"), desktopConfigDir)
 
   app.on("second-instance", (_event: Event, argv: string[]) => {
     const urls = argv.filter((arg: string) => arg.startsWith("necode://"))
@@ -319,6 +324,7 @@ const main = Effect.gen(function* () {
     const { listener, health } = yield* Effect.promise(() =>
       spawnLocalServer(hostname, port, password, {
         userDataPath: app.getPath("userData"),
+        configDir: desktopConfigDir,
         onStdout: (message) => writeLog("server", "stdout", { message }),
         onStderr: (message) => writeLog("server", "stderr", { message }, "warn"),
         onExit: (code) => writeLog("utility", "sidecar exited", { code }, "warn"),

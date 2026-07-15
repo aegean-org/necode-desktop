@@ -5,6 +5,7 @@ let createPromptSubmit: typeof import("./submit").createPromptSubmit
 
 const createdClients: string[] = []
 const createdSessions: string[] = []
+const createdSessionInputs: unknown[] = []
 const enabledAutoAccept: Array<{ sessionID: string; directory: string }> = []
 const optimistic: Array<{
   directory?: string
@@ -47,8 +48,9 @@ const clientFor = (directory: string) => {
   createdClients.push(directory)
   return {
     session: {
-      create: async () => {
+      create: async (input?: unknown) => {
         createdSessions.push(directory)
+        createdSessionInputs.push(input)
         return {
           data: {
             id: `session-${createdSessions.length}`,
@@ -218,6 +220,7 @@ beforeAll(async () => {
 beforeEach(() => {
   createdClients.length = 0
   createdSessions.length = 0
+  createdSessionInputs.length = 0
   enabledAutoAccept.length = 0
   optimistic.length = 0
   optimisticSeeded.length = 0
@@ -295,6 +298,33 @@ describe("prompt submit worktree selection", () => {
     await submit.handleSubmit(event)
 
     expect(enabledAutoAccept).toEqual([{ sessionID: "session-1", directory: "/repo/worktree-a" }])
+  })
+
+  test("persists Computer Use metadata when creating a new session", async () => {
+    const submit = createPromptSubmit({
+      prompt,
+      info: () => undefined,
+      imageAttachments: () => [],
+      commentCount: () => 0,
+      autoAccept: () => false,
+      computerUse: () => true,
+      mode: () => "normal",
+      working: () => false,
+      editor: () => undefined,
+      queueScroll: () => undefined,
+      promptLength: (value) => value.reduce((sum, part) => sum + ("content" in part ? part.content.length : 0), 0),
+      addToHistory: () => undefined,
+      resetHistoryNavigation: () => undefined,
+      setMode: () => undefined,
+      setPopover: () => undefined,
+      newSessionWorktree: () => selected,
+      onNewSessionWorktreeReset: () => undefined,
+      onSubmit: () => undefined,
+    })
+
+    await submit.handleSubmit({ preventDefault: () => undefined } as unknown as Event)
+
+    expect(createdSessionInputs).toEqual([{ metadata: { computerUse: { enabled: true } } }])
   })
 
   test("includes the selected variant on optimistic prompts", async () => {

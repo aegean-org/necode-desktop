@@ -1268,4 +1268,13 @@ export const dict = {
   "workspace.reset.archived.one": "1 session will be archived.",
   "workspace.reset.archived.many": "{{count}} sessions will be archived.",
   "workspace.reset.note": "This will reset the workspace to match the default branch.",
+  "prompt.computerUse.option": "@Computer Computer Use",
+  "prompt.computerUse.description": "Control Windows and macOS desktop apps",
+  "prompt.computerUse.enableHint": "Enable Computer Use in Settings > Plugins first",
+  "prompt.computerUse.enabled": "Computer Use is enabled",
+  "prompt.computerUse.exit": "Exit Computer Use",
+  "prompt.computerUse.stopAndExit": "Stop and exit",
+  "prompt.computerUse.activationFailed": "Could not enable Computer Use",
+  "prompt.computerUse.cleanupFailed": "Computer Use exited with a Driver cleanup error",
+  "prompt.computerUse.exitFailed": "Could not exit Computer Use",
 }
