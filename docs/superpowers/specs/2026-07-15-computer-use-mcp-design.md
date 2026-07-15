@@ -17,6 +17,9 @@ Windows 11 与 macOS 同时进入首期支持范围。macOS 需要额外处理 G
 - 不新增 NeCode Computer Use Skill；依赖 Cua MCP 自带的工具描述和 NeCode 现有模型工具循环。
 - Windows 11 与 macOS 为首期支持平台，Linux 显示为暂不支持。
 - 产品名称显示为“电脑 / Computer Use”，底层 MCP 名称保持 `cua-driver`。
+- Computer Use 默认不向所有会话注入；用户通过输入框 `@电脑` 显式激活当前会话。
+- `@电脑` 是会话能力开关，不是 Agent、文件附件或 Skill。
+- 激活状态跨当前会话的后续轮次保持，用户可以随时退出或停止并退出。
 - 首期复用 NeCode 现有工具权限机制，不宣称已经具备 Codex Desktop 的应用级授权能力。
 - Desktop 配置目录从 `xdg-config/opencode` 迁移为 `xdg-config/necode-desktop`，保留旧目录兼容迁移。
 
@@ -28,6 +31,8 @@ Windows 11 与 macOS 同时进入首期支持范围。macOS 需要额外处理 G
 4. 模型只接收首期需要的常用 Computer Use 工具，减少工具上下文和误调用。
 5. Windows 与 macOS 使用同一套 MCP 会话、图片附件和模型工具执行链路。
 6. 现有用户升级后保留插件、MCP、Skills 与其他全局配置。
+7. Computer Use 只在用户显式激活的会话中占用模型工具上下文。
+8. 激活后的会话可以组合桌面操作、Shell、日志和代码编辑工具完成真实应用调试。
 
 ## 4. 非目标
 
@@ -67,9 +72,17 @@ cua-driver mcp
         │
         ▼
 现有 MCP 图片附件与模型工具循环
+
+输入框 @电脑
+        │
+        ▼
+Session metadata: computerUse.enabled = true
+        │
+        ▼
+当前会话注入裁剪后的 cua-driver 工具
 ```
 
-NeCode 的内置插件只负责发现、配置和展示。桌面操作仍由外部 Cua Driver 进程完成，MCP 图片继续复用 `packages/opencode/src/session/tools.ts` 的附件转换链路。
+NeCode 的内置插件只负责发现、配置和展示。桌面操作仍由外部 Cua Driver 进程完成，MCP 图片继续复用 `packages/opencode/src/session/tools.ts` 的附件转换链路。Cua MCP 可以保持连接，但只有 `computerUse.enabled === true` 的会话才能在模型请求中看到相关工具。
 
 ## 6. Driver 发现
 
@@ -161,7 +174,67 @@ Cua Driver 0.8.1 的 `mcp` 命令没有服务端工具白名单参数。NeCode �
 
 首期默认隐藏录屏、轨迹回放、Driver 配置修改、更新、FFmpeg 安装、调试窗口信息和光标外观配置等工具。用户手写并使用其他 MCP 名称连接 Cua Driver 时不应用该产品裁剪，保留标准 MCP 行为。
 
-## 9. 模型执行约束
+工具注入还必须满足会话条件：
+
+- 未激活 Computer Use 的会话不注入任何 `cua-driver_*` 工具。
+- 激活会话只注入上述允许列表。
+- 退出后，下一次模型请求不再包含 Cua 工具。
+- 普通 Shell、文件、代码编辑、LSP 和其他 MCP 工具不受 Computer Use 模式影响。
+- 向包含 `session` 参数的 Cua 工具自动注入当前 NeCode Session ID，模型显式传入其他值时拒绝覆盖会话边界。
+
+## 9. `@电脑` 激活与退出
+
+### 9.1 激活
+
+输入框 `@` 菜单新增“能力”分组，并提供“电脑 / Computer Use”条目。它不复用 AgentPart，避免触发 Task 子代理语义；也不新增 Skill。
+
+选择 `@电脑` 后：
+
+1. 移除输入中的 `@电脑` 查询文本。
+2. 在输入框上下文区域显示持久状态项“Computer Use 已开启”。
+3. 新会话在创建时写入 `metadata.computerUse.enabled = true`。
+4. 已存在会话通过现有 Session metadata 更新接口持久化状态。
+5. 本次及后续轮次按允许列表注入 Cua 工具。
+
+如果 Driver 未安装、平台不支持或 macOS 权限不足，菜单项显示对应状态；选择后打开 Computer Use 插件详情和恢复指引，不写入已启用状态。
+
+### 9.2 退出
+
+输入框状态项提供明确退出操作：
+
+- 空闲时显示“退出 Computer Use”。
+- 正在执行时显示“停止并退出”。
+
+退出流程：
+
+1. 若当前 Session 正在运行，先调用现有 Session interrupt。
+2. 使用当前 NeCode Session ID 结束 Cua Driver session，清理 Agent Cursor 和会话状态。
+3. 将 `metadata.computerUse.enabled` 更新为 `false`。
+4. 从下一次模型请求中移除全部 Cua 工具。
+5. 保留普通聊天、Shell、代码和文件能力，用户无需新建会话。
+
+中断或结束 Cua Session 失败时仍然关闭 NeCode 侧模式，但必须显示真实清理错误，不能显示伪成功。
+
+### 9.3 展示
+
+会话标题区域或输入框附近持续显示 Computer Use 状态，避免用户忘记当前会话拥有桌面控制能力。历史消息中的工具调用保持可见；退出不会删除执行记录。
+
+### 9.4 Codex Desktop 交互参考
+
+NeCode 参考 Codex Desktop 的用户交互原则，不复制其专有运行时：
+
+- Computer Use 作为明确的“电脑”能力出现在输入区能力菜单，而不是要求用户理解 MCP 配置。
+- 选中后在输入区显示可移除的能力状态，用户始终知道当前会话已获得桌面控制权限。
+- 执行过程中保留清晰的工具时间线，显示目标应用、操作类型、成功或原始错误。
+- 截图和窗口状态属于工具执行结果，不伪装成普通文字回答。
+- 运行时始终保留可见的停止入口。
+- 需要用户授权或高风险确认时暂停执行，确认后继续同一任务。
+- 工具失败后允许模型基于新窗口状态恢复，但失败记录保持红色或错误状态，不改写历史结果。
+- 退出 Computer Use 不结束聊天，也不移除代码、Shell、文件和其他生产力能力。
+
+NeCode 保留自身视觉和组件规范，不逐像素复制 Codex Desktop；目标是复用清晰的激活、状态、确认、停止和退出模型。
+
+## 10. 模型执行与应用调试
 
 不新增 Skill。主要约束来自 Cua Driver 的工具描述：
 
@@ -173,7 +246,20 @@ Cua Driver 0.8.1 的 `mcp` 命令没有服务端工具白名单参数。NeCode �
 
 如后续真实模型评测证明工具描述不足，再在 System Context 中加入短小的 Computer Use 指引；首期不预先增加隐藏提示词。
 
-## 10. 桌面设置体验
+Computer Use 不限于 Notepad 等烟测应用。激活会话保留 NeCode 原有开发工具，因此支持以下调试闭环：
+
+```text
+启动或定位待调试应用
+  → 操作 UI 复现问题
+  → 获取截图与 UIA/AX 状态
+  → 读取应用日志、终端输出和源码
+  → 修改代码并重启应用
+  → 重复 UI 操作完成回归验证
+```
+
+可覆盖 Electron、Qt、浏览器外原生桌面软件和本地开发工具。Computer Use 负责可见 UI 与输入，不替代原生调试器：进程内部状态、断点、调用栈和网络数据仍通过 Shell、日志、DevTools 或项目调试工具获取。
+
+## 11. 桌面设置体验
 
 Computer Use 显示在内置生产力插件列表中，不要求用户进入通用 MCP 编辑器。
 
@@ -196,7 +282,9 @@ Computer Use 显示在内置生产力插件列表中，不要求用户进入通�
 
 首期安装按钮只复制或展示官方命令，不在 NeCode 内执行远程脚本。
 
-## 11. 权限与安全边界
+输入区能力菜单与插件设置共享同一运行时状态：插件未安装或失败时，`@电脑` 不能显示为可激活；插件恢复后无需重复配置 MCP。
+
+## 12. 权限与安全边界
 
 首期继续使用现有 MCP 工具权限：每个工具以 `cua-driver_<tool>` 进入 Permission Service。只读工具与修改工具不伪装为同一类成功状态。
 
@@ -207,10 +295,14 @@ Computer Use 显示在内置生产力插件列表中，不要求用户进入通�
 - macOS 系统权限授予 Cua Driver 身份，不授予 NeCode 自身。
 - 不记录或上传窗口截图；遥测策略由用户安装的 Cua Driver 控制。
 - NeCode 不替用户启用 Cua Driver 遥测，也不修改其本地遥测偏好。
+- 只有用户通过 `@电脑` 激活的会话获得 Cua 工具，插件全局启用不等于所有会话都能控制桌面。
+- 退出模式后必须从后续请求中移除工具，不能只隐藏前端状态。
 
 应用级授权、高风险操作分类和敏感输入识别作为后续独立安全设计，不阻塞 MCP MVP。
 
-## 12. macOS 特殊处理
+首期至少区分只读桌面观察与修改操作。窗口枚举、窗口状态和健康检查可以沿用普通读取权限；点击、输入、快捷键、拖拽和启动/关闭应用继续进入现有 Permission Service。更细的应用级授权在后续安全设计中补齐。
+
+## 13. macOS 特殊处理
 
 - 使用绝对路径启动 Driver，不依赖 GUI PATH。
 - 只读检查使用 `cua-driver permissions status --json`。
@@ -219,7 +311,7 @@ Computer Use 显示在内置生产力插件列表中，不要求用户进入通�
 - 默认允许 Cua Driver 使用 daemon/proxy 行为，以保留后台输入和 Agent Cursor 能力。
 - macOS 验收至少覆盖 TextEdit、Finder 和一个第三方桌面应用。
 
-## 13. Desktop 配置目录迁移
+## 14. Desktop 配置目录迁移
 
 Desktop 当前将 `OPENCODE_CONFIG_DIR` 指向 `<userData>/xdg-config/opencode`。改为 `<userData>/xdg-config/necode-desktop`。
 
@@ -233,7 +325,7 @@ Desktop 当前将 `OPENCODE_CONFIG_DIR` 指向 `<userData>/xdg-config/opencode`�
 
 迁移范围包含 `opencode.jsonc`、插件依赖、Skills、MCP 配置和其他用户文件。`xdg-data/opencode`、`xdg-cache/opencode`、`xdg-state/opencode` 暂不改名，以避免数据库、日志和缓存迁移扩大本功能风险。
 
-## 14. 错误处理
+## 15. 错误处理
 
 - 未安装：显示平台对应安装指引，不持续重试启动。
 - 版本命令失败：状态为 `failed`，显示退出码与 stderr。
@@ -242,10 +334,12 @@ Desktop 当前将 `OPENCODE_CONFIG_DIR` 指向 `<userData>/xdg-config/opencode`�
 - `launch_app` 返回错误但窗口随后出现：不由 NeCode 伪造成功；保留 Driver 结果，由后续 `list_windows` 验证。
 - 背景操作不支持：向模型返回 `background_unavailable`，不自动升级前台输入。
 - 截图过大：继续使用现有媒体附件压缩与上下文清理机制。
+- `@电脑` 激活失败：不进入模式，打开真实诊断信息。
+- 退出清理失败：关闭 NeCode 工具注入并显示 Driver 清理错误。
 
-## 15. 测试
+## 16. 测试
 
-### 15.1 运行时单元测试
+### 16.1 运行时单元测试
 
 - Windows PATH 与官方默认路径发现。
 - macOS PATH、`~/.local/bin`、`/usr/local/bin`、Homebrew 路径发现。
@@ -253,15 +347,23 @@ Desktop 当前将 `OPENCODE_CONFIG_DIR` 指向 `<userData>/xdg-config/opencode`�
 - 用户自定义 `mcp.cua-driver` 不被覆盖。
 - 插件停用时不注入默认 MCP。
 - Cua 工具允许列表只作用于内置 `cua-driver`。
+- 未激活会话不包含 Cua 工具，激活后包含允许列表，退出后再次消失。
+- Cua 工具的 `session` 参数绑定当前 NeCode Session ID。
+- 激活状态在刷新和后续轮次中保持。
 
-### 15.2 Desktop 测试
+### 16.2 Desktop 测试
 
 - Computer Use 行的状态、版本、路径与错误展示。
 - 未安装和 macOS 权限不足指引。
 - 启用、停用和重新检测。
 - 不从界面直接执行远程安装脚本。
+- `@` 菜单显示 Computer Use 能力项及不可用原因。
+- 新会话和已有会话激活流程。
+- “退出”和“停止并退出”状态与行为。
+- 工具时间线保留目标应用、动作、截图结果和原始失败状态。
+- 权限确认出现时任务暂停，拒绝后不继续执行后续桌面操作。
 
-### 15.3 配置迁移测试
+### 16.3 配置迁移测试
 
 - 无旧目录。
 - 只有旧目录。
@@ -269,7 +371,7 @@ Desktop 当前将 `OPENCODE_CONFIG_DIR` 指向 `<userData>/xdg-config/opencode`�
 - 移动失败回退。
 - 插件依赖和 `opencode.jsonc` 保留。
 
-### 15.4 手工验收
+### 16.4 手工验收
 
 Windows 11：
 
@@ -287,7 +389,15 @@ macOS：
 4. 验证窗口被遮挡时仍能获取窗口截图。
 5. 验证权限撤销后状态变为 `needs_permissions`。
 
-## 16. 完成标准
+应用调试验收：
+
+1. 在 `@电脑` 激活后启动一个本地待调试应用。
+2. 通过 UI 操作稳定复现一个可观察问题。
+3. 同一会话读取日志或源码并完成修复。
+4. 重启应用并通过 Computer Use 回归验证。
+5. 点击“退出 Computer Use”，确认后续轮次不再获得 Cua 工具。
+
+## 17. 完成标准
 
 只有以下条件全部满足才视为完成：
 
@@ -300,3 +410,6 @@ macOS：
 7. Desktop 配置目录完成兼容迁移，现有用户配置不丢失。
 8. 受影响包的定向测试和 `bun typecheck` 通过。
 9. Windows 实机验收通过；macOS 实机验收结果明确记录，未验证项不得宣称完成。
+10. `@电脑` 能激活当前会话，未激活会话不承担 Cua 工具上下文成本。
+11. 用户可在不新建会话的情况下退出或停止并退出 Computer Use。
+12. 至少完成一次“UI 复现问题 → 代码/日志诊断 → UI 回归验证”的应用调试验收。
