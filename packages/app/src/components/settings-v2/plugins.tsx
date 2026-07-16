@@ -114,6 +114,11 @@ function PluginSection(props: SectionProps) {
             <PluginRow
               entry={entry}
               pending={props.management.toggle.isPending && props.management.toggle.variables?.entry.key === entry.key}
+              pendingEnabled={
+                props.management.toggle.variables?.entry.key === entry.key
+                  ? props.management.toggle.variables.enabled
+                  : undefined
+              }
               onOpen={props.openDetail}
               onToggle={(item, enabled) => props.management.toggle.mutate({ entry: item, enabled })}
               onRemove={props.openRemove}

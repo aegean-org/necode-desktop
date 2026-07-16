@@ -852,6 +852,8 @@ export const dict = {
   "settings.mcp.dialog.error.incompleteKeyValue": "鍵和值均為必填",
   "settings.mcp.dialog.error.duplicateKey": "鍵不得重複",
   "settings.skills.title": "Skills",
+  "settings.plugins.status.enabling": "啟用中…",
+  "settings.plugins.status.disabling": "停用中…",
   "settings.skills.empty": "沒有已註冊的 Skill",
   "settings.skills.noProject": "開啟專案後查看 Skill",
   "settings.skills.location": "位置",

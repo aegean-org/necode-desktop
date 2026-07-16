@@ -19,6 +19,20 @@ describe("SessionComputerUse", () => {
     expect(SessionComputerUse.includeTool("cua-driver_end_session", true)).toBe(true)
   })
 
+  test("provides reliable launch and fallback instructions only to activated sessions", () => {
+    expect(SessionComputerUse.systemPrompt({})).toBeUndefined()
+
+    const prompt = SessionComputerUse.systemPrompt({ metadata: { computerUse: { enabled: true } } })
+    expect(prompt).toContain("list_apps")
+    expect(prompt).toContain("pid")
+    expect(prompt).toContain("launch_path")
+    expect(prompt).toContain("aumid")
+    expect(prompt).toContain("launch_app.urls")
+    expect(prompt).toContain("verify")
+    expect(prompt).toContain("Shell fallback")
+    expect(prompt).toContain("user's language")
+  })
+
   test("removes the Cua session field from the model schema", () => {
     expect(
       SessionComputerUse.bindSchema({

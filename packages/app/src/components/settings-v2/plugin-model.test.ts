@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test"
 import type { PluginEntry } from "@opencode-ai/sdk/v2/client"
-import { pluginSections, pluginStatusLabel } from "./plugin-model"
+import { pluginSections, pluginStatusLabel, pluginToggleState } from "./plugin-model"
 
 describe("plugin settings model", () => {
   test("filters and groups built-in, installed, and system plugins", () => {
@@ -41,6 +41,18 @@ describe("plugin settings model", () => {
     ]
 
     expect(pluginSections(entries, "").installed.map((item) => item.key)).toEqual(["npm:mixed"])
+  })
+
+  test("shows the pending plugin toggle target and status", () => {
+    expect(pluginToggleState(false, true, true)).toEqual({
+      checked: true,
+      status: "settings.plugins.status.enabling",
+    })
+    expect(pluginToggleState(true, true, false)).toEqual({
+      checked: false,
+      status: "settings.plugins.status.disabling",
+    })
+    expect(pluginToggleState(true, false, false)).toEqual({ checked: true })
   })
 })
 

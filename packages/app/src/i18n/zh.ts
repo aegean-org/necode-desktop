@@ -861,6 +861,8 @@ export const dict = {
   "settings.plugins.empty": "没有匹配的插件",
   "settings.plugins.status.active": "已启用",
   "settings.plugins.status.disabled": "已停用",
+  "settings.plugins.status.enabling": "启用中…",
+  "settings.plugins.status.disabling": "停用中…",
   "settings.plugins.status.failed": "加载失败",
   "settings.plugins.status.incompatible": "不兼容",
   "settings.plugins.scope.builtin": "内置",

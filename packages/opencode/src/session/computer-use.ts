@@ -25,10 +25,23 @@ export const ALLOWED_TOOLS = [
 
 const allowed = new Set<string>(ALLOWED_TOOLS)
 
+const SYSTEM_PROMPT = `You are operating in Computer Use mode.
+- Call list_apps before launching an application. If the target is already running, reuse the returned pid and its existing windows instead of launching it again.
+- When a launch is required, reuse the exact launch_path or packaged bundle_id/AUMID returned by list_apps, passing the packaged identifier as aumid when appropriate. If neither is available, use the complete returned application name. Never guess aliases such as "Chrome".
+- To open a webpage or search URL, prefer launch_app.urls before using Shell.
+- If a Cua tool reports an error, verify the real application or window state with list_apps, list_windows, or get_window_state before deciding the action failed.
+- Use Shell fallback only when the requested result is still incomplete after that verification.
+- When Shell fallback succeeds, explicitly state in the user's language that the Computer Use action failed and the task was completed through Shell fallback. Do not claim that Cua succeeded, and do not hide the original Cua error.`
+
 export function enabled(session: { metadata?: Record<string, unknown> }) {
   const value = session.metadata?.computerUse
   if (!value || typeof value !== "object") return false
   return "enabled" in value && value.enabled === true
+}
+
+export function systemPrompt(session: { metadata?: Record<string, unknown> }) {
+  if (!enabled(session)) return
+  return SYSTEM_PROMPT
 }
 
 export function includeTool(key: string, active: boolean) {

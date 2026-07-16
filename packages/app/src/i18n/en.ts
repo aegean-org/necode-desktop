@@ -1057,6 +1057,8 @@ export const dict = {
   "settings.plugins.empty": "No matching plugins",
   "settings.plugins.status.active": "Active",
   "settings.plugins.status.disabled": "Disabled",
+  "settings.plugins.status.enabling": "Enabling...",
+  "settings.plugins.status.disabling": "Disabling...",
   "settings.plugins.status.failed": "Failed",
   "settings.plugins.status.incompatible": "Incompatible",
   "settings.plugins.scope.builtin": "Built-in",
