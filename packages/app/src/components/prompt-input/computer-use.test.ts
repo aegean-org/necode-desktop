@@ -5,6 +5,7 @@ import {
   computerUseExitLabel,
   computerUseMcpError,
   computerUseOption,
+  prepareComputerUse,
   trailingAtQuery,
 } from "./computer-use"
 
@@ -38,6 +39,47 @@ describe("prompt Computer Use", () => {
     expect(computerUseMcpError({ status: "connected" })).toBeUndefined()
     expect(computerUseMcpError({ status: "failed", error: "driver failed" })).toBe("Cua Driver MCP failed: driver failed")
     expect(computerUseMcpError(undefined)).toBe("Cua Driver MCP is not configured")
+  })
+
+  test("enables a disabled plugin before checking the Cua MCP", async () => {
+    const calls: string[] = []
+
+    await prepareComputerUse(entry({ enabled: false, status: "disabled" }), {
+      enable: async (key) => {
+        calls.push(`enable:${key}`)
+      },
+      status: async () => {
+        calls.push("status")
+        return { status: "connected" }
+      },
+    })
+
+    expect(calls).toEqual(["enable:builtin:computer-use", "status"])
+  })
+
+  test("keeps an enabled plugin and checks the Cua MCP directly", async () => {
+    const calls: string[] = []
+
+    await prepareComputerUse(entry({ enabled: true, status: "active" }), {
+      enable: async () => {
+        calls.push("enable")
+      },
+      status: async () => {
+        calls.push("status")
+        return { status: "connected" }
+      },
+    })
+
+    expect(calls).toEqual(["status"])
+  })
+
+  test("preserves the Cua MCP failure when activation preparation fails", () => {
+    expect(
+      prepareComputerUse(entry({ enabled: true, status: "failed" }), {
+        enable: async () => {},
+        status: async () => ({ status: "failed", error: "driver failed" }),
+      }),
+    ).rejects.toThrow("Cua Driver MCP failed: driver failed")
   })
 })
 

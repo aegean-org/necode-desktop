@@ -419,7 +419,7 @@ macOS：
 ## 18. 2026-07-15 实施验收记录
 
 - 当前实现位于 `computer-use` 分支；Computer Use 内置插件默认停用，避免未使用该能力时启动外部 Driver。用户在“设置 > 插件”启用一次后，`@电脑` 才允许激活会话。
-- Windows UI 实机反馈确认上述预启用步骤会把用户带入无操作按钮的只读详情页；后续修订为“选择 `@电脑` 自动启用插件并进入模式”，同时将插件描述收敛为仅显示当前操作系统。
+- Windows UI 实机反馈确认上述预启用步骤会把用户带入无操作按钮的只读详情页；本次修订已改为“选择 `@电脑` 自动启用插件并进入模式”，同时将插件描述收敛为仅显示当前操作系统。
 - Windows 本机通过当前实现发现 Cua Driver `0.8.1`，绝对路径为 `C:\Users\11250\AppData\Local\Programs\Cua\cua-driver\bin\cua-driver.exe`，并生成 `cua-driver mcp` 配置；未复制或打包 Driver 二进制。
 - Windows Driver 基线已完成 Notepad 的 `launch_app → get_window_state → type_text → get_window_state` 闭环；本分支未重启正在运行的 Desktop，因此新的 `@电脑` UI 尚未进行打包应用实机回归。
 - Desktop、OpenCode、App 共 68 项定向测试通过；`packages/desktop`、`packages/opencode`、`packages/app`、`packages/sdk/js` 的 `bun typecheck` 均通过。

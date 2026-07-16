@@ -76,12 +76,11 @@ import { showToast } from "@/utils/toast"
 import { ImagePreview } from "@opencode-ai/ui/image-preview"
 import { pathKey } from "@/utils/path-key"
 import { displayName } from "@/pages/layout/helpers"
-import { DialogPluginDetail } from "@/components/settings-v2/dialog-plugin-detail"
 import {
   ComputerUseStatus,
   computerUseEnabled,
-  computerUseMcpError,
   computerUseOption,
+  prepareComputerUse,
   trailingAtQuery,
 } from "./prompt-input/computer-use"
 
@@ -744,34 +743,20 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
     closePopover()
   }
 
-  const activateComputerUse = async () => {
+  const activateComputerUse = async (entry: { key: string; enabled: boolean }) => {
     const sessionID = props.controls.session.id
-    if (!sessionID) {
-      setStore("computerUsePending", true)
-      try {
-        const error = computerUseMcpError((await sdk().client.mcp.status()).data?.["cua-driver"])
-        if (error) {
-          showToast({
-            variant: "error",
-            title: language.t("prompt.computerUse.activationFailed"),
-            description: error,
-          })
-          return
-        }
-        setStore("computerUse", true)
-      } catch (error) {
-        showToast({
-          variant: "error",
-          title: language.t("prompt.computerUse.activationFailed"),
-          description: requestError(error),
-        })
-      } finally {
-        setStore("computerUsePending", false)
-      }
-      return
-    }
     setStore("computerUsePending", true)
     try {
+      await prepareComputerUse(entry, {
+        enable: async (pluginKey) => {
+          await sdk().client.plugin.config.update({ pluginKey, enabled: true })
+        },
+        status: async () => (await sdk().client.mcp.status()).data?.["cua-driver"],
+      })
+      if (!sessionID) {
+        setStore("computerUse", true)
+        return
+      }
       const result = await sdk().client.session.computerUse({ sessionID, enabled: true })
       if (!result.data?.enabled) {
         showToast({
@@ -797,11 +782,7 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
     if (!option) return
     if (option.type === "capability") {
       removeAtQuery()
-      if (!option.available) {
-        dialog.push(() => <DialogPluginDetail entry={option.entry} />)
-        return
-      }
-      void activateComputerUse()
+      void activateComputerUse(option.entry)
       return
     }
     if (option.type === "agent") {

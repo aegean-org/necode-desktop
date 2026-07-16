@@ -135,7 +135,7 @@ const productivityPlugins = [
     key: "builtin:computer-use",
     id: "computer-use",
     name: "Computer Use",
-    description: "控制 Windows 和 macOS 桌面应用",
+    description: computerUseDescription(),
     server: ComputerUsePlugin,
     defaultEnabled: false,
   }),
@@ -192,6 +192,12 @@ export namespace BuiltinPlugins {
       server,
     })
   }
+}
+
+export function computerUseDescription(platform = process.platform) {
+  if (platform === "win32") return "控制 Windows 桌面应用"
+  if (platform === "darwin") return "控制 macOS 桌面应用"
+  return "当前平台暂不支持 Computer Use"
 }
 
 /** Determines whether Codex authentication should opt into the websocket transport. */

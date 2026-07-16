@@ -46,6 +46,18 @@ export function computerUseMcpError(status: { status: string; error?: string } |
   return `Cua Driver MCP ${status?.status ?? "is not configured"}${status?.error ? `: ${status.error}` : ""}`
 }
 
+export async function prepareComputerUse(
+  entry: Pick<PluginEntry, "key" | "enabled">,
+  dependencies: {
+    enable: (key: string) => Promise<unknown>
+    status: () => Promise<{ status: string; error?: string } | undefined>
+  },
+) {
+  if (!entry.enabled) await dependencies.enable(entry.key)
+  const error = computerUseMcpError(await dependencies.status())
+  if (error) throw new Error(error)
+}
+
 export const ComputerUseStatus: Component<{
   active: boolean
   working: boolean

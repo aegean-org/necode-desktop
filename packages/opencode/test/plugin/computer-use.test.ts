@@ -2,7 +2,7 @@ import { expect, test } from "bun:test"
 import type { Config } from "@opencode-ai/plugin"
 import { Effect } from "effect"
 import { RuntimeFlags } from "@/effect/runtime-flags"
-import { BuiltinPlugins } from "@/plugin/builtin"
+import { BuiltinPlugins, computerUseDescription } from "@/plugin/builtin"
 import { createComputerUsePlugin } from "@/plugin/computer-use"
 
 test("injects the detected Cua Driver as a local MCP server", async () => {
@@ -73,4 +73,10 @@ test("registers Computer Use as a user-manageable built-in without skills", asyn
     },
   })
   expect(definition?.manifest.skills).toBeUndefined()
+})
+
+test("describes Computer Use only for the current platform", () => {
+  expect(computerUseDescription("win32")).toBe("控制 Windows 桌面应用")
+  expect(computerUseDescription("darwin")).toBe("控制 macOS 桌面应用")
+  expect(computerUseDescription("linux")).toBe("当前平台暂不支持 Computer Use")
 })
