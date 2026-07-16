@@ -30,10 +30,11 @@ export function pluginStatusLabel(status: PluginEntry["status"]) {
   return STATUS_LABEL[status]
 }
 
-export function pluginToggleState(enabled: boolean, pending: boolean, pendingEnabled?: boolean) {
-  if (!pending || pendingEnabled === undefined) return { checked: enabled }
+export function pluginToggleState(enabled: boolean, pending: boolean, pendingEnabled?: boolean, busy = false) {
+  if (!pending || pendingEnabled === undefined) return { checked: enabled, disabled: busy }
   return {
     checked: pendingEnabled,
+    disabled: busy,
     status: pendingEnabled ? "settings.plugins.status.enabling" : "settings.plugins.status.disabling",
   }
 }

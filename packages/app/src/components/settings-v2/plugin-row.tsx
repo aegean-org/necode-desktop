@@ -14,6 +14,7 @@ type RowProps = {
   entry: PluginEntry
   pending: boolean
   pendingEnabled?: boolean
+  busy?: boolean
   readonly?: boolean
   onOpen: (entry: PluginEntry) => void
   onToggle?: (entry: PluginEntry, enabled: boolean) => void
@@ -22,7 +23,7 @@ type RowProps = {
 
 /** Renders one clickable plugin row with isolated management controls. */
 export function PluginRow(props: RowProps) {
-  const toggle = () => pluginToggleState(props.entry.enabled, props.pending, props.pendingEnabled)
+  const toggle = () => pluginToggleState(props.entry.enabled, props.pending, props.pendingEnabled, props.busy)
   const openFromKeyboard = (event: KeyboardEvent) => {
     if (event.key !== "Enter" && event.key !== " ") return
     event.preventDefault()
@@ -50,7 +51,7 @@ export function PluginRow(props: RowProps) {
             </Show>
             <Switch
               checked={toggle().checked}
-              disabled={props.pending || !props.entry.canDisable}
+              disabled={toggle().disabled || !props.entry.canDisable}
               onChange={(enabled) => requireToggle(props.onToggle)(props.entry, enabled)}
               hideLabel
             >

@@ -46,13 +46,16 @@ describe("plugin settings model", () => {
   test("shows the pending plugin toggle target and status", () => {
     expect(pluginToggleState(false, true, true)).toEqual({
       checked: true,
+      disabled: false,
       status: "settings.plugins.status.enabling",
     })
     expect(pluginToggleState(true, true, false)).toEqual({
       checked: false,
+      disabled: false,
       status: "settings.plugins.status.disabling",
     })
-    expect(pluginToggleState(true, false, false)).toEqual({ checked: true })
+    expect(pluginToggleState(true, false, false)).toEqual({ checked: true, disabled: false })
+    expect(pluginToggleState(true, false, undefined, true)).toEqual({ checked: true, disabled: true })
   })
 })
 
