@@ -143,6 +143,10 @@
       color: var(--syntax-type);
     }
 
+    [data-highlight="rag"] {
+      color: var(--syntax-property);
+    }
+
     max-width: 100%;
   }
 

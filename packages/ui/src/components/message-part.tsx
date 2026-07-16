@@ -58,6 +58,7 @@ import { animate } from "motion"
 import { useLocation } from "@solidjs/router"
 import { attached, inline, kind } from "./message-file"
 import { readPartText } from "./message-part-text"
+import { findRagMentions } from "./message-highlight"
 
 async function writeClipboard(text: string): Promise<boolean> {
   const body = typeof document === "undefined" ? undefined : document.body
@@ -1230,19 +1231,20 @@ export function UserMessageDisplay(props: { message: UserMessage; parts: PartTyp
   )
 }
 
-type HighlightSegment = { text: string; type?: "file" | "agent" }
+type HighlightSegment = { text: string; type?: "file" | "agent" | "rag" }
 
 function HighlightedText(props: { text: string; references: FilePart[]; agents: AgentPart[] }) {
   const segments = createMemo(() => {
     const text = props.text
 
-    const allRefs: { start: number; end: number; type: "file" | "agent" }[] = [
+    const allRefs: { start: number; end: number; type: "file" | "agent" | "rag" }[] = [
       ...props.references
         .filter((r) => r.source?.text?.start !== undefined && r.source?.text?.end !== undefined)
         .map((r) => ({ start: r.source!.text!.start, end: r.source!.text!.end, type: "file" as const })),
       ...props.agents
         .filter((a) => a.source?.start !== undefined && a.source?.end !== undefined)
         .map((a) => ({ start: a.source!.start, end: a.source!.end, type: "agent" as const })),
+      ...findRagMentions(text),
     ].sort((a, b) => a.start - b.start)
 
     const result: HighlightSegment[] = []

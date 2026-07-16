@@ -54,6 +54,8 @@ describe("collectNeRagContext", () => {
       expect(context.hits).toHaveLength(2)
       expect(context.systemPromptAppend).toContain("Local NE RAG snippets")
       expect(context.systemPromptAppend).toContain("retrieved paper one chunk")
+      expect(context.systemPromptAppend).toContain("Answer from these indexed snippets before using document-reading tools")
+      expect(context.systemPromptAppend).toContain("Only read the source document if the snippets are insufficient")
     } finally {
       store.close()
     }
