@@ -5,25 +5,32 @@ import { IconButtonV2 } from "@opencode-ai/ui/v2/icon-button-v2"
 import { MenuV2 } from "@opencode-ai/ui/v2/menu-v2"
 import { Switch } from "@opencode-ai/ui/v2/switch-v2"
 import { Spinner } from "@opencode-ai/ui/spinner"
-import { Show } from "solid-js"
+import { createSignal, Show } from "solid-js"
 import { useLanguage } from "@/context/language"
 import { pluginStatusLabel, pluginToggleState } from "./plugin-model"
 import "./plugin.css"
 
 type RowProps = {
   entry: PluginEntry
-  pending: boolean
-  pendingEnabled?: boolean
-  busy?: boolean
   readonly?: boolean
   onOpen: (entry: PluginEntry) => void
-  onToggle?: (entry: PluginEntry, enabled: boolean) => void
+  onToggle?: (entry: PluginEntry, enabled: boolean) => Promise<void>
   onRemove?: (entry: PluginEntry) => void
 }
 
 /** Renders one clickable plugin row with isolated management controls. */
 export function PluginRow(props: RowProps) {
-  const toggle = () => pluginToggleState(props.entry.enabled, props.pending, props.pendingEnabled, props.busy)
+  const [pendingEnabled, setPendingEnabled] = createSignal<boolean | undefined>()
+  const toggle = () => pluginToggleState(props.entry.enabled, pendingEnabled())
+  const change = async (enabled: boolean) => {
+    if (pendingEnabled() !== undefined) return
+    setPendingEnabled(enabled)
+    try {
+      await requireToggle(props.onToggle)(props.entry, enabled)
+    } finally {
+      setPendingEnabled(undefined)
+    }
+  }
   const openFromKeyboard = (event: KeyboardEvent) => {
     if (event.key !== "Enter" && event.key !== " ") return
     event.preventDefault()
@@ -46,13 +53,13 @@ export function PluginRow(props: RowProps) {
           onKeyDown={(event) => event.stopPropagation()}
         >
           <Show when={props.entry.canDisable}>
-            <Show when={props.pending}>
+            <Show when={pendingEnabled() !== undefined}>
               <Spinner class="size-3.5 shrink-0 text-icon-info-base" />
             </Show>
             <Switch
               checked={toggle().checked}
               disabled={toggle().disabled || !props.entry.canDisable}
-              onChange={(enabled) => requireToggle(props.onToggle)(props.entry, enabled)}
+              onChange={change}
               hideLabel
             >
               {props.entry.name}
