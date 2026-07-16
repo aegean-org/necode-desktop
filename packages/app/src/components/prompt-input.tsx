@@ -17,6 +17,7 @@ import {
   type JSX,
 } from "solid-js"
 import { Popover as KobaltePopover } from "@kobalte/core/popover"
+import { useQueryClient } from "@tanstack/solid-query"
 import { createStore, type SetStoreFunction, type Store } from "solid-js/store"
 import type { useLocal } from "@/context/local"
 import { selectionFromLines, type SelectedLineRange, useFile } from "@/context/file"
@@ -218,6 +219,7 @@ const EXAMPLES = [
 
 export const PromptInput: Component<PromptInputProps> = (props) => {
   const sdk = useSDK()
+  const queryClient = useQueryClient()
 
   const sync = useSync()
   const files = useFile()
@@ -750,6 +752,18 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
       await prepareComputerUse(entry, {
         enable: async (pluginKey) => {
           await sdk().client.plugin.config.update({ pluginKey, enabled: true })
+        },
+        refresh: async () => {
+          await Promise.all([
+            queryClient.refetchQueries({
+              queryKey: [sdk().scope, sdk().directory, "settings", "plugins"],
+              type: "all",
+            }),
+            queryClient.refetchQueries({
+              queryKey: [sdk().scope, sdk().directory, "settings", "plugin-config"],
+              type: "all",
+            }),
+          ])
         },
         status: async () => (await sdk().client.mcp.status()).data?.["cua-driver"],
       })

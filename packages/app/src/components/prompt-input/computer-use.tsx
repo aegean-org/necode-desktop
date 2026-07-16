@@ -50,10 +50,14 @@ export async function prepareComputerUse(
   entry: Pick<PluginEntry, "key" | "enabled">,
   dependencies: {
     enable: (key: string) => Promise<unknown>
+    refresh: () => Promise<unknown>
     status: () => Promise<{ status: string; error?: string } | undefined>
   },
 ) {
-  if (!entry.enabled) await dependencies.enable(entry.key)
+  if (!entry.enabled) {
+    await dependencies.enable(entry.key)
+  }
+  await dependencies.refresh()
   const error = computerUseMcpError(await dependencies.status())
   if (error) throw new Error(error)
 }

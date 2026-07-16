@@ -48,13 +48,16 @@ describe("prompt Computer Use", () => {
       enable: async (key) => {
         calls.push(`enable:${key}`)
       },
+      refresh: async () => {
+        calls.push("refresh")
+      },
       status: async () => {
         calls.push("status")
         return { status: "connected" }
       },
     })
 
-    expect(calls).toEqual(["enable:builtin:computer-use", "status"])
+    expect(calls).toEqual(["enable:builtin:computer-use", "refresh", "status"])
   })
 
   test("keeps an enabled plugin and checks the Cua MCP directly", async () => {
@@ -64,19 +67,23 @@ describe("prompt Computer Use", () => {
       enable: async () => {
         calls.push("enable")
       },
+      refresh: async () => {
+        calls.push("refresh")
+      },
       status: async () => {
         calls.push("status")
         return { status: "connected" }
       },
     })
 
-    expect(calls).toEqual(["status"])
+    expect(calls).toEqual(["refresh", "status"])
   })
 
   test("preserves the Cua MCP failure when activation preparation fails", () => {
     expect(
       prepareComputerUse(entry({ enabled: true, status: "failed" }), {
         enable: async () => {},
+        refresh: async () => {},
         status: async () => ({ status: "failed", error: "driver failed" }),
       }),
     ).rejects.toThrow("Cua Driver MCP failed: driver failed")
