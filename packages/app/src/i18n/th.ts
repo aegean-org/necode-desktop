@@ -230,6 +230,7 @@ export const dict = {
   "prompt.placeholder.shell": "ป้อนคำสั่งเชลล์... {{example}}",
   "prompt.placeholder.normal": 'ถามอะไรก็ได้... "{{example}}"',
   "prompt.placeholder.simple": "ถามอะไรก็ได้...",
+  "prompt.placeholder.design": "ถามอะไรก็ได้ ใช้ / สำหรับคำสั่ง และ @ สำหรับบริบท...",
   "prompt.placeholder.summarizeComments": "สรุปความคิดเห็น…",
   "prompt.placeholder.summarizeComment": "สรุปความคิดเห็น…",
   "prompt.mode.shell": "เชลล์",

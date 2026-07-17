@@ -38,11 +38,11 @@ mistakes as they type.
 
 ## Applying changes
 
-Config is loaded once when NeCode starts and is not hot-reloaded. After
-saving changes to `opencode.json`, an agent file, a skill, a plugin, or any
-other config-time file, **tell the user to quit and restart NeCode** for
-the changes to take effect. The running session will keep using the
-already-loaded config until then.
+Config, agent definitions, and plugins are loaded when NeCode starts and are
+not hot-reloaded. After changing those files, **tell the user to quit and
+restart NeCode**. Standalone skill files under an already configured skill
+directory are re-discovered at runtime and are available from the next user
+message without restarting NeCode.
 
 ## Installing skills and skill packs
 
@@ -74,9 +74,16 @@ When the user asks to install a named third-party skill, skill pack, or plugin:
    config with the other extension. Unless the user explicitly requests
    project-only scope, install general-purpose third-party packages in the
    active global NeCode configuration or global skills directory.
-4. Surface installation failures exactly. After a successful config or plugin
-   change, tell the user to restart NeCode and verify that the new skills are
-   discovered.
+4. Surface installation failures exactly. After writing a standalone skill,
+   verify that the installed skill appears in the runtime registry by calling
+   the `skill` tool with its exact name. Only report installation success after
+   that call loads the skill. If it succeeds, tell the user the skill is
+   available from the next user message. If it fails, say that the files were
+   written but the skill was not registered, then surface the validation or
+   discovery error instead of claiming success.
+5. If installation changed config or installed a plugin-backed skill pack,
+   tell the user to restart NeCode and verify discovery after restart. Do not
+   claim those skills are active in the current process.
 
 Superpowers is a plugin-backed skill pack, not one already-installed skill. For
 that exact request, fetch and follow the maintained upstream instructions at
@@ -84,15 +91,15 @@ that exact request, fetch and follow the maintained upstream instructions at
 
 ## Where files live
 
-| Scope                         | Path                                                                                                                      |
-| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
-| Project config                | `./opencode.json`, `./opencode.jsonc`, or `.opencode/opencode.json` (NeCode walks up from the cwd to the worktree root)  |
-| Global config                 | `<active-config-dir>/opencode.json` or `<active-config-dir>/opencode.jsonc`; resolve the directory from runtime env       |
-| Project agents                | `.opencode/agent/<name>.md` or `.opencode/agents/<name>.md`                                                               |
-| Global agents                 | `~/.config/opencode/agent(s)/<name>.md`                                                                                   |
-| Project skills                | `.opencode/skill(s)/<name>/SKILL.md`                                                                                      |
-| Global skills                 | `~/.config/opencode/skill(s)/<name>/SKILL.md`                                                                             |
-| External skills (auto-loaded) | `~/.claude/skills/<name>/SKILL.md`, `~/.agents/skills/<name>/SKILL.md`                                                    |
+| Scope                         | Path                                                                                                                    |
+| ----------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| Project config                | `./opencode.json`, `./opencode.jsonc`, or `.opencode/opencode.json` (NeCode walks up from the cwd to the worktree root) |
+| Global config                 | `<active-config-dir>/opencode.json` or `<active-config-dir>/opencode.jsonc`; resolve the directory from runtime env     |
+| Project agents                | `.opencode/agent/<name>.md` or `.opencode/agents/<name>.md`                                                             |
+| Global agents                 | `~/.config/opencode/agent(s)/<name>.md`                                                                                 |
+| Project skills                | `.opencode/skill(s)/<name>/SKILL.md`                                                                                    |
+| Global skills                 | `~/.config/opencode/skill(s)/<name>/SKILL.md`                                                                           |
+| External skills (auto-loaded) | `~/.claude/skills/<name>/SKILL.md`, `~/.agents/skills/<name>/SKILL.md`                                                  |
 
 Configs from each scope are deep-merged. Project overrides global. Unknown
 top-level keys in `opencode.json` are rejected with `ConfigInvalidError`.

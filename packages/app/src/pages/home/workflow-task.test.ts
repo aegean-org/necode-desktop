@@ -18,6 +18,7 @@ import {
 const homeSource = await Bun.file(new URL("../home.tsx", import.meta.url)).text()
 const inspectorSource = await Bun.file(new URL("./workflow-inspector.tsx", import.meta.url)).text()
 const rowSource = await Bun.file(new URL("./workflow-task-row.tsx", import.meta.url)).text()
+const sidebarSource = await Bun.file(new URL("./workflow-sidebar.tsx", import.meta.url)).text()
 const v2IconSource = await Bun.file(new URL("../../../../ui/src/v2/components/icon.tsx", import.meta.url)).text()
 const indexCssSource = await Bun.file(new URL("../../index.css", import.meta.url)).text()
 const enSource = await Bun.file(new URL("../../i18n/en.ts", import.meta.url)).text()
@@ -242,6 +243,28 @@ describe("buildWorkflowTasks", () => {
     expect(workflowTaskFilterCount(tasks, "done")).toBe(0)
   })
 
+  test("filters pinned tasks independently from their workflow status", () => {
+    const tasks = buildWorkflowTasks({
+      records: [
+        { session: session({ id: "pinned-running", updated: 2, pinned: 3 }), project: project(), projectName: "App" },
+      ],
+      permission: {},
+      question: {},
+      sessionStatus: { "pinned-running": { type: "busy" } },
+      todo: {},
+    })
+
+    expect(filterWorkflowTasks(tasks, "pinned").map((task) => task.id)).toEqual(["pinned-running"])
+    expect(filterWorkflowTasks(tasks, "running").map((task) => task.id)).toEqual(["pinned-running"])
+    expect(workflowTaskFilterCount(tasks, "pinned")).toBe(1)
+    expect(workflowTaskFilterCount(tasks, "running")).toBe(1)
+  })
+
+  test("uses an available warning token for the pinned filter dot", () => {
+    expect(sidebarSource).toContain('pinned: "bg-icon-warning-base"')
+    expect(sidebarSource).not.toContain('pinned: "bg-v2-icon-icon-warning"')
+  })
+
   test("exposes i18n keys for workflow navigator filters", () => {
     expect(workflowTaskFilters().map(workflowFilterTitleKey)).toEqual([
       "home.tasks.filter.all",
@@ -371,6 +394,28 @@ describe("buildWorkflowTasks", () => {
     expect(emptyStateSource).toContain("home.tasks.empty.projectDescription")
     expect(emptyStateSource).toContain("command.session.new")
     expect(shellSource).toContain("project={controller.selection.newSessionProject()}")
+    expect(shellSource).toContain("navigationOpen={controller.context.layout.workflowSidebar.opened()}")
+  })
+
+  test("keeps workflow group headings close to their task rows", () => {
+    const groupsSource = homeSource.slice(
+      homeSource.indexOf("function HomeTaskGroups(props"),
+      homeSource.indexOf("function HomeTaskGroupsContent"),
+    )
+    const groupSource = homeSource.slice(
+      homeSource.indexOf("function HomeTaskGroup(props"),
+      homeSource.indexOf("type HomeProjectColumnProps"),
+    )
+    const headerSource = homeSource.slice(
+      homeSource.indexOf("function HomeSessionGroupHeader"),
+      homeSource.indexOf("function HomeSessionSkeleton"),
+    )
+
+    expect(groupsSource).toContain('ScrollView class="mt-2 min-h-0 flex-1"')
+    expect(groupsSource).toContain('class="flex flex-col gap-4"')
+    expect(groupSource).toContain('class="flex min-w-0 flex-col gap-2"')
+    expect(groupSource).toContain('<WorkflowEntityList class="!pb-1 !pt-0">')
+    expect(headerSource).toContain('class="!h-6 !px-3"')
   })
 
   test("shows selected-project context in the empty inspector state", () => {

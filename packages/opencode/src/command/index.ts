@@ -69,6 +69,15 @@ export const layer = Layer.effect(
     const config = yield* Config.Service
     const mcp = yield* MCP.Service
     const skill = yield* Skill.Service
+    const skillCommand = (item: Skill.Info) => ({
+      name: item.name,
+      description: item.description,
+      source: "skill" as const,
+      get template() {
+        return item.content
+      },
+      hints: [],
+    })
 
     const init = Effect.fn("Command.state")(function* (ctx: InstanceContext) {
       const cfg = yield* config.get()
@@ -139,19 +148,6 @@ export const layer = Layer.effect(
         }
       }
 
-      for (const item of yield* skill.all()) {
-        if (commands[item.name]) continue
-        commands[item.name] = {
-          name: item.name,
-          description: item.description,
-          source: "skill",
-          get template() {
-            return item.content
-          },
-          hints: [],
-        }
-      }
-
       return {
         commands,
       }
@@ -161,12 +157,20 @@ export const layer = Layer.effect(
 
     const get = Effect.fn("Command.get")(function* (name: string) {
       const s = yield* InstanceState.get(state)
-      return s.commands[name]
+      if (s.commands[name]) return s.commands[name]
+      const item = (yield* skill.all()).find((item) => item.name === name)
+      if (!item) return
+      return skillCommand(item)
     })
 
     const list = Effect.fn("Command.list")(function* () {
       const s = yield* InstanceState.get(state)
-      return Object.values(s.commands)
+      const commands = { ...s.commands }
+      for (const item of yield* skill.all()) {
+        if (commands[item.name]) continue
+        commands[item.name] = skillCommand(item)
+      }
+      return Object.values(commands)
     })
 
     return Service.of({ get, list })

@@ -212,6 +212,7 @@ export const dict = {
   "prompt.placeholder.shell": "셸 명령어 입력... {{example}}",
   "prompt.placeholder.normal": '무엇이든 물어보세요... "{{example}}"',
   "prompt.placeholder.simple": "무엇이든 물어보세요...",
+  "prompt.placeholder.design": "무엇이든 물어보세요. /로 명령어, @로 컨텍스트...",
   "prompt.placeholder.summarizeComments": "댓글 요약…",
   "prompt.placeholder.summarizeComment": "댓글 요약…",
   "prompt.mode.shell": "셸",

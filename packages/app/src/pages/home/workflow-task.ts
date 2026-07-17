@@ -140,7 +140,8 @@ export function workflowTaskFilters() {
 export function filterWorkflowTasks(tasks: WorkflowTask[], filter: WorkflowTaskFilter, archived: WorkflowTask[] = []) {
   if (filter === "archived") return archived
   if (filter === "all") return tasks
-  return tasks.filter((task) => taskGroupID(task) === filter)
+  if (filter === "pinned") return tasks.filter((task) => !!task.pinnedAt && !task.archivedAt)
+  return tasks.filter((task) => groupID(task.status) === filter)
 }
 
 /** Counts workflow tasks for the selected home navigator item. */

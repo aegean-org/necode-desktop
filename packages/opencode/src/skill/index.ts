@@ -81,6 +81,7 @@ export class NotFoundError extends Schema.TaggedErrorClass<NotFoundError>()("Ski
 type State = {
   skills: Record<string, Info>
   dirs: Set<string>
+  matches: Set<string>
 }
 
 export interface Interface {
@@ -138,6 +139,7 @@ const loadSkills = Effect.fnUntraced(function* (
     discard: true,
   })
 
+  state.matches = new Set(discovered.matches)
   yield* Effect.logInfo("init", { count: Object.keys(state.skills).length })
 })
 
@@ -170,7 +172,7 @@ export const layer = Layer.effect(
     )
     const state = yield* InstanceState.make(
       Effect.fn("Skill.state")(function* () {
-        const s: State = { skills: {}, dirs: new Set() }
+        const s: State = { skills: {}, dirs: new Set(), matches: new Set() }
         // Register the built-in skill BEFORE disk discovery so a user-disk
         // skill with the same name can override it.
         s.skills[CUSTOMIZE_NECODE_SKILL_NAME] = {
@@ -184,29 +186,41 @@ export const layer = Layer.effect(
       }),
     )
 
+    const reload = Effect.fn("Skill.reload")(function* () {
+      yield* InstanceState.invalidate(discovered)
+      const next = yield* InstanceState.get(discovered)
+      const current = yield* InstanceState.get(state)
+      if (next.matches.length === current.matches.size && next.matches.every((match) => current.matches.has(match))) {
+        return current
+      }
+      yield* InstanceState.invalidate(state)
+      return yield* InstanceState.get(state)
+    })
+
     const get = Effect.fn("Skill.get")(function* (name: string) {
-      const s = yield* InstanceState.get(state)
+      const s = yield* reload()
       return s.skills[name]
     })
 
     const require = Effect.fn("Skill.require")(function* (name: string) {
-      const s = yield* InstanceState.get(state)
+      const s = yield* reload()
       const info = s.skills[name]
       if (info) return info
       return yield* new NotFoundError({ name, available: Object.keys(s.skills).toSorted() })
     })
 
     const all = Effect.fn("Skill.all")(function* () {
-      const s = yield* InstanceState.get(state)
+      const s = yield* reload()
       return Object.values(s.skills)
     })
 
     const dirs = Effect.fn("Skill.dirs")(function* () {
+      yield* reload()
       return (yield* InstanceState.get(discovered)).dirs
     })
 
     const available = Effect.fn("Skill.available")(function* (agent?: Agent.Info) {
-      const s = yield* InstanceState.get(state)
+      const s = yield* reload()
       const list = Object.values(s.skills).toSorted((a, b) => a.name.localeCompare(b.name))
       if (!agent) return list
       return list.filter((skill) => Permission.evaluate("skill", skill.name, agent.permission).action !== "deny")

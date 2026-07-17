@@ -213,6 +213,7 @@ export const dict = {
   "prompt.placeholder.shell": "Digite comando do shell... {{example}}",
   "prompt.placeholder.normal": 'Pergunte qualquer coisa... "{{example}}"',
   "prompt.placeholder.simple": "Pergunte qualquer coisa...",
+  "prompt.placeholder.design": "Pergunte qualquer coisa, / para comandos, @ para contexto...",
   "prompt.placeholder.summarizeComments": "Resumir comentários…",
   "prompt.placeholder.summarizeComment": "Resumir comentário…",
   "prompt.mode.shell": "Shell",

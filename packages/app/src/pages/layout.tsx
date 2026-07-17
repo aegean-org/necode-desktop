@@ -56,6 +56,7 @@ import { createAim } from "@/utils/aim"
 import { setNavigate } from "@/utils/notification-click"
 import { Worktree as WorktreeState } from "@/utils/worktree"
 import { setSessionHandoff } from "@/pages/session/handoff"
+import { createWorkflowSession, insertWorkflowSession } from "@/pages/session/workflow-new-session"
 import { SessionRouteKey, SessionStateKey } from "@/utils/server-scope"
 
 import { useDialog } from "@opencode-ai/ui/context/dialog"
@@ -995,7 +996,7 @@ export default function Layout(props: ParentProps) {
         title: language.t("command.sidebar.toggle"),
         category: language.t("command.category.view"),
         keybind: "mod+b",
-        onSelect: () => layout.sidebar.toggle(),
+        onSelect: () => (newDesign() ? layout.workflowSidebar.toggle() : layout.sidebar.toggle()),
       },
       {
         id: "project.open",
@@ -1277,6 +1278,8 @@ export default function Layout(props: ParentProps) {
     return root
   }
 
+  const creatingProjectSessions = new Set<string>()
+
   async function navigateToProject(directory: string | undefined) {
     if (!directory) return
     const root = projectRoot(directory)
@@ -1349,7 +1352,26 @@ export default function Layout(props: ParentProps) {
       return
     }
 
-    navigateWithSidebarReset(`/${base64Encode(root)}/session`)
+    if (creatingProjectSessions.has(root)) return
+    creatingProjectSessions.add(root)
+    try {
+      await createWorkflowSession({
+        directory: root,
+        create: () => serverSDK().createClient({ directory: root, throwOnError: true }).session.create(),
+        seed: (session) => {
+          const [, setChildStore] = serverSync().child(root, { bootstrap: false })
+          setChildStore("session", (sessions: Session[]) => insertWorkflowSession(sessions, session))
+        },
+        navigate: navigateWithSidebarReset,
+      })
+    } catch (error) {
+      showToast({
+        title: language.t("prompt.toast.sessionCreateFailed.title"),
+        description: errorMessage(error, language.t("common.requestFailed")),
+      })
+    } finally {
+      creatingProjectSessions.delete(root)
+    }
   }
 
   function navigateToSession(session: Session | undefined) {

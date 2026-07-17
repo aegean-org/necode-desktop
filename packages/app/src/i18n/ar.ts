@@ -213,6 +213,7 @@ export const dict = {
   "prompt.placeholder.shell": "أدخل أمر shell... {{example}}",
   "prompt.placeholder.normal": 'اسأل أي شيء... "{{example}}"',
   "prompt.placeholder.simple": "اسأل أي شيء...",
+  "prompt.placeholder.design": "اسأل أي شيء، استخدم / للأوامر و@ للسياق...",
   "prompt.placeholder.summarizeComments": "لخّص التعليقات…",
   "prompt.placeholder.summarizeComment": "لخّص التعليق…",
   "prompt.mode.shell": "Shell",

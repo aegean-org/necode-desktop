@@ -230,6 +230,7 @@ export const dict = {
   "prompt.placeholder.shell": "Введите команду оболочки... {{example}}",
   "prompt.placeholder.normal": 'Спросите что угодно... "{{example}}"',
   "prompt.placeholder.simple": "Спросите что угодно...",
+  "prompt.placeholder.design": "Спросите что угодно, / для команд, @ для контекста...",
   "prompt.placeholder.summarizeComments": "Суммировать комментарии…",
   "prompt.placeholder.summarizeComment": "Суммировать комментарий…",
   "prompt.mode.shell": "Оболочка",

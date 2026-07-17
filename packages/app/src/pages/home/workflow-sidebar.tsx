@@ -11,7 +11,7 @@ import {
 
 const FILTER_DOT_CLASS = {
   all: "bg-v2-icon-icon-accent",
-  pinned: "bg-v2-icon-icon-warning",
+  pinned: "bg-icon-warning-base",
   needs_action: "bg-icon-critical-base",
   running: "bg-icon-info-base",
   recent: "bg-icon-weak-base",

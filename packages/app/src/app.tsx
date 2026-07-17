@@ -33,6 +33,8 @@ import { FileProvider } from "@/context/file"
 import { ServerSDKProvider } from "@/context/server-sdk"
 import { ServerSyncProvider } from "@/context/server-sync"
 import { GlobalProvider } from "@/context/global"
+import { StartupSplash } from "@/components/startup-splash"
+import { WorkflowShellProvider } from "@/components/workflow-shell"
 import { HighlightsProvider } from "@/context/highlights"
 import { LanguageProvider, type Locale, useLanguage } from "@/context/language"
 import { LayoutProvider } from "@/context/layout"
@@ -231,11 +233,13 @@ function ServerScopedShell(props: ParentProps) {
   return (
     <PermissionProvider>
       <LayoutProvider>
-        <NotificationProvider>
-          <ModelsProvider>
-            <Layout>{props.children}</Layout>
-          </ModelsProvider>
-        </NotificationProvider>
+        <WorkflowShellProvider>
+          <NotificationProvider>
+            <ModelsProvider>
+              <Layout>{props.children}</Layout>
+            </ModelsProvider>
+          </NotificationProvider>
+        </WorkflowShellProvider>
       </LayoutProvider>
     </PermissionProvider>
   )
@@ -332,11 +336,7 @@ function ConnectionGate(props: ParentProps<{ disableHealthCheck?: boolean }>) {
   return (
     <Show
       when={!checking()}
-      fallback={
-        <div class="h-dvh w-screen flex flex-col items-center justify-center bg-background-base">
-          <Splash class="w-16 h-20 opacity-50 animate-pulse" />
-        </div>
-      }
+      fallback={<StartupSplash />}
     >
       <Show
         when={startupHealthCheck.latest}

@@ -1,8 +1,11 @@
 import { describe, expect, test } from "bun:test"
 import {
+  WORKFLOW_SHELL_AMBIENT_BACKGROUND,
   WORKFLOW_SHELL_LIMITS,
   clampWorkflowPanelWidth,
   parseWorkflowPanelWidth,
+  workflowOverlayPanelWidth,
+  workflowInspectorResizeMax,
   workflowPanelWidthAfterPropSync,
   workflowPanelChromeStyle,
   workflowPanelSurfaceClass,
@@ -18,6 +21,7 @@ import {
 describe("workflow shell sizing", () => {
   test("keeps Phase 1 workflow shell constants aligned with Craft", () => {
     expect(WORKFLOW_SHELL_LIMITS.gap).toBe(6)
+    expect(WORKFLOW_SHELL_LIMITS.rightGap).toBe(8)
     expect(WORKFLOW_SHELL_LIMITS.edgeInset).toBe(6)
     expect(WORKFLOW_SHELL_LIMITS.innerRadius).toBe(10)
     expect(WORKFLOW_SHELL_LIMITS.edgeRadius).toBe(8)
@@ -36,12 +40,26 @@ describe("workflow shell sizing", () => {
   test("keeps workflow surface variables scoped to the shell contract", () => {
     const style = workflowShellSurfaceStyle()
 
-    expect(style["--workflow-shell-background"]).toContain("color-mix")
-    expect(style["--workflow-panel-base"]).toContain("color-mix")
-    expect(style["--workflow-panel-content"]).toContain("color-mix")
+    expect(style["--workflow-shell-background"]).toBe(
+      "color-mix(in srgb, var(--v2-text-text-base) 2%, var(--v2-background-bg-base))",
+    )
+    expect(style["--workflow-panel-base"]).toBe("var(--workflow-shell-background)")
+    expect(style["--workflow-panel-content"]).toContain("light-dark(")
+    expect(style["--workflow-panel-content"]).toContain("var(--v2-text-text-base) 2%")
+    expect(style["--workflow-panel-content"]).toContain("var(--v2-text-text-base) 4%")
     expect(style["--background-base"]).toBe("var(--workflow-panel-base)")
     expect(style["--background-stronger"]).toBe("var(--workflow-panel-content)")
-    expect(style.background).toBe("var(--workflow-shell-background)")
+    expect(WORKFLOW_SHELL_AMBIENT_BACKGROUND).toContain("linear-gradient(to right")
+    expect(WORKFLOW_SHELL_AMBIENT_BACKGROUND).toContain("var(--v2-background-bg-accent) 16%")
+    expect(WORKFLOW_SHELL_AMBIENT_BACKGROUND).toContain("var(--v2-background-bg-accent) 7%")
+    expect(WORKFLOW_SHELL_AMBIENT_BACKGROUND).toContain("var(--v2-background-bg-accent) 3%")
+    expect(WORKFLOW_SHELL_AMBIENT_BACKGROUND).toContain("light-dark(")
+    expect(WORKFLOW_SHELL_AMBIENT_BACKGROUND).toContain("var(--v2-avatar-bg-cyan) 14%")
+    expect(WORKFLOW_SHELL_AMBIENT_BACKGROUND).toContain("var(--v2-avatar-bg-cyan) 7%")
+    expect(WORKFLOW_SHELL_AMBIENT_BACKGROUND).toContain("var(--v2-avatar-bg-cyan) 3%")
+    expect(WORKFLOW_SHELL_AMBIENT_BACKGROUND).toContain("100%")
+    expect(WORKFLOW_SHELL_AMBIENT_BACKGROUND).not.toContain("var(--workflow-shell-background)")
+    expect(style.background).toBe(WORKFLOW_SHELL_AMBIENT_BACKGROUND)
   })
 
   test("keeps panel surface roles distinct", () => {
@@ -65,9 +83,10 @@ describe("workflow shell sizing", () => {
   test("describes the Craft desktop panel stack styles", () => {
     expect(workflowShellOuterStyle()).toMatchObject({
       gap: "6px",
+      "padding-top": "6px",
       "padding-right": "6px",
       "padding-bottom": "6px",
-      background: "var(--workflow-shell-background)",
+      background: WORKFLOW_SHELL_AMBIENT_BACKGROUND,
     })
     expect(workflowPanelScrollStyle()).toEqual({
       "margin-block": "-8px",
@@ -107,23 +126,22 @@ describe("workflow shell sizing", () => {
     expect(workflowPanelSurfaceClass("content")).toContain("bg-[var(--workflow-panel-content)]")
     expect(workflowPanelSurfaceClass("right")).toContain("bg-[var(--workflow-panel-base)]")
     expect(workflowPanelSurfaceClass("navigator")).toContain("shadow-[var(--workflow-elevation-middle)]")
-    expect(workflowPanelSurfaceClass("content")).toContain("shadow-[var(--workflow-elevation-middle)]")
+    expect(workflowPanelSurfaceClass("content")).toContain("shadow-[var(--workflow-elevation-focused)]")
   })
 
   test("scopes Craft-like surfaces to the workflow shell", () => {
     expect(workflowShellSurfaceStyle()).toMatchObject({
       "--workflow-shell-background":
-        "color-mix(in srgb, var(--v2-text-text-base) 2.5%, var(--v2-background-bg-base))",
-      "--workflow-panel-base":
-        "color-mix(in srgb, var(--v2-text-text-base) 0.8%, var(--v2-background-bg-base))",
-      "--workflow-panel-content": "color-mix(in srgb, var(--v2-text-text-base) 1.8%, var(--v2-background-bg-base))",
+        "color-mix(in srgb, var(--v2-text-text-base) 2%, var(--v2-background-bg-base))",
+      "--workflow-panel-base": "var(--workflow-shell-background)",
+      "--workflow-panel-content": expect.stringContaining("var(--v2-text-text-base) 4%"),
       "--workflow-elevation-minimal":
         "0 0 0 1px color-mix(in srgb, var(--v2-text-text-base) 4%, transparent), 0 1px 1px -0.5px color-mix(in srgb, var(--v2-text-text-base) 10%, transparent)",
       "--background-base": "var(--workflow-panel-base)",
       "--background-stronger": "var(--workflow-panel-content)",
       "--surface-raised-base": "var(--workflow-surface-muted)",
       "--surface-raised-stronger-non-alpha": "var(--workflow-panel-base)",
-      background: "var(--workflow-shell-background)",
+      background: WORKFLOW_SHELL_AMBIENT_BACKGROUND,
     })
   })
 
@@ -160,6 +178,17 @@ describe("workflow shell sizing", () => {
     )
   })
 
+  test("keeps compact overlay width independent from docked panel sizing", () => {
+    expect(workflowOverlayPanelWidth({ width: 520, containerWidth: 1076 })).toBe(520)
+    expect(workflowOverlayPanelWidth({ width: 800, containerWidth: 500 })).toBe(476)
+  })
+
+  test("lets the review inspector use a mainstream share of the viewport", () => {
+    expect(workflowInspectorResizeMax(1200)).toBe(816)
+    expect(workflowInspectorResizeMax(1600)).toBe(960)
+    expect(workflowInspectorResizeMax(2400)).toBe(960)
+  })
+
   test("accounts for three fixed panels around the content panel", () => {
     expect(
       workflowPanelResizeMax({
@@ -170,7 +199,12 @@ describe("workflow shell sizing", () => {
         fixedPanelCount: 3,
       }),
     ).toBe(
-      1600 - WORKFLOW_SHELL_LIMITS.edgeInset * 2 - 760 - WORKFLOW_SHELL_LIMITS.centerMin - WORKFLOW_SHELL_LIMITS.gap * 3,
+      1600 -
+        WORKFLOW_SHELL_LIMITS.edgeInset * 2 -
+        760 -
+        WORKFLOW_SHELL_LIMITS.centerMin -
+        WORKFLOW_SHELL_LIMITS.gap * 2 -
+        WORKFLOW_SHELL_LIMITS.rightGap,
     )
   })
 

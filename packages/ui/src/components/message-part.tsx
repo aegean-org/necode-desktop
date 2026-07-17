@@ -53,7 +53,7 @@ import { Spinner } from "./spinner"
 import { TextShimmer } from "./text-shimmer"
 import { AnimatedCountList } from "./tool-count-summary"
 import { ToolStatusTitle } from "./tool-status-title"
-import { patchFiles } from "./apply-patch-file"
+import { canRenderPatchFile, patchFiles } from "./apply-patch-file"
 import { animate } from "motion"
 import { useLocation } from "@solidjs/router"
 import { attached, inline, kind } from "./message-file"
@@ -181,6 +181,7 @@ export interface MessagePartProps {
   deferToolContent?: boolean
   virtualizeDiff?: boolean
   onContentRendered?: () => void
+  onOpenFile?: (path: string) => void
   showAssistantCopyPartID?: string | null
   turnDurationMs?: number
 }
@@ -1286,6 +1287,7 @@ export function Part(props: MessagePartProps) {
         deferToolContent={props.deferToolContent}
         virtualizeDiff={props.virtualizeDiff}
         onContentRendered={props.onContentRendered}
+        onOpenFile={props.onOpenFile}
         showAssistantCopyPartID={props.showAssistantCopyPartID}
         turnDurationMs={props.turnDurationMs}
       />
@@ -1307,6 +1309,7 @@ export interface ToolProps {
   deferContent?: boolean
   virtualizeDiff?: boolean
   onContentRendered?: () => void
+  onOpenFile?: (path: string) => void
   forceOpen?: boolean
   locked?: boolean
 }
@@ -1454,6 +1457,7 @@ PART_MAPPING["tool"] = function ToolPartDisplay(props) {
               deferContent={props.deferToolContent}
               virtualizeDiff={props.virtualizeDiff}
               onContentRendered={props.onContentRendered}
+              onOpenFile={props.onOpenFile}
             />
           </Match>
         </Switch>
@@ -2134,7 +2138,7 @@ ToolRegistry.register({
       if (list.length === 0) return
       if (seeded) return
       seeded = true
-      setExpanded(list.filter((f) => f.type !== "delete").map((f) => f.filePath))
+      setExpanded(list.filter((f) => f.type !== "delete" && canRenderPatchFile(f)).map((f) => f.filePath))
     })
 
     const subtitle = createMemo(() => {
@@ -2168,6 +2172,7 @@ ToolRegistry.register({
                   <For each={files()}>
                     {(file) => {
                       const active = createMemo(() => expanded().includes(file.filePath))
+                      const renderable = createMemo(() => canRenderPatchFile(file))
                       const [visible, setVisible] = createSignal(false)
 
                       createEffect(() => {
@@ -2185,7 +2190,13 @@ ToolRegistry.register({
                       return (
                         <Accordion.Item value={file.filePath} data-type={file.type}>
                           <StickyAccordionHeader>
-                            <Accordion.Trigger>
+                            <Accordion.Trigger
+                              onClick={(event) => {
+                                if (renderable()) return
+                                event.preventDefault()
+                                props.onOpenFile?.(file.filePath)
+                              }}
+                            >
                               <div data-slot="apply-patch-trigger-content">
                                 <div data-slot="apply-patch-file-info">
                                   <FileIcon node={{ path: file.relativePath, type: "file" }} />
@@ -2194,6 +2205,21 @@ ToolRegistry.register({
                                       <span data-slot="apply-patch-directory">{`\u202A${getDirectory(file.relativePath)}\u202C`}</span>
                                     </Show>
                                     <span data-slot="apply-patch-filename">{getFilename(file.relativePath)}</span>
+                                    <Show when={props.onOpenFile}>
+                                      <Tooltip value={i18n.t("ui.sessionReview.openFile")} placement="top" gutter={4}>
+                                        <button
+                                          data-slot="apply-patch-open-button"
+                                          type="button"
+                                          aria-label={i18n.t("ui.sessionReview.openFile")}
+                                          onClick={(event) => {
+                                            event.stopPropagation()
+                                            props.onOpenFile?.(file.filePath)
+                                          }}
+                                        >
+                                          <Icon name="open-file" size="small" />
+                                        </button>
+                                      </Tooltip>
+                                    </Show>
                                   </div>
                                 </div>
                                 <div data-slot="apply-patch-trigger-actions">
@@ -2217,13 +2243,15 @@ ToolRegistry.register({
                                       <DiffChanges changes={{ additions: file.additions, deletions: file.deletions }} />
                                     </Match>
                                   </Switch>
-                                  <Icon name="chevron-grabber-vertical" size="small" />
+                                  <Show when={renderable()}>
+                                    <Icon name="chevron-grabber-vertical" size="small" />
+                                  </Show>
                                 </div>
                               </div>
                             </Accordion.Trigger>
                           </StickyAccordionHeader>
                           <Accordion.Content>
-                            <Show when={props.deferContent === false || visible()}>
+                            <Show when={renderable() && (props.deferContent === false || visible())}>
                               <div data-component="apply-patch-file-diff">
                                 <Dynamic
                                   component={fileComponent}

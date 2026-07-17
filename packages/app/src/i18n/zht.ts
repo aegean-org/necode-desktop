@@ -229,6 +229,7 @@ export const dict = {
   "prompt.placeholder.shell": "輸入 shell 命令... {{example}}",
   "prompt.placeholder.normal": '隨便問點什麼... "{{example}}"',
   "prompt.placeholder.simple": "隨便問點什麼...",
+  "prompt.placeholder.design": "問點什麼，輸入 / 查看命令，輸入 @ 新增上下文…",
   "prompt.placeholder.summarizeComments": "摘要評論…",
   "prompt.placeholder.summarizeComment": "摘要這則評論…",
   "prompt.mode.shell": "Shell",
@@ -619,6 +620,8 @@ export const dict = {
   "sidebar.project.viewAllSessions": "查看全部工作階段",
   "sidebar.project.clearNotifications": "清除通知",
   "project.removeFromNecode": "從 NeCode 移除",
+  "project.action.pin": "置頂專案",
+  "project.action.openInExplorer": "在檔案總管中開啟",
 
   "app.name.desktop": "NeCode Desktop",
   "settings.section.desktop": "桌面",

@@ -212,6 +212,7 @@ export const dict = {
   "prompt.placeholder.shell": "シェルコマンドを入力... {{example}}",
   "prompt.placeholder.normal": '何でも聞いてください... "{{example}}"',
   "prompt.placeholder.simple": "何でも聞いてください...",
+  "prompt.placeholder.design": "何でも聞いてください。/ でコマンド、@ でコンテキスト...",
   "prompt.placeholder.summarizeComments": "コメントを要約…",
   "prompt.placeholder.summarizeComment": "コメントを要約…",
   "prompt.mode.shell": "シェル",

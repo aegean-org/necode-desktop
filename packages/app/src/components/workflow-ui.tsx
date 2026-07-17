@@ -139,7 +139,7 @@ export function WorkflowPanelHeader(props: {
       class={`flex h-[42px] shrink-0 items-center justify-between gap-3 pl-4 pr-2 ${props.class ?? ""}`}
     >
       <div class="flex min-w-0 items-center gap-2">
-        {props.leadingAction ? <div class="shrink-0">{props.leadingAction}</div> : null}
+        {props.leadingAction ? <div class="flex h-full shrink-0 items-center">{props.leadingAction}</div> : null}
         <div class="min-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-[13px] leading-5 text-v2-text-text-base [font-weight:560]">
           {props.title}
         </div>

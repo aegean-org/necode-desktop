@@ -8,4 +8,12 @@ describe("Home archived state", () => {
     expect(source).toContain("controller.tasks.archivedLoad.isLoading")
     expect(source).toContain('language.t("home.tasks.empty.archived")')
   })
+
+  test("hydrates archived counts whenever the selected server and projects are ready", () => {
+    const archivedLoad = source.slice(source.indexOf("function createHomeArchivedSessionLoad"), source.indexOf("function createHomeWorkflowActions"))
+
+    expect(archivedLoad).toContain("enabled: !!input.selection.focusedServerCtx()")
+    expect(archivedLoad).toContain("input.selection.projectDirectories().length > 0")
+    expect(archivedLoad).not.toContain('enabled: input.context.state.filter === "archived"')
+  })
 })

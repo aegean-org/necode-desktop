@@ -41,6 +41,31 @@ description: ${description}
 }
 
 describe("SkillV2", () => {
+  it.live("discovers skills added to a local source after the first list", () =>
+    Effect.acquireRelease(
+      Effect.promise(() => tmpdir()),
+      (tmp) => Effect.promise(() => tmp[Symbol.asyncDispose]()),
+    ).pipe(
+      Effect.flatMap((tmp) =>
+        Effect.gen(function* () {
+          const directory = path.join(tmp.path, "skills")
+          yield* Effect.promise(() => fs.mkdir(directory, { recursive: true }))
+
+          const skill = yield* SkillV2.Service
+          const register = yield* skill.transform()
+          yield* register((editor) => editor.source({ type: "directory", path: AbsolutePath.make(directory) }))
+
+          expect(yield* skill.list()).toEqual([])
+          yield* Effect.promise(async () => {
+            await fs.mkdir(path.join(directory, "review"), { recursive: true })
+            await write(directory, "review", "Review changes")
+          })
+          expect((yield* skill.list()).map((item) => item.name)).toEqual(["review"])
+        }),
+      ),
+    ),
+  )
+
   it.live("registers sources and resolves later source precedence", () =>
     Effect.acquireRelease(
       Effect.promise(() => tmpdir()),

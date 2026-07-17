@@ -1529,7 +1529,8 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
 
   const designPlaceholder = () => {
     if (store.mode === "shell") return placeholder()
-    return "Ask anything, / for commands, @ for context..."
+    if (commentCount() > 0) return placeholder()
+    return language.t("prompt.placeholder.design")
   }
 
   const modelControlState = createMemo<ComposerModelControlState>(() => ({
@@ -1661,7 +1662,9 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
               data-component={newSession() ? "session-new-composer" : "session-composer"}
               onSubmit={handleSubmit}
               classList={{
-                "group/prompt-input min-h-[96px] w-full rounded-xl bg-v2-background-bg-base shadow-[var(--v2-elevation-raised)]": true,
+                "group/prompt-input w-full rounded-xl bg-v2-background-bg-base shadow-[var(--v2-elevation-raised)]": true,
+                "min-h-[96px]": newSession(),
+                "min-h-[84px]": !newSession(),
                 "border-icon-info-active border-dashed": store.draggingType !== null,
                 [props.class ?? ""]: !!props.class,
               }}
@@ -1734,7 +1737,9 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
                     onKeyDown={handleKeyDown}
                     classList={{
                       "select-text": true,
-                      "min-h-[52px] w-full px-4 pt-4 pb-2 focus:outline-none whitespace-pre-wrap leading-5 text-[13px] font-[440] text-v2-text-text-base": true,
+                      "w-full px-4 pt-3.5 pb-1.5 focus:outline-none whitespace-pre-wrap leading-5 text-[13px] font-[440] text-v2-text-text-base": true,
+                      "min-h-[52px]": newSession(),
+                      "min-h-[44px]": !newSession(),
                       "[&_[data-type=file]]:text-syntax-property": true,
                       "[&_[data-type=agent]]:text-syntax-type": true,
                       "[&_[data-type=rag]]:text-icon-info-active": true,
@@ -1743,14 +1748,14 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
                   />
                   <div
                     data-component={newSession() ? "session-new-design-text" : "session-composer-text"}
-                    class="absolute top-0 inset-x-0 px-4 pt-4 pointer-events-none whitespace-nowrap truncate leading-5 text-[13px] font-[440] text-v2-text-text-faint [font-family:Inter,var(--font-family-sans)]"
+                    class="absolute top-0 inset-x-0 px-4 pt-3.5 pointer-events-none whitespace-nowrap truncate leading-5 text-[13px] font-[440] text-v2-text-text-faint [font-family:Inter,var(--font-family-sans)]"
                     classList={{ "font-mono!": store.mode === "shell", hidden: prompt.dirty() }}
                   >
                     {designPlaceholder()}
                   </div>
                 </div>
               </div>
-              <div class="flex h-11 items-center px-2">
+              <div class="flex h-10 items-center px-2">
                 <div class="flex min-w-0 flex-1 items-center gap-0">
                   {fileAttachmentInput()}
                   <TooltipKeybind

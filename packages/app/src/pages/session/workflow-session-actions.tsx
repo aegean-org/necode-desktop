@@ -30,7 +30,7 @@ export function WorkflowSessionActions(props: WorkflowSessionActionsProps) {
     <div class="flex shrink-0 items-center gap-0.5" onClick={(event) => event.stopPropagation()}>
       <IconButtonV2
         data-action="workflow-session-pin"
-        variant="ghost-muted"
+        variant={props.pinned ? "neutral" : "ghost-muted"}
         size="small"
         icon={<IconV2 name="pin" />}
         aria-label={language.t(props.pinned ? "session.action.unpin" : "session.action.pin")}

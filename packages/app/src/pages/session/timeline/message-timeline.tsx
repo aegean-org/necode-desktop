@@ -270,6 +270,15 @@ export function MessageTimeline(props: {
   const initialMeasurements = cached?.measurements
   const coldBottomMount = !initialMeasurements?.length && props.shouldAnchorBottom()
   const platform = usePlatform()
+  const openFileExternally = (path: string) => {
+    if (!platform.openPath) return
+    void platform.openPath(path).catch((error) => {
+      showToast({
+        title: language.t("common.requestFailed"),
+        description: errorMessage(error),
+      })
+    })
+  }
 
   const [listRoot, setListRoot] = createSignal<HTMLDivElement>()
   const sessionID = createMemo(() => params.id)
@@ -767,6 +776,10 @@ export function MessageTimeline(props: {
       navigate(`/${params.dir}/session/${nextSessionID}`)
       return
     }
+    if (settings.general.newLayoutDesigns()) {
+      navigate("/")
+      return
+    }
     navigate(`/${params.dir}/session`)
   }
 
@@ -982,6 +995,7 @@ export function MessageTimeline(props: {
                 deferToolContent
                 virtualizeDiff={false}
                 onContentRendered={onSizeChange}
+                onOpenFile={platform.platform === "desktop" ? openFileExternally : undefined}
               />
             )}
           </Show>

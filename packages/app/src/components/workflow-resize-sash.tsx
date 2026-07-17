@@ -1,9 +1,6 @@
-import { createSignal } from "solid-js"
 import { WORKFLOW_SHELL_LIMITS, panelLimit, type WorkflowShellPanelSide } from "./workflow-shell-state"
 
 const HALF = 2
-const IDLE_LINE_COLOR = "color-mix(in srgb, var(--v2-text-text-base) 18%, transparent)"
-const ACTIVE_LINE_COLOR = "color-mix(in srgb, var(--v2-text-text-base) 36%, transparent)"
 
 type WorkflowResizeSashProps = {
   side: WorkflowShellPanelSide
@@ -14,13 +11,10 @@ type WorkflowResizeSashProps = {
 
 /** Craft-style sash that keeps the drag hit area centered between workflow panels. */
 export function WorkflowResizeSash(props: WorkflowResizeSashProps) {
-  const [active, setActive] = createSignal(false)
-  const [hovered, setHovered] = createSignal(false)
   const edge = () => (props.side === "right" ? "start" : "end")
 
   const handleMouseDown = (event: MouseEvent) => {
     event.preventDefault()
-    setActive(true)
     const start = event.clientX
     const startSize = props.size
     const previousUserSelect = document.body.style.userSelect
@@ -39,8 +33,6 @@ export function WorkflowResizeSash(props: WorkflowResizeSashProps) {
       document.body.style.cursor = previousCursor
       document.removeEventListener("mousemove", handleMouseMove)
       document.removeEventListener("mouseup", handleMouseUp)
-      setActive(false)
-      setHovered(false)
     }
 
     document.addEventListener("mousemove", handleMouseMove)
@@ -55,8 +47,6 @@ export function WorkflowResizeSash(props: WorkflowResizeSashProps) {
       class="relative z-20 flex h-full w-0 shrink-0 cursor-col-resize justify-center"
       style={{ margin: `0 ${-(WORKFLOW_SHELL_LIMITS.gap / HALF)}px` }}
       onMouseDown={handleMouseDown}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => !active() && setHovered(false)}
     >
       <div
         data-component="workflow-resize-sash-hit-area"
@@ -65,19 +55,7 @@ export function WorkflowResizeSash(props: WorkflowResizeSashProps) {
           left: `${-(WORKFLOW_SHELL_LIMITS.sashHitWidth / HALF)}px`,
           right: `${-(WORKFLOW_SHELL_LIMITS.sashHitWidth / HALF)}px`,
         }}
-      >
-        <div
-          data-component="workflow-resize-sash-line"
-          class="absolute left-1/2 -translate-x-1/2 rounded-full transition-[background,opacity] duration-150"
-          style={{
-            top: `${WORKFLOW_SHELL_LIMITS.stackVerticalOverflow}px`,
-            bottom: `${WORKFLOW_SHELL_LIMITS.stackVerticalOverflow}px`,
-            width: `${WORKFLOW_SHELL_LIMITS.sashLineWidth}px`,
-            opacity: active() || hovered() ? 1 : 0.45,
-            background: active() || hovered() ? ACTIVE_LINE_COLOR : IDLE_LINE_COLOR,
-          }}
-        />
-      </div>
+      />
     </div>
   )
 }

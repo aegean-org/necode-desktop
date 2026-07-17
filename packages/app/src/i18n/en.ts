@@ -248,6 +248,7 @@ export const dict = {
   "prompt.placeholder.shell": "Enter shell command... {{example}}",
   "prompt.placeholder.normal": 'Ask anything... "{{example}}"',
   "prompt.placeholder.simple": "Ask anything...",
+  "prompt.placeholder.design": "Ask anything, / for commands, @ for context...",
   "prompt.placeholder.summarizeComments": "Summarize comments…",
   "prompt.placeholder.summarizeComment": "Summarize comment…",
   "prompt.mode.shell": "Shell",
@@ -830,6 +831,8 @@ export const dict = {
   "sidebar.project.viewAllSessions": "View all sessions",
   "sidebar.project.clearNotifications": "Clear notifications",
   "project.removeFromNecode": "Remove from NeCode",
+  "project.action.pin": "Pin project",
+  "project.action.openInExplorer": "Open in File Explorer",
   "sidebar.empty.title": "No projects open",
   "sidebar.empty.description": "Open a project to get started",
 

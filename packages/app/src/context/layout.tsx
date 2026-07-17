@@ -15,7 +15,13 @@ import { createScrollPersistence, type SessionScroll } from "./layout-scroll"
 import { createPathHelpers } from "./file/path"
 import type { ProjectAvatarVariant } from "@opencode-ai/ui/v2/project-avatar-v2"
 import { migrateLegacySessionStateKeys, ServerScope, SessionStateKey } from "@/utils/server-scope"
-import { createSessionKeyReader, ensureSessionKey, pruneSessionKeys } from "./layout-helpers"
+import {
+  createSessionKeyReader,
+  duplicateProjectDirectories,
+  ensureSessionKey,
+  projectWorkspaceDirectories,
+  pruneSessionKeys,
+} from "./layout-helpers"
 
 export { createSessionKeyReader, ensureSessionKey, pruneSessionKeys }
 
@@ -256,6 +262,9 @@ export const { use: useLayout, provider: LayoutProvider } = createSimpleContext(
           workspaces: {} as Record<string, boolean>,
           workspacesDefault: false,
         },
+        workflowSidebar: {
+          opened: true,
+        },
         terminal: {
           height: DEFAULT_TERMINAL_HEIGHT,
           opened: false,
@@ -418,7 +427,11 @@ export const { use: useLayout, provider: LayoutProvider } = createSimpleContext(
       // Preserve local icon override from per-workspace localStorage cache (childStore.icon).
       // Without this, different subdirectories of the same git repo would share the same
       // icon from the database instead of using their individual overrides.
-      const base = { ...metadata, ...project }
+      const base = {
+        ...metadata,
+        ...project,
+        ...(metadata ? { sandboxes: projectWorkspaceDirectories(project.worktree, metadata) } : {}),
+      }
       if (childStore.icon) {
         return { ...base, icon: { ...base.icon, override: childStore.icon } }
       }
@@ -436,7 +449,21 @@ export const { use: useLayout, provider: LayoutProvider } = createSimpleContext(
       return map
     })
 
+    const preferredRoots = createMemo(() => {
+      const map = new Map<string, string>()
+      for (const project of server.projects.list()) {
+        const [childStore] = serverSync().child(project.worktree, { bootstrap: false })
+        if (!childStore.project || map.has(childStore.project)) continue
+        map.set(childStore.project, project.worktree)
+      }
+      return map
+    })
+
     const rootFor = (directory: string) => {
+      const [childStore] = serverSync().child(directory, { bootstrap: false })
+      const preferred = childStore.project ? preferredRoots().get(childStore.project) : undefined
+      if (preferred) return preferred
+
       const map = roots()
       if (map.size === 0) return directory
 
@@ -460,23 +487,13 @@ export const { use: useLayout, provider: LayoutProvider } = createSimpleContext(
 
     createEffect(() => {
       const projects = server.projects.list()
-      const seen = new Set(projects.map((project) => project.worktree))
-
-      batch(() => {
-        for (const project of projects) {
-          const root = rootFor(project.worktree)
-          if (root === project.worktree) continue
-
-          server.projects.close(project.worktree)
-
-          if (!seen.has(root)) {
-            server.projects.open(root)
-            seen.add(root)
-          }
-
-          if (project.expanded) server.projects.expand(root)
-        }
-      })
+      const duplicates = duplicateProjectDirectories(
+        projects.map((project) => ({
+          worktree: project.worktree,
+          projectID: serverSync().child(project.worktree, { bootstrap: false })[0].project,
+        })),
+      )
+      batch(() => duplicates.forEach(server.projects.close))
     })
 
     const enriched = createMemo(() => server.projects.list().map(enrich))
@@ -624,6 +641,18 @@ export const { use: useLayout, provider: LayoutProvider } = createSimpleContext(
         toggleWorkspaces(directory: string) {
           const current = store.sidebar.workspaces[directory] ?? store.sidebar.workspacesDefault ?? false
           setStore("sidebar", "workspaces", directory, !current)
+        },
+      },
+      workflowSidebar: {
+        opened: createMemo(() => store.workflowSidebar.opened),
+        open() {
+          setStore("workflowSidebar", "opened", true)
+        },
+        close() {
+          setStore("workflowSidebar", "opened", false)
+        },
+        toggle() {
+          setStore("workflowSidebar", "opened", (opened) => !opened)
         },
       },
       terminal: {

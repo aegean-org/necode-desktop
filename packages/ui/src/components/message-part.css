@@ -131,9 +131,26 @@
     word-break: break-word;
     overflow: hidden;
     background: var(--surface-base);
-    border: 1px solid var(--border-weak-base);
-    padding: 8px 12px;
-    border-radius: 6px;
+    border: 0;
+    box-shadow: var(--workflow-elevation-minimal, 0 0 0 1px var(--border-weak-base));
+    padding: 9px 12px;
+    border-radius: 8px;
+
+    [data-highlight] {
+      display: inline-block;
+      max-width: 100%;
+      margin: 0 1px;
+      padding: 0 4px;
+      overflow: hidden;
+      border-radius: 4px;
+      background: var(--workflow-panel-content, var(--background-base));
+      box-shadow: var(--workflow-elevation-minimal, 0 0 0 1px var(--border-weak-base));
+      font-size: 12px;
+      line-height: 20px;
+      vertical-align: -1px;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
 
     [data-highlight="file"] {
       color: var(--syntax-property);
@@ -213,7 +230,7 @@
 
 [data-component="text-part"] {
   width: 100%;
-  margin-top: 24px;
+  margin-top: 16px;
 
   [data-slot="text-part-body"] {
     margin-top: 0;
@@ -317,7 +334,7 @@
 [data-component="tool-output"] {
   white-space: pre;
   padding: 0;
-  margin-bottom: 24px;
+  margin-bottom: 12px;
   height: fit-content;
   display: flex;
   flex-direction: column;
@@ -716,6 +733,9 @@
 
 [data-component="tool-part-wrapper"] {
   width: 100%;
+  margin-top: 2px;
+  padding-left: 12px;
+  border-left: 2px solid color-mix(in srgb, var(--text-base) 10%, transparent);
 }
 
 [data-component="dock-prompt"][data-kind="permission"] {
@@ -1215,6 +1235,31 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+
+  [data-slot="apply-patch-open-button"] {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 2px;
+    margin-left: 8px;
+    border: none;
+    border-radius: 4px;
+    background: transparent;
+    color: var(--text-base);
+    cursor: pointer;
+    flex-shrink: 0;
+    opacity: 0;
+    transition: opacity 0.15s ease;
+
+    &:hover {
+      color: var(--text-strong);
+      background: var(--surface-base);
+    }
+  }
+
+  [data-slot="accordion-trigger"]:hover [data-slot="apply-patch-open-button"] {
+    opacity: 1;
   }
 
   [data-slot="apply-patch-trigger-actions"] {

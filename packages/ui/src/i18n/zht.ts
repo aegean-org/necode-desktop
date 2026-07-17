@@ -8,6 +8,7 @@ export const dict = {
   "ui.sessionReview.diffStyle.unified": "整合",
   "ui.sessionReview.diffStyle.split": "拆分",
   "ui.sessionReview.openFile": "開啟檔案",
+  "ui.sessionReview.openFileExternally": "在外部應用程式中開啟",
   "ui.sessionReview.selection.line": "第 {{line}} 行",
   "ui.sessionReview.selection.lines": "第 {{start}}-{{end}} 行",
   "ui.sessionReview.expandAll": "全部展開",

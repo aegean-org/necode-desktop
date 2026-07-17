@@ -16,4 +16,12 @@ describe("MessageTimeline session management", () => {
   test("keeps delete confirmation open when deletion fails", () => {
     expect(source).toContain("if (await deleteSession(props.sessionID)) dialog.close()")
   })
+
+  test("returns the new workflow layout to its overview after removing the last session", () => {
+    const navigation = source.slice(source.indexOf("const navigateAfterSessionRemoval"), source.indexOf("const archiveSession"))
+
+    expect(navigation).toContain("settings.general.newLayoutDesigns()")
+    expect(navigation).toContain('navigate("/")')
+    expect(navigation.indexOf('navigate("/")')).toBeLessThan(navigation.indexOf("navigate(`/${params.dir}/session`)"))
+  })
 })

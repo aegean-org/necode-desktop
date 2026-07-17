@@ -5,6 +5,7 @@ import { createStore } from "solid-js/store"
 import { Collapsible } from "./collapsible"
 import type { IconProps } from "./icon"
 import { TextShimmer } from "./text-shimmer"
+import { Icon } from "./icon"
 
 export type TriggerTitle = {
   title: string
@@ -185,6 +186,9 @@ export function BasicTool(props: BasicToolProps) {
       data-hide-details={props.hideDetails ? "true" : undefined}
     >
       <div data-slot="basic-tool-tool-trigger-content">
+        <span data-slot="basic-tool-tool-indicator">
+          <Icon name={props.icon} size="small" />
+        </span>
         <div data-slot="basic-tool-tool-info">
           <Switch>
             <Match when={isTriggerTitle(props.trigger) && props.trigger}>
@@ -296,13 +300,29 @@ export function BasicTool(props: BasicToolProps) {
 }
 
 function label(input: Record<string, unknown> | undefined) {
-  const keys = ["description", "query", "url", "filePath", "path", "pattern", "name"]
+  const keys = ["description", "query", "url", "filePath", "path", "pattern", "name", "key", "hotkey", "text"]
   return keys.map((key) => input?.[key]).find((value): value is string => typeof value === "string" && value.length > 0)
 }
 
 function args(input: Record<string, unknown> | undefined) {
   if (!input) return []
-  const skip = new Set(["description", "query", "url", "filePath", "path", "pattern", "name"])
+  const skip = new Set([
+    "description",
+    "query",
+    "url",
+    "filePath",
+    "path",
+    "pattern",
+    "name",
+    "key",
+    "keys",
+    "hotkey",
+    "text",
+    "delivery_mode",
+    "pid",
+    "window_id",
+    "windowId",
+  ])
   return Object.entries(input)
     .filter(([key]) => !skip.has(key))
     .flatMap(([key, value]) => {

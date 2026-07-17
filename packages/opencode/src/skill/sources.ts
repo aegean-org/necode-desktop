@@ -44,13 +44,11 @@ export namespace SkillSources {
 function external(state: ScanState, input: SkillSources.Input) {
   return Effect.gen(function* () {
     if (input.disableExternalSkills) return
-    const dirs = [
-      ...(input.disableClaudeCodeSkills ? [] : [CLAUDE_EXTERNAL_DIR]),
-      AGENTS_EXTERNAL_DIR,
-    ]
+    const dirs = [...(input.disableClaudeCodeSkills ? [] : [CLAUDE_EXTERNAL_DIR]), AGENTS_EXTERNAL_DIR]
     for (const dir of dirs) {
       const root = path.join(input.global.home, dir)
-      if (yield* input.fsys.isDir(root)) yield* scan(state, root, EXTERNAL_SKILL_PATTERN, { dot: true, scope: "global" })
+      if (yield* input.fsys.isDir(root))
+        yield* scan(state, root, EXTERNAL_SKILL_PATTERN, { dot: true, scope: "global" })
     }
     const roots = yield* input.fsys
       .up({ targets: dirs, start: input.directory, stop: input.worktree })
@@ -61,7 +59,12 @@ function external(state: ScanState, input: SkillSources.Input) {
 
 function configured(state: ScanState, input: SkillSources.Input) {
   return Effect.gen(function* () {
-    for (const dir of yield* input.config.directories()) yield* scan(state, dir, OPENCODE_SKILL_PATTERN)
+    const directories = yield* input.config.directories()
+    for (const dir of directories) yield* scan(state, dir, OPENCODE_SKILL_PATTERN)
+    const project = path.join(input.directory, ".opencode")
+    if (!directories.includes(project) && (yield* input.fsys.isDir(project))) {
+      yield* scan(state, project, OPENCODE_SKILL_PATTERN)
+    }
     const cfg = yield* input.config.get()
     for (const item of cfg.skills?.paths ?? []) {
       const expanded = item.startsWith("~/") ? path.join(input.global.home, item.slice(2)) : item
@@ -99,7 +102,9 @@ const scan = Effect.fnUntraced(function* (
   }).pipe(
     Effect.catch((error) => {
       if (!opts?.scope) return Effect.die(error)
-      return Effect.logError(`failed to scan ${opts.scope} skills`, { dir: root, error }).pipe(Effect.as([] as string[]))
+      return Effect.logError(`failed to scan ${opts.scope} skills`, { dir: root, error }).pipe(
+        Effect.as([] as string[]),
+      )
     }),
   )
   for (const match of matches) {

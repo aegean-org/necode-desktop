@@ -73,6 +73,7 @@ import { HomeWorkflowInspector } from "./home/workflow-inspector"
 import { HomeWorkflowOverview } from "./home/workflow-overview"
 import { HomeWorkflowNav } from "./home/workflow-sidebar"
 import { HomeWorkflowTaskRow } from "./home/workflow-task-row"
+import { createWorkflowSession, insertWorkflowSession } from "./session/workflow-new-session"
 import { createSessionManagement } from "./session/session-management"
 
 const HOME_SESSION_LIMIT = 64
@@ -310,7 +311,7 @@ function createHomeWorkflowTasks(input: { context: HomeWorkflowContext; selectio
 function createHomeArchivedSessionLoad(input: { context: HomeWorkflowContext; selection: HomeWorkflowSelection }) {
   return useQuery(() => ({
     queryKey: ["home", "archived-sessions", input.context.state.selection.server, ...input.selection.projectDirectories()] as const,
-    enabled: input.context.state.filter === "archived",
+    enabled: !!input.selection.focusedServerCtx() && input.selection.projectDirectories().length > 0,
     queryFn: async () => {
       const ctx = input.selection.focusedServerCtx()
       if (!ctx) throw new Error("No server available for archived sessions")
@@ -422,17 +423,39 @@ function createHomeNavigationActions(input: {
   selection: HomeWorkflowSelection
   selectionActions: ReturnType<typeof createHomeSelectionActions>
 }) {
+  const creatingSessions = new Set<string>()
   const navigateOnServer = (conn: ServerConnection.Any, href: string) => {
     const next = homeProjectNavigation(input.context.server.key, ServerConnection.key(conn), href)
     if (!next.server) return input.context.navigate(next.href)
     pendingHomeNavigation = next
     input.context.server.setActive(next.server)
   }
-  const openProjectNewSession = (conn: ServerConnection.Any, directory: string) => {
+  const openProjectNewSession = async (conn: ServerConnection.Any, directory: string) => {
+    const key = `${ServerConnection.key(conn)}:${directory}`
+    if (creatingSessions.has(key)) return
+
     const ctx = input.context.global.createServerCtx(conn)
     ctx.projects.open(directory)
     ctx.projects.touch(directory)
-    navigateOnServer(conn, `/${base64Encode(directory)}/session`)
+    creatingSessions.add(key)
+    try {
+      await createWorkflowSession({
+        directory,
+        create: () => ctx.sdk.createClient({ directory, throwOnError: true }).session.create(),
+        seed: (session) => {
+          const [, setStore] = ctx.sync.child(directory, { bootstrap: false })
+          setStore("session", (sessions: Session[]) => insertWorkflowSession(sessions, session))
+        },
+        navigate: (href) => navigateOnServer(conn, href),
+      })
+    } catch (error) {
+      showToast({
+        title: input.context.language.t("prompt.toast.sessionCreateFailed.title"),
+        description: errorMessage(error, input.context.language.t("common.requestFailed")),
+      })
+    } finally {
+      creatingSessions.delete(key)
+    }
   }
 
   return {
@@ -441,7 +464,7 @@ function createHomeNavigationActions(input: {
     openNewSession: () => {
       const conn = input.selection.focusedServer()
       const project = input.selection.newSessionProject()
-      if (conn && project) openProjectNewSession(conn, project.worktree)
+      if (conn && project) void openProjectNewSession(conn, project.worktree)
     },
     openSession: (session: Session) => {
       const project = projectForSession(session, input.selection.projects(), input.selection.projectByID())
@@ -536,6 +559,7 @@ function HomeWorkflowShell(props: { controller: HomeWorkflowController }) {
   const controller = props.controller
   return (
     <WorkflowShell
+      navigationOpen={controller.context.layout.workflowSidebar.opened()}
       left={<HomeWorkflowProjectColumn controller={controller} />}
       navigator={<HomeTaskNavigatorPanel controller={controller} />}
       center={
@@ -662,8 +686,8 @@ function HomeTaskGroups(props: { controller: HomeWorkflowController }) {
       ? props.controller.tasks.archivedLoad.isLoading
       : props.controller.tasks.sessionLoad.isLoading
   return (
-    <ScrollView class="mt-3 min-h-0 flex-1">
-      <div class="flex flex-col gap-6 pt-2">
+    <ScrollView class="mt-2 min-h-0 flex-1">
+      <div class="flex flex-col gap-4">
         <Show
           when={!loading()}
           fallback={<HomeSessionSkeleton label={props.controller.context.language.t("common.loading")} />}
@@ -746,12 +770,12 @@ function HomeTaskGroup(props: {
 }) {
   const controller = props.controller
   return (
-    <div class="flex min-w-0 flex-col gap-4">
+    <div class="flex min-w-0 flex-col gap-2">
       <HomeSessionGroupHeader
         title={controller.context.language.t(workflowGroupTitleKey(props.group.id))}
         count={props.group.tasks.length}
       />
-      <WorkflowEntityList>
+      <WorkflowEntityList class="!pb-1 !pt-0">
         <For each={props.group.tasks}>
           {(task) => (
             <HomeWorkflowTaskRow
@@ -1435,6 +1459,7 @@ function HomeSessionGroupHeader(props: { title: string; count?: number; onNewSes
     <WorkflowSectionHeader
       title={props.title}
       count={props.count}
+      class="!h-6 !px-3"
       actions={
         props.onNewSession ? (
           <ButtonV2

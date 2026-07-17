@@ -41,6 +41,7 @@ import { decode64 } from "@/utils/base64"
 import { ServerConnection, useServer } from "@/context/server"
 import { tabHref, useTabs, type Tab } from "@/context/tabs"
 import { shouldUseTitlebarSessionTabs } from "./titlebar-workflow"
+import { WORKFLOW_SHELL_AMBIENT_BACKGROUND } from "./workflow-shell-state"
 import "./titlebar.css"
 
 type TauriDesktopWindow = {
@@ -233,11 +234,14 @@ export function Titlebar(props: { update?: TitlebarUpdate }) {
     <header
       classList={{
         "shrink-0 relative flex flex-row": true,
-        "h-9 bg-v2-background-bg-deep overflow-visible": useV2Titlebar(),
+        "isolate h-9 overflow-visible before:pointer-events-none before:absolute before:inset-y-0 before:left-0 before:-z-10 before:w-screen before:content-[''] before:bg-(image:--titlebar-background)":
+          useV2Titlebar(),
         "h-10 bg-background-base overflow-hidden": !useV2Titlebar(),
       }}
       style={{
         "min-height": minHeight(),
+        "--titlebar-background": useV2Titlebar() ? WORKFLOW_SHELL_AMBIENT_BACKGROUND : undefined,
+        background: useV2Titlebar() ? WORKFLOW_SHELL_AMBIENT_BACKGROUND : undefined,
         "padding-left": mac() ? `${84 / zoom()}px` : 0,
         width: electronWindows() ? `env(titlebar-area-width, calc(100vw - ${windowsControlsWidth()}))` : undefined,
         "max-width": electronWindows()
@@ -442,8 +446,50 @@ export function Titlebar(props: { update?: TitlebarUpdate }) {
                 }}
               >
                 <ChannelIndicator />
+                <TooltipKeybind
+                  placement="bottom"
+                  title={language.t("command.sidebar.toggle")}
+                  keybind={command.keybind("sidebar.toggle")}
+                >
+                  <IconButtonV2
+                    type="button"
+                    variant="ghost-muted"
+                    size="large"
+                    class="!w-9 shrink-0"
+                    icon={<IconV2 name="sidebar-right" class="rotate-180" />}
+                    onClick={layout.workflowSidebar.toggle}
+                    aria-label={language.t("command.sidebar.toggle")}
+                    aria-expanded={layout.workflowSidebar.opened()}
+                  />
+                </TooltipKeybind>
                 <Show when={windows() || linux()}>
                   <WindowsAppMenu command={command} platform={platform} variant="v2" />
+                </Show>
+                <Show when={hasProjects()}>
+                  <div class="flex shrink-0 items-center gap-0.5">
+                    <Tooltip placement="bottom" value={language.t("common.goBack")} openDelay={1000}>
+                      <IconButtonV2
+                        type="button"
+                        variant="ghost-muted"
+                        size="small"
+                        icon={<IconV2 name="arrow-right" class="rotate-180" />}
+                        disabled={!canBack()}
+                        onClick={back}
+                        aria-label={language.t("common.goBack")}
+                      />
+                    </Tooltip>
+                    <Tooltip placement="bottom" value={language.t("common.goForward")} openDelay={1000}>
+                      <IconButtonV2
+                        type="button"
+                        variant="ghost-muted"
+                        size="small"
+                        icon={<IconV2 name="arrow-right" />}
+                        disabled={!canForward()}
+                        onClick={forward}
+                        aria-label={language.t("common.goForward")}
+                      />
+                    </Tooltip>
+                  </div>
                 </Show>
                 <IconButtonV2
                   variant="ghost-muted"
@@ -1008,7 +1054,7 @@ function NewSessionTabItem(props: { ref?: HTMLDivElement; href: string; title: s
 function ChannelIndicator() {
   return (
     <>
-      {["beta", "dev"].includes(import.meta.env.VITE_OPENCODE_CHANNEL) && (
+      {import.meta.env.VITE_OPENCODE_CHANNEL === "beta" && (
         <div class="bg-icon-interactive-base text-[#FFF] font-medium px-2 rounded-sm uppercase font-mono">
           {import.meta.env.VITE_OPENCODE_CHANNEL.toUpperCase()}
         </div>

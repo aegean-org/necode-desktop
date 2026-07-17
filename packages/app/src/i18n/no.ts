@@ -233,6 +233,7 @@ export const dict = {
   "prompt.placeholder.shell": "Skriv inn shell-kommando... {{example}}",
   "prompt.placeholder.normal": 'Spør om hva som helst... "{{example}}"',
   "prompt.placeholder.simple": "Spør om hva som helst...",
+  "prompt.placeholder.design": "Spør om hva som helst, / for kommandoer, @ for kontekst...",
   "prompt.placeholder.summarizeComments": "Oppsummer kommentarer…",
   "prompt.placeholder.summarizeComment": "Oppsummer kommentar…",
   "prompt.mode.shell": "Shell",

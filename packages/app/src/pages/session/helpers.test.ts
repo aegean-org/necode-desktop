@@ -8,6 +8,7 @@ import {
   focusTerminalById,
   getTabReorderIndex,
   nextSessionIDAfterRemoval,
+  reviewFileOpenWith,
   shouldCenterSessionContent,
   shouldFocusTerminalOnKeyDown,
   shouldShowFileTree,
@@ -29,10 +30,19 @@ describe("session page initialization", () => {
   test("wires workflow shell slots explicitly", async () => {
     const source = await Bun.file(new URL("../session.tsx", import.meta.url)).text()
 
-    expect(source).toContain('storageKey="session.workflow-shell.panels"')
+    expect(source).not.toContain('storageKey="session.workflow-shell.panels"')
     expect(source).toContain("const workflowRightPanelOpen = createMemo")
     expect(source).toContain("!!params.id && desktopSidePanelOpen()")
+    expect(source).toContain("navigationOpen={layout.workflowSidebar.opened()}")
     expect(source).toContain("right={workflowRightPanelOpen() ? sidePanel(true) : undefined}")
+  })
+
+  test("keeps internal review tabs and external file opening separate", async () => {
+    const source = await Bun.file(new URL("../session.tsx", import.meta.url)).text()
+
+    expect(source).toContain("const openReviewFile = createOpenReviewFile({")
+    expect(source).toContain("onViewFile={openReviewFile}")
+    expect(source).toContain("onOpenFileExternally=")
   })
 
   test("renders workflow navigator rows through shared entity rows", async () => {
@@ -66,6 +76,18 @@ describe("session page initialization", () => {
 
     expect(headerSource).toContain("WorkflowOpenFileButton")
     expect(headerSource).not.toContain("actions={<OpenFileButton")
+  })
+
+  test("keeps the fourth workflow panel navigable back to review", async () => {
+    const source = await Bun.file(new URL("./session-side-panel.tsx", import.meta.url)).text()
+    const workflowUi = await Bun.file(new URL("../../components/workflow-ui.tsx", import.meta.url)).text()
+    const workflowSource = source.slice(source.indexOf("function createWorkflowPanelState"), source.indexOf("function createSidePanelDrag"))
+    const headerSource = source.slice(source.indexOf("function SessionWorkflowPanelHeader"), source.indexOf("function ReviewTabContent"))
+
+    expect(workflowSource).toContain('base.session.tabs().setActive("review")')
+    expect(headerSource).toContain("leadingAction=")
+    expect(source).toContain('backLabel={props.state.language.t("common.goBack")}')
+    expect(workflowUi).toContain('class="flex h-full shrink-0 items-center"')
   })
 
   test("keeps workflow composer dock from nesting legacy dock chrome", async () => {
@@ -122,13 +144,13 @@ function sourceSectionNonblankLineCount(source: string, start: string, end: stri
 }
 
 describe("shouldCenterSessionContent", () => {
-  test("keeps workflow layout from centering desktop session content", () => {
-    expect(shouldCenterSessionContent({ desktop: true, reviewOpen: false, workflowLayout: true })).toBe(false)
+  test("centers desktop session content in the workflow layout", () => {
+    expect(shouldCenterSessionContent({ desktop: true, reviewOpen: false, workflowLayout: true })).toBe(true)
   })
 
-  test("keeps legacy desktop sessions centered only outside the workflow layout", () => {
+  test("centers desktop sessions with no review panel", () => {
     expect(shouldCenterSessionContent({ desktop: true, reviewOpen: false, workflowLayout: false })).toBe(true)
-    expect(shouldCenterSessionContent({ desktop: true, reviewOpen: false, workflowLayout: true })).toBe(false)
+    expect(shouldCenterSessionContent({ desktop: true, reviewOpen: false, workflowLayout: true })).toBe(true)
   })
 
   test("does not center mobile or review layouts", () => {
@@ -141,6 +163,20 @@ describe("shouldShowFileTree", () => {
   test("does not reserve space for a disabled file tree", () => {
     expect(shouldShowFileTree({ visible: false, opened: true })).toBe(false)
     expect(shouldShowFileTree({ visible: true, opened: true })).toBe(true)
+  })
+})
+
+describe("reviewFileOpenWith", () => {
+  test("opens source files in a code editor", () => {
+    expect(reviewFileOpenWith("src/index.ts", "windows")).toBe("code")
+    expect(reviewFileOpenWith("src/index.ts", "linux")).toBe("code")
+    expect(reviewFileOpenWith("src/index.ts", "macos")).toBe("Visual Studio Code")
+  })
+
+  test("leaves documents and media with their system application", () => {
+    expect(reviewFileOpenWith("report.docx", "windows")).toBeUndefined()
+    expect(reviewFileOpenWith("diagram.png", "windows")).toBeUndefined()
+    expect(reviewFileOpenWith("demo.mp4", "windows")).toBeUndefined()
   })
 })
 

@@ -1,4 +1,5 @@
 import { createResizeObserver } from "@solid-primitives/resize-observer"
+import { createSimpleContext } from "@opencode-ai/ui/context"
 import { Show, createEffect, createMemo, onCleanup, onMount, type JSX } from "solid-js"
 import { createStore } from "solid-js/store"
 import { Persist, persisted } from "@/utils/persist"
@@ -7,6 +8,8 @@ import {
   WORKFLOW_SHELL_LIMITS,
   clampWorkflowPanelWidth,
   parseWorkflowPanelWidth,
+  workflowInspectorResizeMax,
+  workflowOverlayPanelWidth,
   workflowPanelWidthAfterPropSync,
   workflowPanelChromeStyle,
   workflowPanelResizeMax,
@@ -29,15 +32,38 @@ type WorkflowShellProps = {
   navigator?: JSX.Element
   center: JSX.Element
   right?: JSX.Element
+  navigationOpen?: boolean
   leftWidth?: PanelWidth
   navigatorWidth?: PanelWidth
   rightWidth?: PanelWidth
-  storageKey?: string
 }
 
 type PanelVisibility = Record<WorkflowShellPanelSide, () => boolean>
 type PanelSizes = Record<WorkflowShellPanelSide, number>
 type SetPanelSize = (side: WorkflowShellPanelSide, width: number) => void
+
+export const { use: useWorkflowShellState, provider: WorkflowShellProvider } = createSimpleContext({
+  name: "WorkflowShell",
+  gate: true,
+  init: () => {
+    const [sizes, setSizes, , ready] = persisted(
+      Persist.global("workflow-shell.panels"),
+      createStore<PanelSizes>({
+        left: WORKFLOW_SHELL_LIMITS.leftDefault,
+        navigator: WORKFLOW_SHELL_LIMITS.navigatorDefault,
+        right: WORKFLOW_SHELL_LIMITS.rightDefault,
+      }),
+    )
+
+    return {
+      ready,
+      sizes,
+      setSize(side: WorkflowShellPanelSide, width: number) {
+        setSizes(side, width)
+      },
+    }
+  },
+})
 
 /** Craft-style resizable workflow shell shared by home and session pages. */
 export function WorkflowShell(props: WorkflowShellProps) {
@@ -51,7 +77,7 @@ export function WorkflowShell(props: WorkflowShellProps) {
       ref={sizing.setRoot}
       data-component="workflow-shell"
       data-layout-mode={sizing.layoutMode()}
-      class="flex min-h-0 flex-1 items-stretch self-stretch overflow-hidden"
+      class="relative flex min-h-0 flex-1 items-stretch self-stretch overflow-hidden"
       style={workflowShellOuterStyle()}
     >
       <div
@@ -116,6 +142,7 @@ export function WorkflowShell(props: WorkflowShellProps) {
         width={sizing.rightWidth()}
         atLeftEdge={false}
         atRightEdge
+        overlay={rightVisible() && sizing.layoutMode() === "compact"}
       />
     </div>
   )
@@ -124,22 +151,31 @@ export function WorkflowShell(props: WorkflowShellProps) {
 function createWorkflowShellSizing(props: WorkflowShellProps) {
   let root: HTMLDivElement | undefined
   const [metrics, setMetrics] = createStore({ width: 0 })
-  const [sizes, setSizes] = createWorkflowPanelSizeStore(props)
+  const [sizes, setSizes] = createWorkflowPanelSizeStore()
   const layoutMode = createMemo(() => workflowShellLayoutMode(metrics.width))
-  const visible = createWorkflowPanelVisibility(props, layoutMode)
+  const visible = createWorkflowPanelVisibility(props)
+  const primarySizingVisible: PanelVisibility = {
+    left: visible.left,
+    navigator: visible.navigator,
+    right: () => false,
+  }
   syncWorkflowPanelWidthProps(props, sizes, (side, width) => setSizes(side, width))
-  const fixedPanelCount = createMemo(() => workflowFixedPanelCount(visible))
   const panelContext = (side: WorkflowShellPanelSide) =>
     workflowPanelSizingContext({
       side,
       sizes,
-      visible,
-      fixedPanelCount: fixedPanelCount(),
+      visible: primarySizingVisible,
+      fixedPanelCount: workflowFixedPanelCount(primarySizingVisible),
       containerWidth: metrics.width,
     })
   const leftWidth = createMemo(() => clampWorkflowPanelWidth(panelContext("left")))
   const navigatorWidth = createMemo(() => clampWorkflowPanelWidth(panelContext("navigator")))
-  const rightWidth = createMemo(() => clampWorkflowPanelWidth(panelContext("right")))
+  const rightMax = createMemo(() => workflowInspectorResizeMax(metrics.width))
+  const rightWidth = createMemo(() =>
+    layoutMode() === "compact"
+      ? workflowOverlayPanelWidth({ width: sizes.right, containerWidth: metrics.width })
+      : Math.min(rightMax(), Math.max(WORKFLOW_SHELL_LIMITS.rightMin, sizes.right)),
+  )
   const syncRootWidth = () => setMetrics("width", root?.clientWidth ?? 0)
 
   createResizeObserver(() => root, syncRootWidth)
@@ -163,21 +199,20 @@ function createWorkflowShellSizing(props: WorkflowShellProps) {
     rightWidth,
     leftMax: () => workflowPanelResizeMax(panelContext("left")),
     navigatorMax: () => workflowPanelResizeMax(panelContext("navigator")),
-    rightMax: () => workflowPanelResizeMax(panelContext("right")),
-    resizePanel: (side: WorkflowShellPanelSide, width: number) =>
-      setSizes(side, clampWorkflowPanelWidth({ ...panelContext(side), width })),
+    rightMax,
+    resizePanel: (side: WorkflowShellPanelSide, width: number) => {
+      if (side === "right") {
+        setSizes(side, Math.min(rightMax(), Math.max(WORKFLOW_SHELL_LIMITS.rightMin, width)))
+        return
+      }
+      setSizes(side, clampWorkflowPanelWidth({ ...panelContext(side), width }))
+    },
   }
 }
 
-function createWorkflowPanelSizeStore(props: WorkflowShellProps) {
-  return persisted(
-    Persist.global(props.storageKey ?? "workflow-shell.panels"),
-    createStore({
-      left: parseWorkflowPanelWidth(props.leftWidth, WORKFLOW_SHELL_LIMITS.leftDefault),
-      navigator: parseWorkflowPanelWidth(props.navigatorWidth, WORKFLOW_SHELL_LIMITS.navigatorDefault),
-      right: parseWorkflowPanelWidth(props.rightWidth, WORKFLOW_SHELL_LIMITS.rightDefault),
-    }),
-  )
+function createWorkflowPanelSizeStore() {
+  const panelState = useWorkflowShellState()
+  return [panelState.sizes, panelState.setSize] as const
 }
 
 function syncWorkflowPanelWidthProps(props: WorkflowShellProps, sizes: PanelSizes, setPanelSize: SetPanelSize) {
@@ -222,11 +257,11 @@ function syncWorkflowPanelWidthProp(input: {
   })
 }
 
-function createWorkflowPanelVisibility(props: WorkflowShellProps, layoutMode: () => string): PanelVisibility {
+function createWorkflowPanelVisibility(props: WorkflowShellProps): PanelVisibility {
   return {
-    left: createMemo(() => !!props.left),
-    navigator: createMemo(() => !!props.navigator),
-    right: createMemo(() => layoutMode() === "desktop" && !!props.right),
+    left: createMemo(() => props.navigationOpen !== false && !!props.left),
+    navigator: createMemo(() => props.navigationOpen !== false && !!props.navigator),
+    right: createMemo(() => !!props.right),
   }
 }
 
@@ -269,6 +304,7 @@ function WorkflowSidePanel(props: {
   width: number
   atLeftEdge: boolean
   atRightEdge: boolean
+  overlay?: boolean
 }) {
   const usesChrome = () => workflowPanelUsesChrome(props.side)
   return (
@@ -281,6 +317,16 @@ function WorkflowSidePanel(props: {
             ...(usesChrome()
               ? workflowPanelChromeStyle({ atLeftEdge: props.atLeftEdge, atRightEdge: props.atRightEdge })
               : {}),
+            position: props.overlay ? "absolute" : undefined,
+            top: props.overlay ? `${WORKFLOW_SHELL_LIMITS.edgeInset}px` : undefined,
+            right: props.overlay ? `${WORKFLOW_SHELL_LIMITS.edgeInset}px` : undefined,
+            bottom: props.overlay ? `${WORKFLOW_SHELL_LIMITS.edgeInset}px` : undefined,
+            "z-index": props.overlay ? 30 : undefined,
+            "max-width": props.overlay ? `calc(100% - ${WORKFLOW_SHELL_LIMITS.edgeInset * 4}px)` : undefined,
+            "margin-left":
+              props.side === "right" && !props.overlay
+                ? `${WORKFLOW_SHELL_LIMITS.rightGap - WORKFLOW_SHELL_LIMITS.gap}px`
+                : undefined,
             width: `${props.width}px`,
           }}
         >

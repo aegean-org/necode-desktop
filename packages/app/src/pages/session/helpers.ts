@@ -4,6 +4,48 @@ import { makeEventListener } from "@solid-primitives/event-listener"
 import { same } from "@/utils/same"
 
 const emptyTabs: string[] = []
+const REVIEW_SYSTEM_FILE_EXTENSIONS = new Set([
+  "7z",
+  "aac",
+  "avi",
+  "avif",
+  "bmp",
+  "doc",
+  "docx",
+  "flac",
+  "gif",
+  "gz",
+  "heic",
+  "ico",
+  "jpeg",
+  "jpg",
+  "m4a",
+  "mkv",
+  "mov",
+  "mp3",
+  "mp4",
+  "odp",
+  "ods",
+  "odt",
+  "ogg",
+  "opus",
+  "pdf",
+  "png",
+  "ppt",
+  "pptx",
+  "rar",
+  "rtf",
+  "svg",
+  "tar",
+  "tif",
+  "tiff",
+  "wav",
+  "webm",
+  "webp",
+  "xls",
+  "xlsx",
+  "zip",
+])
 
 type Tabs = {
   active: Accessor<string | undefined>
@@ -24,11 +66,17 @@ export function shouldShowFileTree(input: { visible: boolean; opened: boolean })
   return input.opened && input.visible
 }
 
-/**
- * Keeps the legacy chat-width constraint out of the workflow-style session detail layout.
- */
 export function shouldCenterSessionContent(input: { desktop: boolean; reviewOpen: boolean; workflowLayout: boolean }) {
-  return input.desktop && !input.reviewOpen && !input.workflowLayout
+  return input.desktop && !input.reviewOpen
+}
+
+export function reviewFileOpenWith(path: string, os: "macos" | "windows" | "linux" | undefined) {
+  const filename = path.split(/[\\/]/).at(-1) ?? path
+  const dot = filename.lastIndexOf(".")
+  const extension = dot >= 0 ? filename.slice(dot + 1).toLowerCase() : ""
+  if (REVIEW_SYSTEM_FILE_EXTENSIONS.has(extension)) return
+  if (os === "macos") return "Visual Studio Code"
+  if (os === "windows" || os === "linux") return "code"
 }
 
 export const createSessionTabs = (input: TabsInput) => {

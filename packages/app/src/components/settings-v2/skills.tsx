@@ -27,6 +27,7 @@ export function SettingsSkillsV2() {
     queryKey: [serverSDK().scope, directory(), "settings", "runtime-skills"] as const,
     enabled: !!directory(),
     queryFn: () => loadSettingsSkills(directory(), serverSDK().client),
+    refetchOnMount: "always",
   }))
   const items = createMemo(() => filterSettingsSkills(skills.data ?? [], filter()))
 
@@ -55,7 +56,8 @@ function SettingsSkillsHeader(props: {
       <h2 class="settings-v2-tab-title">{props.t("settings.skills.title")}</h2>
       <div class="settings-v2-tab-search">
         <TextInputV2
-          type="search"
+          type="text"
+          role="searchbox"
           appearance="base"
           value={props.filter}
           onInput={(event) => props.onInput(event.currentTarget.value)}
@@ -104,10 +106,7 @@ function SettingsSkillsBody(props: {
               </div>
             }
           >
-            <Show
-              when={props.items.length > 0}
-              fallback={<SettingsSkillsEmpty filter={props.filter} t={props.t} />}
-            >
+            <Show when={props.items.length > 0} fallback={<SettingsSkillsEmpty filter={props.filter} t={props.t} />}>
               <For each={props.items}>{(item) => <SettingsSkillRow item={item} t={props.t} />}</For>
             </Show>
           </Show>

@@ -25,6 +25,10 @@ export type ApplyPatchFile = {
   view: ViewDiff
 }
 
+export function canRenderPatchFile(file: ApplyPatchFile) {
+  return file.additions !== 0 || file.deletions !== 0
+}
+
 function kind(value: unknown) {
   if (value === "add" || value === "update" || value === "delete" || value === "move") return value
 }

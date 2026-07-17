@@ -264,6 +264,7 @@ export const dict = {
   "prompt.placeholder.shell": "输入 shell 命令... {{example}}",
   "prompt.placeholder.normal": '随便问点什么... "{{example}}"',
   "prompt.placeholder.simple": "随便问点什么...",
+  "prompt.placeholder.design": "问点什么，输入 / 查看命令，输入 @ 添加上下文…",
   "prompt.placeholder.summarizeComments": "总结评论…",
   "prompt.placeholder.summarizeComment": "总结该评论…",
   "prompt.mode.shell": "Shell",
@@ -689,6 +690,8 @@ export const dict = {
   "sidebar.project.viewAllSessions": "查看全部会话",
   "sidebar.project.clearNotifications": "清除通知",
   "project.removeFromNecode": "从 NeCode 移除",
+  "project.action.pin": "置顶项目",
+  "project.action.openInExplorer": "在资源管理器中打开",
 
   "app.name.desktop": "NeCode Desktop",
 

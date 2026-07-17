@@ -1,6 +1,12 @@
 import { describe, expect, test } from "bun:test"
 import { createRoot, createSignal } from "solid-js"
-import { createSessionKeyReader, ensureSessionKey, pruneSessionKeys } from "./layout-helpers"
+import {
+  createSessionKeyReader,
+  duplicateProjectDirectories,
+  ensureSessionKey,
+  projectWorkspaceDirectories,
+  pruneSessionKeys,
+} from "./layout-helpers"
 
 describe("layout session-key helpers", () => {
   test("couples touch and scroll seed in order", () => {
@@ -65,5 +71,29 @@ describe("pruneSessionKeys", () => {
     })
 
     expect(drop).toEqual([])
+  })
+})
+
+describe("layout project roots", () => {
+  test("keeps the most recently opened directory for a shared project ID", () => {
+    expect(
+      duplicateProjectDirectories([
+        { worktree: "D:/project/opencode", projectID: "opencode" },
+        { worktree: "D:/project/opencode/.worktrees/plugin-center", projectID: "opencode" },
+        { worktree: "D:/project/qt-note", projectID: "qt-note" },
+      ]),
+    ).toEqual(["D:/project/opencode/.worktrees/plugin-center"])
+  })
+
+  test("moves the stored primary worktree into workspaces when another directory is selected", () => {
+    expect(
+      projectWorkspaceDirectories("D:/project/opencode", {
+        worktree: "D:/project/opencode/.worktrees/plugin-center",
+        sandboxes: ["D:/project/opencode", "D:/project/opencode/.worktrees/other"],
+      }),
+    ).toEqual([
+      "D:/project/opencode/.worktrees/plugin-center",
+      "D:/project/opencode/.worktrees/other",
+    ])
   })
 })

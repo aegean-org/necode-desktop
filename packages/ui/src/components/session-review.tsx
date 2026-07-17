@@ -68,7 +68,6 @@ type RawReviewDiff = (SnapshotFileDiff | VcsFileDiff) & {
 type ReviewDiff = ((SnapshotFileDiff & { file: string }) | VcsFileDiff) & {
   preloaded?: PreloadMultiFileDiffResult<any>
 }
-type Item = ViewDiff & { preloaded?: PreloadMultiFileDiffResult<any> }
 
 function diff(value: unknown): value is ReviewDiff {
   if (!value || typeof value !== "object" || Array.isArray(value)) return false
@@ -115,6 +114,7 @@ export interface SessionReviewProps {
   actions?: JSX.Element
   diffs: RawReviewDiff[]
   onViewFile?: (file: string) => void
+  onOpenFileExternally?: (file: string) => void
   readFile?: (path: string) => Promise<FileContent | undefined>
   lineCommentMention?: LineCommentEditorProps["mention"]
 }
@@ -169,6 +169,7 @@ export const SessionReview = (props: SessionReviewProps) => {
   const fileComponent = useFileComponent()
   const anchors = new Map<string, HTMLElement>()
   const nodes = new Map<string, HTMLDivElement>()
+  const viewCache = new Map<string, { source: ReviewDiff; value: ViewDiff }>()
   const [store, setStore] = createStore({
     open: [] as string[],
     visible: {} as Record<string, boolean>,
@@ -182,10 +183,16 @@ export const SessionReview = (props: SessionReviewProps) => {
   const opened = () => store.opened
 
   const open = () => props.open ?? store.open
-  const itemsMap = createMemo(() =>
-    Object.fromEntries(list(props.diffs).map((diff) => [diff.file, { ...normalize(diff), preloaded: diff.preloaded }])),
-  )
+  const itemsMap = createMemo(() => Object.fromEntries(list(props.diffs).map((diff) => [diff.file, diff])))
   const files = createMemo(() => props.diffs.map((diff) => diff.file!))
+  const viewDiff = (file: string) => {
+    const source = itemsMap()[file]
+    const cached = viewCache.get(file)
+    if (cached?.source === source) return cached.value
+    const value = normalize(source)
+    viewCache.set(file, { source, value })
+    return value
+  }
   const grouped = createMemo(() => {
     const next = new Map<string, SessionReviewComment[]>()
     for (const comment of props.comments ?? []) {
@@ -266,12 +273,27 @@ export const SessionReview = (props: SessionReviewProps) => {
     queue()
   }
 
+  const handleFileChange = (next: string[]) => {
+    const current = new Set(open())
+    next
+      .filter((file) => !current.has(file))
+      .forEach((file) => {
+        const item = itemsMap()[file]
+        if (!item) return
+        if (mediaKindFromPath(file)) return
+        if (item.additions + item.deletions <= MAX_DIFF_CHANGED_LINES) return
+        setStore("force", file, true)
+      })
+    handleChange(next)
+  }
+
   const handleExpandOrCollapseAll = () => {
     const next = open().length > 0 ? [] : files()
     handleChange(next)
   }
 
   const openFileLabel = () => i18n.t("ui.sessionReview.openFile")
+  const openFileExternallyLabel = () => i18n.t("ui.sessionReview.openFileExternally")
 
   const selectionSide = (range: SelectedLineRange) => range.endSide ?? range.side ?? "additions"
 
@@ -359,7 +381,8 @@ export const SessionReview = (props: SessionReviewProps) => {
             <Button
               size="small"
               icon="chevron-grabber-vertical"
-              class="w-[106px] justify-start"
+              data-slot="session-review-expand-button"
+              class="justify-start"
               onClick={handleExpandOrCollapseAll}
             >
               <Switch>
@@ -387,10 +410,11 @@ export const SessionReview = (props: SessionReviewProps) => {
         <div data-slot="session-review-container" class={props.classes?.container}>
           <Show when={hasDiffs()} fallback={props.empty}>
             <div class="pb-6">
-              <Accordion multiple value={open()} onChange={handleChange}>
+              <Accordion multiple value={open()} onChange={handleFileChange}>
                 <For each={files()}>
-                  {(file) => {
+                  {(file, index) => {
                     const diff = () => itemsMap()[file]
+                    const view = () => viewDiff(file)
 
                     // binary files have empty diffs that we can't render
                     const diffCanRender = () => diff().additions !== 0 || diff().deletions !== 0
@@ -402,22 +426,22 @@ export const SessionReview = (props: SessionReviewProps) => {
                     const comments = createMemo(() => grouped().get(file) ?? [])
                     const commentedLines = createMemo(() => comments().map((c) => c.selection))
 
-                    const beforeText = () => text(diff(), "deletions")
-                    const afterText = () => text(diff(), "additions")
                     const changedLines = () => diff().additions + diff().deletions
                     const mediaKind = createMemo(() => mediaKindFromPath(file))
+                    const exceedsRenderLimit = () => !mediaKind() && changedLines() > MAX_DIFF_CHANGED_LINES
 
                     const tooLarge = createMemo(() => {
                       if (!expanded()) return false
                       if (force()) return false
-                      if (mediaKind()) return false
-                      return changedLines() > MAX_DIFF_CHANGED_LINES
+                      return exceedsRenderLimit()
                     })
 
                     const isAdded = () =>
-                      diff().status === "added" || (beforeText().length === 0 && afterText().length > 0)
+                      diff().status === "added" ||
+                      (diff().status === undefined && text(view(), "deletions").length === 0 && text(view(), "additions").length > 0)
                     const isDeleted = () =>
-                      diff().status === "deleted" || (afterText().length === 0 && beforeText().length > 0)
+                      diff().status === "deleted" ||
+                      (diff().status === undefined && text(view(), "additions").length === 0 && text(view(), "deletions").length > 0)
 
                     const selectedLines = createMemo(() => {
                       const current = selection()
@@ -455,7 +479,7 @@ export const SessionReview = (props: SessionReviewProps) => {
                           file,
                           selection,
                           comment,
-                          preview: selectionPreview(diff(), selection),
+                          preview: selectionPreview(view(), selection),
                         })
                       },
                       onUpdate: ({ id, comment, selection }) => {
@@ -464,7 +488,7 @@ export const SessionReview = (props: SessionReviewProps) => {
                           file,
                           selection,
                           comment,
-                          preview: selectionPreview(diff(), selection),
+                          preview: selectionPreview(view(), selection),
                         })
                       },
                       onDelete: (comment) => {
@@ -503,144 +527,181 @@ export const SessionReview = (props: SessionReviewProps) => {
 
                     return (
                       <Accordion.Item
-                        value={diffCanRender() ? file : null!}
+                        value={file}
                         id={diffId(file)}
                         data-file={file}
                         data-slot="session-review-accordion-item"
                         data-selected={props.focusedFile === file ? "" : undefined}
                       >
                         <StickyAccordionHeader>
-                          <Accordion.Trigger disabled={!diffCanRender()} class="cursor-default">
-                            <div data-slot="session-review-trigger-content">
-                              <div data-slot="session-review-file-info">
-                                <FileIcon node={{ path: file, type: "file" }} />
-                                <div data-slot="session-review-file-name-container">
-                                  <Show when={file.includes("/")}>
-                                    <span data-slot="session-review-directory">{`\u202A${getDirectory(file)}\u202C`}</span>
-                                  </Show>
-                                  <span data-slot="session-review-filename">{getFilename(file)}</span>
-                                  <Show when={props.onViewFile && diffCanRender()}>
-                                    <Tooltip value={openFileLabel()} placement="top" gutter={4}>
-                                      <button
-                                        data-slot="session-review-view-button"
-                                        type="button"
-                                        aria-label={openFileLabel()}
-                                        onClick={(e) => {
-                                          e.stopPropagation()
-                                          props.onViewFile?.(file)
-                                        }}
-                                      >
-                                        <Icon name="open-file" size="small" />
-                                      </button>
-                                    </Tooltip>
+                          <div data-slot="session-review-row">
+                            <Accordion.Trigger
+                              class="cursor-default"
+                              onClick={(event) => {
+                                if (diffCanRender()) return
+                                event.preventDefault()
+                                props.onViewFile?.(file)
+                              }}
+                            >
+                              <div data-slot="session-review-trigger-content">
+                                <div data-slot="session-review-file-info">
+                                  <FileIcon node={{ path: file, type: "file" }} />
+                                  <Tooltip
+                                    value={<span data-slot="session-review-full-path">{file}</span>}
+                                    placement={index() === 0 ? "bottom-start" : "top-start"}
+                                    gutter={6}
+                                    openDelay={500}
+                                    flip
+                                    slide
+                                    fitViewport
+                                    overflowPadding={8}
+                                    class="min-w-0 flex flex-1"
+                                    contentClass="w-max max-w-[320px] whitespace-normal break-all"
+                                  >
+                                    <div data-slot="session-review-file-name-container">
+                                      <Show when={file.includes("/")}>
+                                        <span data-slot="session-review-directory">{`\u202A${getDirectory(file)}\u202C`}</span>
+                                      </Show>
+                                      <span data-slot="session-review-filename">{getFilename(file)}</span>
+                                    </div>
+                                  </Tooltip>
+                                </div>
+                                <div data-slot="session-review-trigger-actions">
+                                  <Switch>
+                                    <Match when={isAdded()}>
+                                      <div data-slot="session-review-change-group" data-type="added">
+                                        <span data-slot="session-review-change" data-type="added">
+                                          {i18n.t("ui.sessionReview.change.added")}
+                                        </span>
+                                        <DiffChanges changes={diff()} />
+                                      </div>
+                                    </Match>
+                                    <Match when={isDeleted()}>
+                                      <span data-slot="session-review-change" data-type="removed">
+                                        {i18n.t("ui.sessionReview.change.removed")}
+                                      </span>
+                                    </Match>
+                                    <Match when={!!mediaKind()}>
+                                      <span data-slot="session-review-change" data-type="modified">
+                                        {i18n.t("ui.sessionReview.change.modified")}
+                                      </span>
+                                    </Match>
+                                    <Match when={true}>
+                                      <DiffChanges changes={diff()} />
+                                    </Match>
+                                  </Switch>
+                                  <Show when={diffCanRender()}>
+                                    <span data-slot="session-review-diff-chevron">
+                                      <Icon name="chevron-down" size="small" />
+                                    </span>
                                   </Show>
                                 </div>
                               </div>
-                              <div data-slot="session-review-trigger-actions">
-                                <Switch>
-                                  <Match when={isAdded()}>
-                                    <div data-slot="session-review-change-group" data-type="added">
-                                      <span data-slot="session-review-change" data-type="added">
-                                        {i18n.t("ui.sessionReview.change.added")}
-                                      </span>
-                                      <DiffChanges changes={diff()} />
-                                    </div>
-                                  </Match>
-                                  <Match when={isDeleted()}>
-                                    <span data-slot="session-review-change" data-type="removed">
-                                      {i18n.t("ui.sessionReview.change.removed")}
-                                    </span>
-                                  </Match>
-                                  <Match when={!!mediaKind()}>
-                                    <span data-slot="session-review-change" data-type="modified">
-                                      {i18n.t("ui.sessionReview.change.modified")}
-                                    </span>
-                                  </Match>
-                                  <Match when={true}>
-                                    <DiffChanges changes={diff()} />
-                                  </Match>
-                                </Switch>
-                                <Show when={diffCanRender()}>
-                                  <span data-slot="session-review-diff-chevron">
-                                    <Icon name="chevron-down" size="small" />
-                                  </span>
+                            </Accordion.Trigger>
+                            <Show when={props.onViewFile || props.onOpenFileExternally}>
+                              <div data-slot="session-review-file-actions">
+                                <Show when={props.onViewFile}>
+                                  <Tooltip value={openFileLabel()} placement="top" gutter={4}>
+                                    <button
+                                      data-slot="session-review-file-action"
+                                      type="button"
+                                      aria-label={openFileLabel()}
+                                      onClick={() => props.onViewFile?.(file)}
+                                    >
+                                      <Icon name="code" size="small" />
+                                    </button>
+                                  </Tooltip>
+                                </Show>
+                                <Show when={props.onOpenFileExternally}>
+                                  <Tooltip value={openFileExternallyLabel()} placement="top" gutter={4}>
+                                    <button
+                                      data-slot="session-review-file-action"
+                                      type="button"
+                                      aria-label={openFileExternallyLabel()}
+                                      onClick={() => props.onOpenFileExternally?.(file)}
+                                    >
+                                      <Icon name="square-arrow-top-right" size="small" />
+                                    </button>
+                                  </Tooltip>
                                 </Show>
                               </div>
-                            </div>
-                          </Accordion.Trigger>
-                        </StickyAccordionHeader>
-                        <Accordion.Content data-slot="session-review-accordion-content">
-                          <div
-                            data-slot="session-review-diff-wrapper"
-                            ref={(el) => {
-                              anchors.set(file, el)
-                              nodes.set(file, el)
-                              queue()
-                            }}
-                          >
-                            <Show when={expanded()}>
-                              <Switch>
-                                <Match when={!mounted() && !tooLarge()}>
-                                  <div
-                                    data-slot="session-review-diff-placeholder"
-                                    class="rounded-lg border border-border-weak-base bg-background-stronger/40"
-                                    style={{ height: "160px" }}
-                                  />
-                                </Match>
-                                <Match when={tooLarge()}>
-                                  <div data-slot="session-review-large-diff">
-                                    <div data-slot="session-review-large-diff-title">
-                                      {i18n.t("ui.sessionReview.largeDiff.title")}
-                                    </div>
-                                    <div data-slot="session-review-large-diff-meta">
-                                      {i18n.t("ui.sessionReview.largeDiff.meta", {
-                                        limit: MAX_DIFF_CHANGED_LINES.toLocaleString(),
-                                        current: changedLines().toLocaleString(),
-                                      })}
-                                    </div>
-                                    <div data-slot="session-review-large-diff-actions">
-                                      <Button
-                                        size="normal"
-                                        variant="secondary"
-                                        onClick={() => setStore("force", file, true)}
-                                      >
-                                        {i18n.t("ui.sessionReview.largeDiff.renderAnyway")}
-                                      </Button>
-                                    </div>
-                                  </div>
-                                </Match>
-                                <Match when={true}>
-                                  <Dynamic
-                                    component={fileComponent}
-                                    mode="diff"
-                                    fileDiff={diff().fileDiff}
-                                    preloadedDiff={diff().preloaded}
-                                    diffStyle={diffStyle()}
-                                    onRendered={() => {
-                                      props.onDiffRendered?.()
-                                    }}
-                                    enableLineSelection={props.onLineComment != null}
-                                    enableHoverUtility={props.onLineComment != null}
-                                    onLineSelected={handleLineSelected}
-                                    onLineSelectionEnd={handleLineSelectionEnd}
-                                    onLineNumberSelectionEnd={commentsUi.onLineNumberSelectionEnd}
-                                    annotations={commentsUi.annotations()}
-                                    renderAnnotation={commentsUi.renderAnnotation}
-                                    renderHoverUtility={props.onLineComment ? commentsUi.renderHoverUtility : undefined}
-                                    selectedLines={selectedLines()}
-                                    commentedLines={commentedLines()}
-                                    media={{
-                                      mode: "auto",
-                                      path: file,
-                                      deleted: diff().status === "deleted",
-                                      readFile: diff().status === "deleted" ? undefined : props.readFile,
-                                    }}
-                                  />
-                                </Match>
-                              </Switch>
                             </Show>
                           </div>
-                        </Accordion.Content>
+                        </StickyAccordionHeader>
+                        <Show when={diffCanRender()}>
+                          <Accordion.Content data-slot="session-review-accordion-content">
+                            <div
+                              data-slot="session-review-diff-wrapper"
+                              ref={(el) => {
+                                anchors.set(file, el)
+                                nodes.set(file, el)
+                                queue()
+                              }}
+                            >
+                              <Show when={expanded()}>
+                                <Switch>
+                                  <Match when={!mounted() && !tooLarge()}>
+                                    <div
+                                      data-slot="session-review-diff-placeholder"
+                                      class="rounded-lg border border-border-weak-base bg-background-stronger/40"
+                                      style={{ height: "160px" }}
+                                    />
+                                  </Match>
+                                  <Match when={tooLarge()}>
+                                    <div data-slot="session-review-large-diff">
+                                      <div data-slot="session-review-large-diff-title">
+                                        {i18n.t("ui.sessionReview.largeDiff.title")}
+                                      </div>
+                                      <div data-slot="session-review-large-diff-meta">
+                                        {i18n.t("ui.sessionReview.largeDiff.meta", {
+                                          limit: MAX_DIFF_CHANGED_LINES.toLocaleString(),
+                                          current: changedLines().toLocaleString(),
+                                        })}
+                                      </div>
+                                      <div data-slot="session-review-large-diff-actions">
+                                        <Button
+                                          size="normal"
+                                          variant="secondary"
+                                          onClick={() => setStore("force", file, true)}
+                                        >
+                                          {i18n.t("ui.sessionReview.largeDiff.renderAnyway")}
+                                        </Button>
+                                      </div>
+                                    </div>
+                                  </Match>
+                                  <Match when={true}>
+                                    <Dynamic
+                                      component={fileComponent}
+                                      mode="diff"
+                                      fileDiff={view().fileDiff}
+                                      preloadedDiff={diff().preloaded}
+                                      diffStyle={diffStyle()}
+                                      onRendered={() => {
+                                        props.onDiffRendered?.()
+                                      }}
+                                      enableLineSelection={props.onLineComment != null}
+                                      enableHoverUtility={props.onLineComment != null}
+                                      onLineSelected={handleLineSelected}
+                                      onLineSelectionEnd={handleLineSelectionEnd}
+                                      onLineNumberSelectionEnd={commentsUi.onLineNumberSelectionEnd}
+                                      annotations={commentsUi.annotations()}
+                                      renderAnnotation={commentsUi.renderAnnotation}
+                                      renderHoverUtility={props.onLineComment ? commentsUi.renderHoverUtility : undefined}
+                                      selectedLines={selectedLines()}
+                                      commentedLines={commentedLines()}
+                                      media={{
+                                        mode: "auto",
+                                        path: file,
+                                        deleted: diff().status === "deleted",
+                                        readFile: diff().status === "deleted" ? undefined : props.readFile,
+                                      }}
+                                    />
+                                  </Match>
+                                </Switch>
+                              </Show>
+                            </div>
+                          </Accordion.Content>
+                        </Show>
                       </Accordion.Item>
                     )
                   }}

@@ -2,6 +2,13 @@ import { describe, expect, test } from "bun:test"
 import { initializationData, initializationReady } from "./initialization"
 
 describe("desktop renderer initialization", () => {
+  test("uses the bundled desktop icon for system notifications", async () => {
+    const source = await Bun.file(new URL("./index.tsx", import.meta.url)).text()
+
+    expect(source).toContain('../../resources/icons/128x128.png')
+    expect(source).not.toContain("https://opencode.ai/favicon-96x96-v3.png")
+  })
+
   test("throws the original initialization error before rendering server providers", () => {
     const error = new Error("sidecar startup failed")
 

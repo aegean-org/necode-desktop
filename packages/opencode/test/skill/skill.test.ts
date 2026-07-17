@@ -77,6 +77,32 @@ const withHome = <A, E, R>(home: string, self: Effect.Effect<A, E, R>) =>
   )
 
 describe("skill", () => {
+  it.live("discovers a project skill added after the first registry read", () =>
+    provideTmpdirInstance(
+      (dir) =>
+        Effect.gen(function* () {
+          const skill = yield* Skill.Service
+          expect((yield* skill.all()).map((item) => item.name)).not.toContain("late-skill")
+
+          yield* Effect.promise(() =>
+            Bun.write(
+              path.join(dir, ".opencode", "skills", "late-skill", "SKILL.md"),
+              `---
+name: late-skill
+description: Added after the registry was initialized.
+---
+
+# Late Skill
+`,
+            ),
+          )
+
+          expect((yield* skill.all()).map((item) => item.name)).toContain("late-skill")
+        }),
+      { git: true },
+    ),
+  )
+
   it.live("registers the built-in customize-necode skill", () =>
     provideTmpdirInstance(
       () =>
@@ -91,6 +117,8 @@ describe("skill", () => {
           )
           expect(item?.content).toContain("not a fixed or system-predefined catalog")
           expect(item?.content).toContain("obra/superpowers/refs/heads/main/.opencode/INSTALL.md")
+          expect(item?.content).toContain("available from the next user message")
+          expect(item?.content).toContain("verify that the installed skill appears in the runtime registry")
           expect(item?.content).toContain('Call the product "NeCode" in user-facing responses')
           expect(item?.content).toMatch(/Check both `opencode\.json` and\s+`opencode\.jsonc`/)
           expect(item?.content).toMatch(/Resolve the active global config\s+directory from `OPENCODE_CONFIG_DIR`/)

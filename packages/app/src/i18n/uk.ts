@@ -235,6 +235,7 @@ export const dict = {
   "prompt.placeholder.shell": "Введіть команду термінала... {{example}}",
   "prompt.placeholder.normal": 'Запитайте що завгодно... "{{example}}"',
   "prompt.placeholder.simple": "Запитайте що завгодно...",
+  "prompt.placeholder.design": "Запитайте що завгодно, / для команд, @ для контексту...",
   "prompt.placeholder.summarizeComments": "Підсумувати коментарі…",
   "prompt.placeholder.summarizeComment": "Підсумувати коментар…",
   "prompt.mode.shell": "Команда",

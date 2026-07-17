@@ -235,6 +235,7 @@ export const dict = {
   "prompt.placeholder.shell": "Kabuk komutu girin... {{example}}",
   "prompt.placeholder.normal": 'Bir şeyler sorun... "{{example}}"',
   "prompt.placeholder.simple": "Bir şeyler sorun...",
+  "prompt.placeholder.design": "Bir şeyler sorun, komutlar için /, bağlam için @ kullanın...",
   "prompt.placeholder.summarizeComments": "Yorumları özetle…",
   "prompt.placeholder.summarizeComment": "Yorumu özetle…",
   "prompt.mode.shell": "Kabuk",

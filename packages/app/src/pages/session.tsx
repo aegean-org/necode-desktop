@@ -36,7 +36,7 @@ import { WorkflowShell } from "@/components/workflow-shell"
 import { useComments } from "@/context/comments"
 import { useServerSync } from "@/context/server-sync"
 import { useLanguage } from "@/context/language"
-import { useLayout } from "@/context/layout"
+import { useLayout, type LocalProject } from "@/context/layout"
 import { usePrompt } from "@/context/prompt"
 import { usePlatform } from "@/context/platform"
 import { useSDK } from "@/context/sdk"
@@ -53,13 +53,14 @@ import {
   type WorkflowTaskFilter,
   type WorkflowTaskRecord,
 } from "@/pages/home/workflow-task"
-import { displayName, errorMessage, projectForSession, sortedRootSessions } from "@/pages/layout/helpers"
+import { displayName, errorMessage, latestRootSession, projectForSession, sortedRootSessions } from "@/pages/layout/helpers"
 import {
   createOpenReviewFile,
   createSessionTabs,
   createSizing,
   focusTerminalById,
   nextSessionIDAfterRemoval,
+  reviewFileOpenWith,
   shouldFocusTerminalOnKeyDown,
   shouldCenterSessionContent,
   shouldShowFileTree,
@@ -71,6 +72,7 @@ import { useSessionLayout } from "@/pages/session/session-layout"
 import { useServer } from "@/context/server"
 import { WorkflowSessionSidebar } from "@/pages/session/workflow-session-sidebar"
 import { WorkflowSessionNavigator } from "@/pages/session/workflow-session-navigator"
+import { createWorkflowSession, insertWorkflowSession } from "@/pages/session/workflow-new-session"
 import { createSessionManagement } from "@/pages/session/session-management"
 import { syncSessionModel } from "@/pages/session/session-model-helpers"
 import { SessionSidePanel } from "@/pages/session/session-side-panel"
@@ -89,6 +91,7 @@ type FollowupItem = FollowupDraft & { id: string }
 type FollowupEdit = Pick<FollowupItem, "id" | "prompt" | "context">
 const emptyFollowups: FollowupItem[] = []
 const SESSION_WORKFLOW_LIMIT = 64
+const REVIEW_DIFF_CONTEXT_LINES = 3
 
 type ChangeMode = "git" | "branch" | "turn"
 type VcsMode = "git" | "branch"
@@ -280,21 +283,72 @@ export default function Page() {
   const openWorkflowSession = (session: WorkflowTaskRecord["session"]) => {
     navigate(`/${base64Encode(session.directory)}/session/${session.id}`)
   }
-  const openWorkflowProject = (directory: string) => {
-    navigate(`/${base64Encode(directory)}`)
+  const openWorkflowProject = async (directory: string) => {
+    const project = layout.projects.list().find((item) => item.worktree === directory)
+    const latest = latestRootSession(
+      await Promise.all(
+        [directory, ...(project?.sandboxes ?? [])].map(async (item) => ({
+          path: { directory: item },
+          session: await serverSDK()
+            .client.session.list({ directory: item })
+            .then((response) => response.data ?? [])
+            .catch(() => []),
+        })),
+      ),
+      Date.now(),
+    )
+    if (latest) return openWorkflowSession(latest)
+    await openWorkflowProjectNewSession(directory)
   }
+  const openWorkflowProjectDirectory = (directory: string) => {
+    if (!platform.openPath) return
+    void platform.openPath(directory).catch((error) => {
+      showToast({
+        title: language.t("common.requestFailed"),
+        description: errorMessage(error, language.t("common.requestFailed")),
+      })
+    })
+  }
+  const editWorkflowProject = (project: LocalProject) => {
+    const current = server.current
+    if (!current) return
+    void import("@/components/dialog-edit-project").then((x) => {
+      dialog.show(() => <x.DialogEditProject server={current} project={project} />)
+    })
+  }
+  const creatingWorkflowSessions = new Set<string>()
   const openWorkflowNewSession = () => {
-    openWorkflowProjectNewSession(sdk().directory)
+    void openWorkflowProjectNewSession(sdk().directory)
   }
-  const openWorkflowProjectNewSession = (directory: string) => {
-    navigate(`/${base64Encode(directory)}/session`)
+  const openWorkflowProjectNewSession = async (directory: string) => {
+    if (creatingWorkflowSessions.has(directory)) return
+
+    creatingWorkflowSessions.add(directory)
+    try {
+      await createWorkflowSession({
+        directory,
+        create: () => serverSDK().createClient({ directory, throwOnError: true }).session.create(),
+        seed: (session) => {
+          const [, setStore] = serverSync().child(directory, { bootstrap: false })
+          setStore("session", (sessions) => insertWorkflowSession(sessions, session))
+        },
+        navigate,
+      })
+    } catch (error) {
+      showToast({
+        title: language.t("prompt.toast.sessionCreateFailed.title"),
+        description: errorMessage(error, language.t("common.requestFailed")),
+      })
+    } finally {
+      creatingWorkflowSessions.delete(directory)
+    }
   }
   const navigateAfterWorkflowSessionRemoval = (task: WorkflowTask) => {
     if (activeWorkflowSessionID() !== task.id) return
     const nextID = nextSessionIDAfterRemoval(workflowSessionTasks(), task.id)
     const next = workflowSessionTasks().find((session) => session.id === nextID)
     if (next) return openWorkflowSession(next.session)
-    openWorkflowProjectNewSession(task.session.directory)
+    navigate("/")
   }
   const runWorkflowSessionAction = async (
     task: WorkflowTask,
@@ -452,12 +506,12 @@ export default function Page() {
     const enabled = wantsReview() && sync().project?.vcs === "git"
 
     return {
-      queryKey: [...vcsKey(), mode] as const,
+      queryKey: [...vcsKey(), mode, REVIEW_DIFF_CONTEXT_LINES] as const,
       enabled,
       queryFn: mode
         ? () =>
             sdk()
-              .client.vcs.diff({ mode })
+              .client.vcs.diff({ mode, context: REVIEW_DIFF_CONTEXT_LINES })
               .then((result) => list(result.data))
               .catch((error) => {
                 console.debug("[session-review] failed to load vcs diff", { mode, error })
@@ -869,6 +923,17 @@ export default function Page() {
     loadFile: file.load,
   })
 
+  const openReviewFileExternally = (path: string) => {
+    if (!platform.openPath) return
+    const target = `${sdk().directory.replace(/[\\/]+$/, "")}/${path.replace(/^[\\/]+/, "")}`
+    void platform.openPath(target, reviewFileOpenWith(path, platform.os)).catch((error) => {
+      showToast({
+        title: language.t("common.requestFailed"),
+        description: errorMessage(error, language.t("common.requestFailed")),
+      })
+    })
+  }
+
   const changesTitle = () => {
     if (!canReview()) {
       return null
@@ -967,6 +1032,7 @@ export default function Page() {
         focusedComment={comments.focus()}
         onFocusedCommentChange={comments.setFocus}
         onViewFile={openReviewFile}
+        onOpenFileExternally={platform.platform === "desktop" ? openReviewFileExternally : undefined}
         classes={input.classes}
       />
     </Show>
@@ -1859,7 +1925,7 @@ export default function Page() {
 
   const workflowSessionShell = () => (
     <WorkflowShell
-      storageKey="session.workflow-shell.panels"
+      navigationOpen={layout.workflowSidebar.opened()}
       left={
         <WorkflowSessionSidebar
           projects={layout.projects.list()}
@@ -1869,6 +1935,10 @@ export default function Page() {
           onFilter={(filter) => setStore("workflowFilter", filter)}
           onOpenProject={openWorkflowProject}
           onNewSession={openWorkflowProjectNewSession}
+          onPinProject={(directory) => layout.projects.move(directory, 0)}
+          onOpenProjectDirectory={openWorkflowProjectDirectory}
+          onEditProject={editWorkflowProject}
+          onRemoveProject={(directory) => layout.projects.close(directory)}
           onOpenSettings={openWorkflowSettings}
         />
       }

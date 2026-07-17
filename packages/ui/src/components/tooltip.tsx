@@ -34,6 +34,7 @@ export function TooltipKeybind(props: TooltipKeybindProps) {
 
 export function Tooltip(props: TooltipProps) {
   let ref: HTMLDivElement | undefined
+  let hoverTimer: number | undefined
   const [state, setState] = createStore({
     open: false,
     block: false,
@@ -47,10 +48,28 @@ export function Tooltip(props: TooltipProps) {
     "inactive",
     "forceOpen",
     "ignoreSafeArea",
+    "openDelay",
     "value",
   ])
 
   const close = () => setState("open", false)
+
+  const clearHoverTimer = () => {
+    if (hoverTimer === undefined) return
+    window.clearTimeout(hoverTimer)
+    hoverTimer = undefined
+  }
+
+  const scheduleHoverOpen = () => {
+    if (!local.openDelay || local.openDelay <= 0) return
+    clearHoverTimer()
+    hoverTimer = window.setTimeout(() => {
+      hoverTimer = undefined
+      if (!ref?.matches(":hover")) return
+      if (state.block) return
+      setState("open", true)
+    }, local.openDelay)
+  }
 
   const inside = () => {
     const active = document.activeElement
@@ -77,11 +96,13 @@ export function Tooltip(props: TooltipProps) {
   }
 
   const arm = () => {
+    clearHoverTimer()
     setState("block", true)
     close()
   }
 
   const leave = () => {
+    clearHoverTimer()
     if (!inside()) close()
     drop()
   }
@@ -99,6 +120,8 @@ export function Tooltip(props: TooltipProps) {
     onCleanup(() => obs.disconnect())
   })
 
+  onCleanup(clearHoverTimer)
+
   let justClickedTrigger = false
 
   return (
@@ -108,12 +131,14 @@ export function Tooltip(props: TooltipProps) {
         <KobalteTooltip
           gutter={4}
           {...others}
+          openDelay={local.openDelay}
           closeDelay={0}
           ignoreSafeArea={local.ignoreSafeArea ?? true}
           open={local.forceOpen || state.open}
           onOpenChange={(open) => {
             if (local.forceOpen) return
             if (state.block && open) return
+            if (local.openDelay && local.openDelay > 0 && open) return
             if (justClickedTrigger) {
               justClickedTrigger = false
               return
@@ -127,6 +152,7 @@ export function Tooltip(props: TooltipProps) {
             data-component="tooltip-trigger"
             class={local.class}
             onPointerDownCapture={arm}
+            onPointerEnter={scheduleHoverOpen}
             onKeyDownCapture={(event: KeyboardEvent) => {
               if (event.key !== "Enter" && event.key !== " ") return
               arm()

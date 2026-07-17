@@ -371,8 +371,7 @@ export function SessionTurn(
   const showThinking = createMemo(() => {
     if (!working() || !!error()) return false
     if (status().type === "retry") return false
-    if (showReasoningSummaries()) return assistantVisible() === 0
-    return true
+    return assistantVisible() === 0
   })
 
   const autoScroll = createAutoScroll({

@@ -9,6 +9,7 @@ describe("WorkflowSessionActions", () => {
     expect(source).toContain('data-action="workflow-session-menu"')
     expect(source).toContain("props.archived ? props.onRestore : props.onArchive")
     expect(source).toContain("props.pinned ? props.onUnpin : props.onPin")
+    expect(source).toContain('variant={props.pinned ? "neutral" : "ghost-muted"}')
     expect(source).toContain("DialogDeleteWorkflowSession")
     expect(source).toContain("props.onDelete")
     expect(source.indexOf("MenuV2.Separator")).toBeLessThan(source.indexOf("DialogDeleteWorkflowSession"))

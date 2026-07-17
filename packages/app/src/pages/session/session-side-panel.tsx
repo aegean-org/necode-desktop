@@ -217,8 +217,10 @@ function createWorkflowPanelState(
     if (tabs.activeTab() === "empty") return base.language.t("session.files.selectToOpen")
     return <WorkflowReviewTitle state={{ base, props }} />
   })
+  const canReturnToReview = createMemo(() => tabs.activeTab() !== "review" && tabs.activeTab() !== "empty")
+  const returnToReview = () => base.session.tabs().setActive("review")
 
-  return { title }
+  return { title, canReturnToReview, returnToReview }
 }
 
 function createSidePanelDrag(
@@ -352,6 +354,8 @@ function SessionTabHeader(props: { state: SessionSidePanelState }) {
         onOpenFile={props.state.fileTree.openFileDialog}
         openFileLabel={props.state.language.t("command.file.open")}
         openFileKeybind={props.state.command.keybind("file.open")}
+        backLabel={props.state.language.t("common.goBack")}
+        onBack={props.state.workflow.canReturnToReview() ? props.state.workflow.returnToReview : undefined}
       />
     </Show>
   )
@@ -445,11 +449,21 @@ function WorkflowOpenFileButton(props: { label: string; keybind: string; onOpen:
   )
 }
 
-function SessionWorkflowPanelHeader(props: { title: JSX.Element; openFileLabel: string; openFileKeybind: string; onOpenFile: () => void }) {
+function SessionWorkflowPanelHeader(props: {
+  title: JSX.Element
+  openFileLabel: string
+  openFileKeybind: string
+  onOpenFile: () => void
+  backLabel: string
+  onBack?: () => void
+}) {
   return (
     <WorkflowPanelHeader
       class="bg-[var(--workflow-panel-base)]"
       title={props.title}
+      leadingAction={
+        props.onBack ? <WorkflowBackToReviewButton label={props.backLabel} onBack={props.onBack} /> : undefined
+      }
       actions={
         <WorkflowOpenFileButton
           label={props.openFileLabel}
@@ -457,6 +471,19 @@ function SessionWorkflowPanelHeader(props: { title: JSX.Element; openFileLabel: 
           onOpen={props.onOpenFile}
         />
       }
+    />
+  )
+}
+
+function WorkflowBackToReviewButton(props: { label: string; onBack: () => void }) {
+  return (
+    <IconButtonV2
+      variant="ghost-muted"
+      size="small"
+      class="size-7 rounded-[7px]"
+      icon={<IconV2 name="arrow-right" class="rotate-180" />}
+      onClick={props.onBack}
+      aria-label={props.label}
     />
   )
 }

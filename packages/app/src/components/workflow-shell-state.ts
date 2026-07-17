@@ -11,9 +11,11 @@ export const WORKFLOW_SHELL_LIMITS = {
   navigatorMin: 300,
   navigatorMax: 560,
   rightMin: 300,
-  rightMax: 560,
+  rightMax: 960,
+  rightViewportRatio: 0.68,
   centerMin: 440,
   gap: 6,
+  rightGap: 8,
   edgeInset: 6,
   edgeRadius: 8,
   innerRadius: 10,
@@ -27,10 +29,17 @@ export type WorkflowShellLayoutMode = "desktop" | "compact"
 
 type WorkflowShellStyle = Record<string, string | number>
 
+export const WORKFLOW_SHELL_BACKGROUND =
+  "color-mix(in srgb, var(--v2-text-text-base) 2%, var(--v2-background-bg-base))"
+export const WORKFLOW_SHELL_AMBIENT_BACKGROUND = `linear-gradient(to right,
+  light-dark(color-mix(in srgb, var(--v2-background-bg-accent) 16%, ${WORKFLOW_SHELL_BACKGROUND}), color-mix(in srgb, var(--v2-avatar-bg-cyan) 14%, ${WORKFLOW_SHELL_BACKGROUND})) 0%,
+  light-dark(color-mix(in srgb, var(--v2-background-bg-accent) 7%, ${WORKFLOW_SHELL_BACKGROUND}), color-mix(in srgb, var(--v2-avatar-bg-cyan) 7%, ${WORKFLOW_SHELL_BACKGROUND})) 55%,
+  light-dark(color-mix(in srgb, var(--v2-background-bg-accent) 3%, ${WORKFLOW_SHELL_BACKGROUND}), color-mix(in srgb, var(--v2-avatar-bg-cyan) 3%, ${WORKFLOW_SHELL_BACKGROUND})) 100%)`
+
 const WORKFLOW_PANEL_SURFACE_CLASS: Record<WorkflowShellPanelRole, string> = {
   left: "bg-transparent",
   navigator: "bg-[var(--workflow-panel-base)] shadow-[var(--workflow-elevation-middle)]",
-  content: "bg-[var(--workflow-panel-content)] shadow-[var(--workflow-elevation-middle)]",
+  content: "bg-[var(--workflow-panel-content)] shadow-[var(--workflow-elevation-focused)]",
   right: "bg-[var(--workflow-panel-base)] shadow-[var(--workflow-elevation-middle)]",
 }
 
@@ -58,7 +67,11 @@ export function workflowPanelResizeMax(input: {
   const panelMax = panelLimit(input.side, "max")
   if (input.containerWidth <= 0) return panelMax
 
-  const gaps = WORKFLOW_SHELL_LIMITS.gap * (input.fixedPanelCount ?? (input.otherPanelVisible ? 2 : 1))
+  const panelCount = input.fixedPanelCount ?? (input.otherPanelVisible ? 2 : 1)
+  const gaps =
+    panelCount === 3
+      ? WORKFLOW_SHELL_LIMITS.gap * 2 + WORKFLOW_SHELL_LIMITS.rightGap
+      : WORKFLOW_SHELL_LIMITS.gap * panelCount
   const edgeInsets = WORKFLOW_SHELL_LIMITS.edgeInset * 2
   const available =
     input.containerWidth -
@@ -85,6 +98,24 @@ export function clampWorkflowPanelWidth(input: {
   return Math.min(max, Math.max(min, input.width))
 }
 
+/** Keeps an overlay inspector at its requested width while bounding it to the shell viewport. */
+export function workflowOverlayPanelWidth(input: { width: number; containerWidth: number }) {
+  if (input.containerWidth <= 0) return input.width
+  return Math.min(
+    input.width,
+    Math.max(WORKFLOW_SHELL_LIMITS.rightMin, input.containerWidth - WORKFLOW_SHELL_LIMITS.edgeInset * 4),
+  )
+}
+
+/** Lets the review inspector grow like a modern editor panel without consuming the full viewport. */
+export function workflowInspectorResizeMax(containerWidth: number) {
+  if (containerWidth <= 0) return WORKFLOW_SHELL_LIMITS.rightMax
+  return Math.max(
+    WORKFLOW_SHELL_LIMITS.rightMin,
+    Math.min(WORKFLOW_SHELL_LIMITS.rightMax, Math.round(containerWidth * WORKFLOW_SHELL_LIMITS.rightViewportRatio)),
+  )
+}
+
 /** Returns the next stored width when a parent-provided panel width changes. */
 export function workflowPanelWidthAfterPropSync(input: {
   currentWidth: number
@@ -107,6 +138,7 @@ export function workflowShellOuterStyle(): WorkflowShellStyle {
   return {
     ...workflowShellSurfaceStyle(),
     gap: `${WORKFLOW_SHELL_LIMITS.gap}px`,
+    "padding-top": `${WORKFLOW_SHELL_LIMITS.edgeInset}px`,
     "padding-right": `${WORKFLOW_SHELL_LIMITS.edgeInset}px`,
     "padding-bottom": `${WORKFLOW_SHELL_LIMITS.edgeInset}px`,
   }
@@ -115,21 +147,22 @@ export function workflowShellOuterStyle(): WorkflowShellStyle {
 /** Returns local Craft-like surfaces without changing the global OpenCode theme. */
 export function workflowShellSurfaceStyle(): WorkflowShellStyle {
   return {
-    "--workflow-shell-background":
-      "color-mix(in srgb, var(--v2-text-text-base) 2.5%, var(--v2-background-bg-base))",
-    "--workflow-panel-base":
-      "color-mix(in srgb, var(--v2-text-text-base) 0.8%, var(--v2-background-bg-base))",
-    "--workflow-panel-content": "color-mix(in srgb, var(--v2-text-text-base) 1.8%, var(--v2-background-bg-base))",
-    "--workflow-row-hover": "color-mix(in srgb, var(--v2-text-text-base) 2%, transparent)",
-    "--workflow-row-selected": "color-mix(in srgb, var(--v2-text-text-base) 7%, transparent)",
-    "--workflow-surface-muted": "color-mix(in srgb, var(--v2-text-text-base) 3%, var(--workflow-panel-content))",
+    "--workflow-shell-background": WORKFLOW_SHELL_BACKGROUND,
+    "--workflow-panel-base": "var(--workflow-shell-background)",
+    "--workflow-panel-content":
+      "light-dark(color-mix(in srgb, var(--v2-text-text-base) 2%, var(--workflow-panel-base)), color-mix(in srgb, var(--v2-text-text-base) 4%, var(--workflow-panel-base)))",
+    "--workflow-row-hover": "color-mix(in srgb, var(--v2-text-text-base) 3%, transparent)",
+    "--workflow-row-selected": "color-mix(in srgb, var(--v2-text-text-base) 8%, transparent)",
+    "--workflow-surface-muted": "color-mix(in srgb, var(--v2-text-text-base) 3.5%, var(--workflow-panel-content))",
     "--workflow-surface-muted-hover":
-      "color-mix(in srgb, var(--v2-text-text-base) 5%, var(--workflow-panel-content))",
+      "color-mix(in srgb, var(--v2-text-text-base) 5.5%, var(--workflow-panel-content))",
     "--workflow-control-selected": "var(--workflow-panel-base)",
     "--workflow-elevation-minimal":
       "0 0 0 1px color-mix(in srgb, var(--v2-text-text-base) 4%, transparent), 0 1px 1px -0.5px color-mix(in srgb, var(--v2-text-text-base) 10%, transparent)",
     "--workflow-elevation-middle":
-      "0 0 0 1px color-mix(in srgb, var(--v2-text-text-base) 6%, transparent), 0 1px 1px -0.5px color-mix(in srgb, var(--v2-text-text-base) 12%, transparent), 0 3px 3px -1.5px color-mix(in srgb, var(--v2-text-text-base) 10%, transparent), 0 6px 6px -3px color-mix(in srgb, var(--v2-text-text-base) 8%, transparent)",
+      "0 0 0 1px color-mix(in srgb, var(--v2-text-text-base) 7%, transparent), 0 1px 2px -1px color-mix(in srgb, var(--v2-text-text-base) 14%, transparent), 0 5px 12px -6px color-mix(in srgb, var(--v2-text-text-base) 16%, transparent)",
+    "--workflow-elevation-focused":
+      "0 0 0 1px color-mix(in srgb, var(--v2-text-text-base) 8%, transparent), 0 2px 4px -2px color-mix(in srgb, var(--v2-text-text-base) 16%, transparent), 0 12px 28px -14px color-mix(in srgb, var(--v2-text-text-base) 24%, transparent)",
     "--background-base": "var(--workflow-panel-base)",
     "--background-stronger": "var(--workflow-panel-content)",
     "--surface-base": "var(--workflow-surface-muted)",
@@ -139,7 +172,7 @@ export function workflowShellSurfaceStyle(): WorkflowShellStyle {
     "--surface-raised-base-hover": "var(--workflow-surface-muted-hover)",
     "--surface-raised-base-active": "var(--workflow-row-selected)",
     "--surface-raised-stronger-non-alpha": "var(--workflow-panel-base)",
-    background: "var(--workflow-shell-background)",
+    background: WORKFLOW_SHELL_AMBIENT_BACKGROUND,
   }
 }
 

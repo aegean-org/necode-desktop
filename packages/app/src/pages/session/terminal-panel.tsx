@@ -200,7 +200,7 @@ export function TerminalPanel() {
       aria-label={language.t("terminal.title")}
       aria-hidden={!opened()}
       inert={!opened()}
-      class="relative w-full shrink-0 bg-background-stronger"
+      class="relative w-full shrink-0 overflow-hidden bg-background-stronger"
       classList={{
         "transition-[height] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] will-change-[height] motion-reduce:transition-none":
           !size.active(),
