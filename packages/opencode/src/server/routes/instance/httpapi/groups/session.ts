@@ -76,6 +76,11 @@ export const RevertPayload = Schema.Struct(Struct.omit(SessionRevert.RevertInput
 export const PermissionResponsePayload = Schema.Struct({
   response: PermissionV1.Reply,
 })
+export const ComputerUsePayload = Schema.Struct({ enabled: Schema.Boolean })
+export const ComputerUseResult = Schema.Struct({
+  enabled: Schema.Boolean,
+  error: Schema.optional(Schema.String),
+})
 
 export const SessionPaths = {
   list: root,
@@ -91,6 +96,7 @@ export const SessionPaths = {
   update: `${root}/:sessionID`,
   fork: `${root}/:sessionID/fork`,
   abort: `${root}/:sessionID/abort`,
+  computerUse: `${root}/:sessionID/computer-use`,
   share: `${root}/:sessionID/share`,
   init: `${root}/:sessionID/init`,
   summarize: `${root}/:sessionID/summarize`,
@@ -262,6 +268,19 @@ export const SessionApi = HttpApi.make("session")
             identifier: "session.abort",
             summary: "Abort session",
             description: "Abort an active session and stop any ongoing AI processing or command execution.",
+          }),
+        ),
+        HttpApiEndpoint.post("computerUse", SessionPaths.computerUse, {
+          params: { sessionID: SessionID },
+          query: WorkspaceRoutingQuery,
+          payload: ComputerUsePayload,
+          success: described(ComputerUseResult, "Computer Use session state"),
+          error: [HttpApiError.BadRequest, ApiNotFoundError],
+        }).annotateMerge(
+          OpenApi.annotations({
+            identifier: "session.computerUse",
+            summary: "Update Computer Use mode",
+            description: "Enable or disable Cua Driver tools for one session.",
           }),
         ),
         HttpApiEndpoint.post("init", SessionPaths.init, {

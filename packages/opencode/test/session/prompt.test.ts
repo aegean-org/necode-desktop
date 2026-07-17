@@ -119,6 +119,7 @@ const mcp = Layer.succeed(
     status: () => Effect.succeed({}),
     clients: () => Effect.succeed({}),
     tools: () => Effect.succeed({}),
+    callTool: () => Effect.die("unexpected MCP tool call in prompt-effect tests"),
     prompts: () => Effect.succeed({}),
     resources: () => Effect.succeed({}),
     add: () => Effect.succeed({ status: { status: "disabled" as const } }),

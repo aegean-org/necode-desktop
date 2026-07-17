@@ -20,6 +20,7 @@ import { PartID } from "./schema"
 import { EffectBridge } from "@/effect/bridge"
 import { ProviderV2 } from "@opencode-ai/core/provider"
 import { ModelV2 } from "@opencode-ai/core/model"
+import { SessionComputerUse } from "./computer-use"
 
 export const resolve = Effect.fn("SessionTools.resolve")(function* (input: {
   agent: Agent.Info
@@ -114,25 +115,33 @@ export const resolve = Effect.fn("SessionTools.resolve")(function* (input: {
     })
   }
 
+  const computerUse = SessionComputerUse.enabled(input.session)
   for (const [key, item] of Object.entries(yield* mcp.tools())) {
+    if (!SessionComputerUse.includeTool(key, computerUse)) continue
     const execute = item.execute
     if (!execute) continue
 
     const schema = yield* Effect.promise(() => Promise.resolve(asSchema(item.inputSchema).jsonSchema))
-    const transformed = ProviderTransform.schema(input.model, { ...schema, properties: schema.properties ?? {} })
+    const binding = SessionComputerUse.bindToolSchema(key, { ...schema, properties: schema.properties ?? {} })
+    const transformed = ProviderTransform.schema(input.model, binding.schema)
     item.inputSchema = jsonSchema(transformed)
     item.execute = (args, opts) =>
       run.promise(
         Effect.gen(function* () {
-          const ctx = context(args, opts)
+          const boundArgs = SessionComputerUse.bindArguments(
+            (args ?? {}) as Record<string, unknown>,
+            input.session.id,
+            binding.bindsSession,
+          )
+          const ctx = context(boundArgs, opts)
           yield* plugin.trigger(
             "tool.execute.before",
             { tool: key, sessionID: ctx.sessionID, callID: opts.toolCallId },
-            { args },
+            { args: boundArgs },
           )
           const result: Awaited<ReturnType<NonNullable<typeof execute>>> = yield* Effect.gen(function* () {
             yield* ctx.ask({ permission: key, metadata: {}, patterns: ["*"], always: ["*"] })
-            return yield* Effect.promise(() => execute(args, opts))
+            return yield* Effect.promise(() => execute(boundArgs, opts))
           }).pipe(
             Effect.withSpan("Tool.execute", {
               attributes: {
@@ -145,7 +154,7 @@ export const resolve = Effect.fn("SessionTools.resolve")(function* (input: {
           )
           yield* plugin.trigger(
             "tool.execute.after",
-            { tool: key, sessionID: ctx.sessionID, callID: opts.toolCallId, args },
+            { tool: key, sessionID: ctx.sessionID, callID: opts.toolCallId, args: boundArgs },
             result,
           )
 

@@ -2,10 +2,20 @@ import { Component, For, Match, Show, Switch } from "solid-js"
 import { FileIcon } from "@opencode-ai/ui/file-icon"
 import { Icon } from "@opencode-ai/ui/icon"
 import { getDirectory, getFilename } from "@opencode-ai/core/util/path"
+import type { PluginEntry } from "@opencode-ai/sdk/v2/client"
 
 export type AtOption =
   | { type: "agent"; name: string; display: string }
   | { type: "rag"; name: "doc"; display: string; insertText: string; label?: string; description?: string; title?: string }
+  | {
+      type: "capability"
+      id: "computer-use"
+      display: string
+      label: string
+      description: string
+      available: boolean
+      entry: PluginEntry
+    }
   | { type: "file"; path: string; display: string; recent?: boolean }
 
 export interface SlashCommand {
@@ -35,9 +45,9 @@ type PromptPopoverProps = {
 }
 
 export function describeAtOption(item: AtOption) {
-  if (item.type === "rag") {
+  if (item.type === "rag" || item.type === "capability") {
     return {
-      label: item.label ?? item.insertText.trim(),
+      label: item.type === "rag" ? (item.label ?? item.insertText.trim()) : item.label,
       description: item.description,
     }
   }
@@ -79,6 +89,25 @@ export const PromptPopover: Component<PromptPopoverProps> = (props) => {
                       >
                         <Icon name="brain" size="small" class="text-icon-info-active shrink-0" />
                         <span class="text-14-regular text-text-strong whitespace-nowrap">@{item.name}</span>
+                      </button>
+                    )
+                  }
+
+                  if (item.type === "capability") {
+                    const details = describeAtOption(item)
+                    return (
+                      <button
+                        class="w-full flex items-center gap-x-2 rounded-md px-2 py-0.5"
+                        classList={{
+                          "bg-surface-raised-base-hover": props.atActive === key,
+                          "opacity-60": !item.available,
+                        }}
+                        onClick={() => props.onAtSelect(item)}
+                        onMouseEnter={() => props.setAtActive(key)}
+                      >
+                        <Icon name="status" size="small" class="text-icon-info-active shrink-0" />
+                        <span class="text-14-regular text-text-strong whitespace-nowrap">{details.label}</span>
+                        <span class="text-14-regular text-text-weak truncate">{details.description}</span>
                       </button>
                     )
                   }

@@ -16,6 +16,8 @@ import { SessionSummary } from "@/session/summary"
 import { Todo } from "@/session/todo"
 import { MessageID, PartID, SessionID } from "@/session/schema"
 import { NamedError } from "@opencode-ai/core/util/error"
+import { MCP } from "@/mcp"
+import { SessionComputerUse } from "@/session/computer-use"
 import { Cause, Effect, Option, Schema, Scope } from "effect"
 import * as Stream from "effect/Stream"
 import { HttpServerRequest, HttpServerResponse } from "effect/unstable/http"
@@ -23,6 +25,7 @@ import { HttpApiBuilder, HttpApiError, HttpApiSchema } from "effect/unstable/htt
 import { InstanceHttpApi } from "../api"
 import {
   CommandPayload,
+  ComputerUsePayload,
   DiffQuery,
   ForkPayload,
   InitPayload,
@@ -58,6 +61,7 @@ export const sessionHandlers = HttpApiBuilder.group(InstanceHttpApi, "session", 
     const todoSvc = yield* Todo.Service
     const summary = yield* SessionSummary.Service
     const events = yield* EventV2Bridge.Service
+    const mcp = yield* MCP.Service
     const scope = yield* Scope.Scope
 
     const list = Effect.fn("SessionHttpApi.list")(function* (ctx: { query: typeof ListQuery.Type }) {
@@ -239,6 +243,25 @@ export const sessionHandlers = HttpApiBuilder.group(InstanceHttpApi, "session", 
     const abort = Effect.fn("SessionHttpApi.abort")(function* (ctx: { params: { sessionID: SessionID } }) {
       yield* promptSvc.cancel(ctx.params.sessionID)
       return true
+    })
+
+    const computerUse = Effect.fn("SessionHttpApi.computerUse")(function* (ctx: {
+      params: { sessionID: SessionID }
+      payload: typeof ComputerUsePayload.Type
+    }) {
+      const current = yield* requireSession(ctx.params.sessionID)
+      return yield* SessionComputerUse.update(
+        {
+          sessionID: current.id,
+          enabled: ctx.payload.enabled,
+          metadata: current.metadata,
+        },
+        {
+          status: mcp.status,
+          callTool: mcp.callTool,
+          setMetadata: (metadata) => session.setMetadata({ sessionID: current.id, metadata }),
+        },
+      )
     })
 
     const init = Effect.fn("SessionHttpApi.init")(function* (ctx: {
@@ -431,6 +454,7 @@ export const sessionHandlers = HttpApiBuilder.group(InstanceHttpApi, "session", 
       .handle("update", update)
       .handleRaw("fork", forkRaw)
       .handle("abort", abort)
+      .handle("computerUse", computerUse)
       .handle("init", init)
       .handle("share", share)
       .handle("unshare", unshare)

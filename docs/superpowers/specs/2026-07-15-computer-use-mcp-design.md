@@ -191,12 +191,14 @@ Cua Driver 0.8.1 的 `mcp` 命令没有服务端工具白名单参数。NeCode �
 选择 `@电脑` 后：
 
 1. 移除输入中的 `@电脑` 查询文本。
-2. 在输入框上下文区域显示持久状态项“Computer Use 已开启”。
-3. 新会话在创建时写入 `metadata.computerUse.enabled = true`。
-4. 已存在会话通过现有 Session metadata 更新接口持久化状态。
-5. 本次及后续轮次按允许列表注入 Cua 工具。
+2. 如果内置 Computer Use 插件处于停用状态，通过现有插件配置接口自动启用，并等待运行时重载完成。
+3. 检查 `cua-driver` MCP 状态；只有连接成功后才激活会话能力。
+4. 在输入框上下文区域显示持久状态项“Computer Use 已开启”。
+5. 新会话在创建时写入 `metadata.computerUse.enabled = true`。
+6. 已存在会话通过现有 Session metadata 更新接口持久化状态。
+7. 本次及后续轮次按允许列表注入 Cua 工具。
 
-如果 Driver 未安装、平台不支持或 macOS 权限不足，菜单项显示对应状态；选择后打开 Computer Use 插件详情和恢复指引，不写入已启用状态。
+`@电脑` 是用户主动启用 Computer Use 的明确授权，不再要求用户预先进入插件设置打开开关。如果插件启用、Driver 发现、macOS 权限或 MCP 连接失败，输入区显示真实错误和恢复指引，不打开只读插件详情，不写入会话已启用状态，也不伪造成功。插件配置已经成功启用时保留启用状态，便于用户修复 Driver 后直接重试。
 
 ### 9.2 退出
 
@@ -266,13 +268,13 @@ Computer Use 显示在内置生产力插件列表中，不要求用户进入通�
 列表行显示：
 
 - 名称：Computer Use
-- 描述：控制 Windows 和 macOS 桌面应用
+- 描述按当前操作系统显示：Windows 为“控制 Windows 桌面应用”，macOS 为“控制 macOS 桌面应用”
 - 平台状态
 - Driver 版本
 - `未安装 / 需要权限 / 已就绪 / 已连接 / 失败`
 - 启用开关
 
-详情页按状态显示：
+详情页只显示当前操作系统相关信息，不向 Windows 用户展示 macOS 权限说明，也不向 macOS 用户展示 Windows 安装说明。按状态显示：
 
 - Windows 安装命令与官方文档链接。
 - macOS 安装命令、Accessibility 与 Screen Recording 状态，以及 `permissions grant` 指引。
@@ -413,3 +415,37 @@ macOS：
 10. `@电脑` 能激活当前会话，未激活会话不承担 Cua 工具上下文成本。
 11. 用户可在不新建会话的情况下退出或停止并退出 Computer Use。
 12. 至少完成一次“UI 复现问题 → 代码/日志诊断 → UI 回归验证”的应用调试验收。
+
+## 18. 2026-07-15 实施验收记录
+
+- 当前实现位于 `computer-use` 分支；Computer Use 内置插件默认停用，避免未使用该能力时启动外部 Driver。用户在“设置 > 插件”启用一次后，`@电脑` 才允许激活会话。
+- Windows UI 实机反馈确认上述预启用步骤会把用户带入无操作按钮的只读详情页；本次修订已改为“选择 `@电脑` 自动启用插件并进入模式”，同时将插件描述收敛为仅显示当前操作系统。
+- Windows 本机通过当前实现发现 Cua Driver `0.8.1`，绝对路径为 `C:\Users\11250\AppData\Local\Programs\Cua\cua-driver\bin\cua-driver.exe`，并生成 `cua-driver mcp` 配置；未复制或打包 Driver 二进制。
+- Windows Driver 基线已完成 Notepad 的 `launch_app → get_window_state → type_text → get_window_state` 闭环；本分支未重启正在运行的 Desktop，因此新的 `@电脑` UI 尚未进行打包应用实机回归。
+- Desktop、OpenCode、App 共 68 项定向测试通过；`packages/desktop`、`packages/opencode`、`packages/app`、`packages/sdk/js` 的 `bun typecheck` 均通过。
+- `test/server/httpapi-session.test.ts` 当前 18 项中 17 项通过；`uses the persisted session directory for prompt requests` 在当前 Windows 环境超过测试自身 5 秒超时。Computer Use 的 Session helper、HTTP schema 和 SDK 生成测试均通过。
+- macOS 已完成路径顺序、`permissions status --json`、`permissions grant` 恢复指引和“不使用 `--embedded`”的静态验证；尚无 macOS 实机验收，不能宣称 macOS 完成。
+- “UI 复现问题 → 代码/日志诊断 → UI 回归验证”的完整应用调试验收尚未在本分支执行。
+
+## 19. 2026-07-16 实机反馈修订
+
+### 19.1 插件开关等待状态
+
+所有可停用插件复用同一套开关交互，不为 Computer Use 单独实现特殊控件：
+
+1. 用户点击后，开关立即显示目标状态。
+2. 请求期间在开关旁显示 Spinner，并将状态标签临时切换为“启用中…”或“停用中…”。
+3. 请求期间禁止再次点击，避免并发写入插件配置。
+4. 请求成功后使用服务端返回并重新获取的真实插件状态。
+5. 请求失败时恢复原开关和状态标签，并继续使用现有错误 Toast 展示真实错误。
+
+### 19.2 Computer Use 应用启动与 Shell 降级策略
+
+Computer Use 激活时向当前会话追加专属系统指令；未激活会话不承担该提示词成本。指令要求：
+
+1. 调用 `list_apps` 后复用已经运行的应用 PID，不重复启动同一应用。
+2. 必须复用 `list_apps` 返回的精确 `launch_path`、`aumid` 或完整应用名称，不猜测 `Chrome` 等别名。
+3. 打开网页或搜索 URL 时优先使用 `launch_app.urls`，不先调用 Shell。
+4. Cua 工具失败后先通过窗口或应用状态确认动作是否实际完成；只有仍未完成时才允许使用 Shell 降级。
+5. Shell 降级成功时，在最终结果中明确说明“Computer Use 操作失败，已通过 Shell 完成”，不得把降级描述成 Cua 成功。
+6. 保留真实的 Cua 工具错误记录，不隐藏、不改写为成功；首期不自动合并或重写时间线中的错误卡片。

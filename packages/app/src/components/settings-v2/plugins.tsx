@@ -113,9 +113,8 @@ function PluginSection(props: SectionProps) {
           {(entry) => (
             <PluginRow
               entry={entry}
-              pending={props.management.toggle.isPending && props.management.toggle.variables?.entry.key === entry.key}
               onOpen={props.openDetail}
-              onToggle={(item, enabled) => props.management.toggle.mutate({ entry: item, enabled })}
+              onToggle={(item, enabled) => props.management.toggle({ entry: item, enabled })}
               onRemove={props.openRemove}
             />
           )}
@@ -137,7 +136,7 @@ function SystemSection(props: { controller: Controller }) {
         </button>
         <Show when={expanded()}>
           <For each={props.controller.entries().system}>
-            {(entry) => <PluginRow entry={entry} pending={false} readonly onOpen={props.controller.openDetail} />}
+            {(entry) => <PluginRow entry={entry} readonly onOpen={props.controller.openDetail} />}
           </For>
         </Show>
       </section>

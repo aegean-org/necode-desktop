@@ -17,6 +17,7 @@ type StartCommand = {
   port: number
   password: string
   userDataPath: string
+  configDir: string
 }
 
 type StopCommand = { type: "stop" }
@@ -51,7 +52,7 @@ parentPort.on("message", (event) => {
 
 async function start(command: StartCommand) {
   try {
-    prepareSidecarEnv(command.password, command.userDataPath)
+    prepareSidecarEnv(command.password, command.userDataPath, command.configDir)
     ensureLoopbackNoProxy()
     useSystemCertificates()
     useEnvProxy()
@@ -81,9 +82,9 @@ async function stop() {
   }
 }
 
-function prepareSidecarEnv(password: string, userDataPath: string) {
+function prepareSidecarEnv(password: string, userDataPath: string, configDir: string) {
   for (const key of OPENCODE_CONFIG_OVERRIDE_KEYS) delete process.env[key]
-  Object.assign(process.env, createDesktopRuntimeEnv({ password, userDataPath }))
+  Object.assign(process.env, createDesktopRuntimeEnv({ password, userDataPath, configDir }))
 }
 
 function ensureLoopbackNoProxy() {
@@ -134,12 +135,14 @@ function parseCommand(value: unknown): SidecarCommand | undefined {
   if (typeof command.port !== "number") return
   if (typeof command.password !== "string") return
   if (typeof command.userDataPath !== "string") return
+  if (typeof command.configDir !== "string") return
   return {
     type: "start",
     hostname: command.hostname,
     port: command.port,
     password: command.password,
     userDataPath: command.userDataPath,
+    configDir: command.configDir,
   }
 }
 

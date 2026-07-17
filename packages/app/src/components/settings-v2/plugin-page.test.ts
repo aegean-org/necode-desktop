@@ -24,6 +24,14 @@ describe("desktop plugin settings page", () => {
     expect(row).toContain("props.entry.canUninstall")
   })
 
+  test("keeps pending toggle state isolated per plugin row", () => {
+    expect(row).toContain("createSignal<boolean | undefined>()")
+    expect(row).toContain("await requireToggle(props.onToggle)")
+    expect(controller).toContain("const toggle = async")
+    expect(page).not.toContain("onSettled")
+    expect(page).not.toContain("busy={props.management.toggle.isPending}")
+  })
+
   test("keeps system components collapsed and renders real failure details", () => {
     expect(page).toContain("settings.plugins.section.system")
     expect(page).toContain("settings-v2-plugin-system-toggle")

@@ -34,4 +34,18 @@ describe("prompt popover @ options", () => {
       description: "D:/papers/paper.pdf - 3 chunks",
     })
   })
+
+  test("describes Computer Use as a capability instead of an agent mention", () => {
+    expect(
+      describeAtOption({
+        type: "capability",
+        id: "computer-use",
+        display: "电脑 Computer Use",
+        label: "@电脑 Computer Use",
+        description: "控制桌面应用",
+        available: true,
+        entry: {} as never,
+      }),
+    ).toEqual({ label: "@电脑 Computer Use", description: "控制桌面应用" })
+  })
 })

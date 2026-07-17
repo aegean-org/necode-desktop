@@ -8590,6 +8590,45 @@ export type SessionAbortResponses = {
 
 export type SessionAbortResponse = SessionAbortResponses[keyof SessionAbortResponses]
 
+export type SessionComputerUseData = {
+  body?: {
+    enabled: boolean
+  }
+  path: {
+    sessionID: string
+  }
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/session/{sessionID}/computer-use"
+}
+
+export type SessionComputerUseErrors = {
+  /**
+   * BadRequest | InvalidRequestError
+   */
+  400: EffectHttpApiErrorBadRequest | InvalidRequestError
+  /**
+   * NotFoundError
+   */
+  404: NotFoundError
+}
+
+export type SessionComputerUseError = SessionComputerUseErrors[keyof SessionComputerUseErrors]
+
+export type SessionComputerUseResponses = {
+  /**
+   * Computer Use session state
+   */
+  200: {
+    enabled: boolean
+    error?: string
+  }
+}
+
+export type SessionComputerUseResponse = SessionComputerUseResponses[keyof SessionComputerUseResponses]
+
 export type SessionInitData = {
   body?: {
     modelID: string

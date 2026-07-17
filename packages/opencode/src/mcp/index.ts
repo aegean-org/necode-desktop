@@ -160,6 +160,11 @@ export interface Interface {
   readonly status: () => Effect.Effect<Record<string, Status>>
   readonly clients: () => Effect.Effect<Record<string, MCPClient>>
   readonly tools: () => Effect.Effect<Record<string, Tool>>
+  readonly callTool: (
+    clientName: string,
+    toolName: string,
+    args: Record<string, unknown>,
+  ) => Effect.Effect<Awaited<ReturnType<typeof McpCatalog.callTool>>, NotFoundError | Error>
   readonly prompts: () => Effect.Effect<Record<string, PromptInfo & { client: string }>>
   readonly resources: () => Effect.Effect<Record<string, ResourceInfo & { client: string }>>
   readonly add: (name: string, mcp: ConfigMCPV1.Info) => Effect.Effect<{ status: Record<string, Status> | Status }>
@@ -650,6 +655,21 @@ export const layer = Layer.effect(
       return result
     })
 
+    const callTool = Effect.fn("MCP.callTool")(function* (
+      clientName: string,
+      toolName: string,
+      args: Record<string, unknown>,
+    ) {
+      const s = yield* InstanceState.get(state)
+      const client = s.clients[clientName]
+      if (!client) return yield* new NotFoundError({ name: clientName })
+      const cfg = yield* cfgSvc.get()
+      return yield* Effect.tryPromise({
+        try: () => McpCatalog.callTool(client, toolName, args, requestTimeout(s, clientName, cfg.mcp?.[clientName])),
+        catch: (error) => (error instanceof Error ? error : new Error(String(error))),
+      })
+    })
+
     function collectFromConnected<T extends { name: string }>(
       s: State,
       listFn: (c: Client, timeout?: number) => Promise<T[]>,
@@ -918,6 +938,7 @@ export const layer = Layer.effect(
       status,
       clients,
       tools,
+      callTool,
       prompts,
       resources,
       add,

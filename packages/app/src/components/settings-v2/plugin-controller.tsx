@@ -65,13 +65,14 @@ function createPluginMutations(client: () => Client, refresh: () => Promise<void
       await refresh()
     },
   }))
-  const toggle = useMutation(() => ({
-    ...options,
-    mutationFn: async (input: { entry: PluginEntry; enabled: boolean }) => {
+  const toggle = async (input: { entry: PluginEntry; enabled: boolean }) => {
+    try {
       await client().setEnabled(input.entry.key, input.enabled)
       await refresh()
-    },
-  }))
+    } catch (error) {
+      requestFailed(error, t)
+    }
+  }
   const remove = useMutation(() => ({
     ...options,
     mutationFn: async (entry: PluginEntry) => {

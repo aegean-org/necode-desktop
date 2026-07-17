@@ -14,6 +14,7 @@ import { type Tool as AITool, tool, jsonSchema } from "ai"
 import type { JSONSchema7 } from "@ai-sdk/provider"
 import { SessionCompaction } from "./compaction"
 import { SystemPrompt } from "./system"
+import { SessionComputerUse } from "./computer-use"
 import { Instruction } from "./instruction"
 import { Plugin } from "../plugin"
 import { Auth } from "@/auth"
@@ -1425,7 +1426,14 @@ export const layer = Layer.effect(
               resolveNeRagSystemPrompt(msgs).pipe(Effect.orDie),
               MessageV2.toModelMessagesEffect(msgs, model),
             ])
-            const system = [...env, ...instructions, ...(skills ? [skills] : []), ...(neRag ? [neRag] : [])]
+            const computerUse = SessionComputerUse.systemPrompt(session)
+            const system = [
+              ...env,
+              ...instructions,
+              ...(skills ? [skills] : []),
+              ...(neRag ? [neRag] : []),
+              ...(computerUse ? [computerUse] : []),
+            ]
             const format = lastUser.format ?? { type: "text" as const }
             if (format.type === "json_schema") system.push(STRUCTURED_OUTPUT_SYSTEM_PROMPT)
             const result = yield* handle.process({

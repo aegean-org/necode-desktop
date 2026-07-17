@@ -8,7 +8,7 @@ test("desktop runtime env isolates opencode paths under NeCode user data", () =>
 
   expect(env).toMatchObject({
     OPENCODE_CLIENT: "desktop",
-    OPENCODE_CONFIG_DIR: join(userDataPath, "xdg-config", "opencode"),
+    OPENCODE_CONFIG_DIR: join(userDataPath, "xdg-config", "necode-desktop"),
     OPENCODE_EXPERIMENTAL_FILEWATCHER: "true",
     OPENCODE_EXPERIMENTAL_ICON_DISCOVERY: "true",
     OPENCODE_SERVER_PASSWORD: "secret",
@@ -18,6 +18,14 @@ test("desktop runtime env isolates opencode paths under NeCode user data", () =>
     XDG_DATA_HOME: join(userDataPath, "xdg-data"),
     XDG_STATE_HOME: join(userDataPath, "xdg-state"),
   })
+})
+
+test("desktop runtime env can keep the legacy config directory after a failed migration", () => {
+  const userDataPath = join("Users", "hu", "Library", "Application Support", "NeCode")
+
+  expect(createDesktopRuntimeEnv({ userDataPath, configDir: "opencode" }).OPENCODE_CONFIG_DIR).toBe(
+    join(userDataPath, "xdg-config", "opencode"),
+  )
 })
 
 test("desktop runtime env drops inherited OpenCode config overrides", () => {

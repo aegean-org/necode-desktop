@@ -4,22 +4,33 @@ import { Icon } from "@opencode-ai/ui/v2/icon"
 import { IconButtonV2 } from "@opencode-ai/ui/v2/icon-button-v2"
 import { MenuV2 } from "@opencode-ai/ui/v2/menu-v2"
 import { Switch } from "@opencode-ai/ui/v2/switch-v2"
-import { Show } from "solid-js"
+import { Spinner } from "@opencode-ai/ui/spinner"
+import { createSignal, Show } from "solid-js"
 import { useLanguage } from "@/context/language"
-import { pluginStatusLabel } from "./plugin-model"
+import { pluginStatusLabel, pluginToggleState } from "./plugin-model"
 import "./plugin.css"
 
 type RowProps = {
   entry: PluginEntry
-  pending: boolean
   readonly?: boolean
   onOpen: (entry: PluginEntry) => void
-  onToggle?: (entry: PluginEntry, enabled: boolean) => void
+  onToggle?: (entry: PluginEntry, enabled: boolean) => Promise<void>
   onRemove?: (entry: PluginEntry) => void
 }
 
 /** Renders one clickable plugin row with isolated management controls. */
 export function PluginRow(props: RowProps) {
+  const [pendingEnabled, setPendingEnabled] = createSignal<boolean | undefined>()
+  const toggle = () => pluginToggleState(props.entry.enabled, pendingEnabled())
+  const change = async (enabled: boolean) => {
+    if (pendingEnabled() !== undefined) return
+    setPendingEnabled(enabled)
+    try {
+      await requireToggle(props.onToggle)(props.entry, enabled)
+    } finally {
+      setPendingEnabled(undefined)
+    }
+  }
   const openFromKeyboard = (event: KeyboardEvent) => {
     if (event.key !== "Enter" && event.key !== " ") return
     event.preventDefault()
@@ -34,7 +45,7 @@ export function PluginRow(props: RowProps) {
       onClick={() => props.onOpen(props.entry)}
       onKeyDown={openFromKeyboard}
     >
-      <PluginLead entry={props.entry} />
+      <PluginLead entry={props.entry} status={toggle().status} />
       <Show when={!props.readonly}>
         <div
           class="settings-v2-plugin-actions"
@@ -42,10 +53,13 @@ export function PluginRow(props: RowProps) {
           onKeyDown={(event) => event.stopPropagation()}
         >
           <Show when={props.entry.canDisable}>
+            <Show when={pendingEnabled() !== undefined}>
+              <Spinner class="size-3.5 shrink-0 text-icon-info-base" />
+            </Show>
             <Switch
-              checked={props.entry.enabled}
-              disabled={props.pending || !props.entry.canDisable}
-              onChange={(enabled) => requireToggle(props.onToggle)(props.entry, enabled)}
+              checked={toggle().checked}
+              disabled={toggle().disabled || !props.entry.canDisable}
+              onChange={change}
               hideLabel
             >
               {props.entry.name}
@@ -60,7 +74,7 @@ export function PluginRow(props: RowProps) {
   )
 }
 
-function PluginLead(props: { entry: PluginEntry }) {
+function PluginLead(props: { entry: PluginEntry; status?: string }) {
   const language = useLanguage()
   return (
     <div class="settings-v2-plugin-lead">
@@ -68,7 +82,7 @@ function PluginLead(props: { entry: PluginEntry }) {
       <div class="settings-v2-plugin-copy">
         <div class="settings-v2-plugin-main">
           <span class="settings-v2-plugin-name">{props.entry.name}</span>
-          <Tag>{language.t(pluginStatusLabel(props.entry.status))}</Tag>
+          <Tag>{language.t(props.status ?? pluginStatusLabel(props.entry.status))}</Tag>
           <Show when={props.entry.scope !== "builtin"}>
             <Tag>{language.t(`settings.plugins.scope.${props.entry.scope}`)}</Tag>
           </Show>

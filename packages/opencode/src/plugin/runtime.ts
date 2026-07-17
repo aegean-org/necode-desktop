@@ -100,7 +100,12 @@ function loadBuiltins(
     definitions,
     (definition) =>
       Effect.gen(function* () {
-        const catalog = yield* Effect.promise(() => PluginCatalog.resolveBuiltin(definition, isEnabled(enabled, definition.key, definition.canDisable)))
+        const catalog = yield* Effect.promise(() =>
+          PluginCatalog.resolveBuiltin(
+            definition,
+            isEnabled(enabled, definition.key, definition.canDisable, definition.defaultEnabled),
+          ),
+        )
         if (!catalog.enabled) return entries.push(PluginRegistry.disabled(catalog))
         if (catalog.failure) return entries.push(PluginRegistry.failed(catalog))
         const result = yield* outcome(Effect.tryPromise({ try: () => definition.server(input), catch: errorMessage }))
@@ -229,9 +234,9 @@ function dispose(hooks: readonly Hooks[]) {
   )
 }
 
-function isEnabled(enabled: Record<string, boolean>, key: string, canDisable: boolean) {
+function isEnabled(enabled: Record<string, boolean>, key: string, canDisable: boolean, defaultEnabled = true) {
   if (!canDisable) return true
-  return Object.hasOwn(enabled, key) ? enabled[key] !== false : true
+  return Object.hasOwn(enabled, key) ? enabled[key] !== false : defaultEnabled
 }
 
 function outcome<A>(self: Effect.Effect<A, string>) {
