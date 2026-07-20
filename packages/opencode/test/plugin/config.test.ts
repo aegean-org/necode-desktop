@@ -76,6 +76,7 @@ describe("PluginConfig", () => {
     }),
     { git: true },
   )
+
 })
 
 const BUILTINS: readonly PluginCatalog.Builtin[] = [

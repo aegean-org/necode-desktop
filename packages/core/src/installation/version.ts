@@ -5,4 +5,5 @@ declare global {
 
 export const InstallationVersion = typeof OPENCODE_VERSION === "string" ? OPENCODE_VERSION : "local"
 export const InstallationChannel = typeof OPENCODE_CHANNEL === "string" ? OPENCODE_CHANNEL : "local"
-export const InstallationLocal = InstallationChannel === "local"
+export const isLocalInstallation = (version: string, channel: string) => version === "local" || channel === "local"
+export const InstallationLocal = isLocalInstallation(InstallationVersion, InstallationChannel)

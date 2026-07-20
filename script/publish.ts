@@ -47,6 +47,9 @@ await $`bun ./packages/sdk/js/script/publish.ts`
 console.log("\n=== plugin ===\n")
 await $`bun ./packages/plugin/script/publish.ts`
 
+console.log("\n=== necode plugin ===\n")
+await $`bun ./packages/plugin-necode/script/publish.ts`
+
 if (Script.release) {
   await $`bun ./packages/desktop/scripts/finalize-latest-json.ts`
   await $`bun ./packages/desktop/scripts/finalize-latest-yml.ts`

@@ -692,6 +692,18 @@
         "@typescript/native-preview": "catalog:",
       },
     },
+    "packages/plugin-necode": {
+      "name": "@necode-ai/plugin",
+      "version": "1.17.7",
+      "dependencies": {
+        "@opencode-ai/plugin": "workspace:*",
+      },
+      "devDependencies": {
+        "@tsconfig/node22": "catalog:",
+        "@typescript/native-preview": "catalog:",
+        "typescript": "catalog:",
+      },
+    },
     "packages/plugin-pdf": {
       "name": "@necode-ai/plugin-pdf",
       "dependencies": {
@@ -1776,6 +1788,8 @@
     "@napi-rs/wasm-runtime": ["@napi-rs/wasm-runtime@1.1.4", "", { "dependencies": { "@tybys/wasm-util": "^0.10.1" }, "peerDependencies": { "@emnapi/core": "^1.7.1", "@emnapi/runtime": "^1.7.1" } }, "sha512-3NQNNgA1YSlJb/kMH1ildASP9HW7/7kYnRI2szWJaofaS1hWmbGI4H+d3+22aGzXXN9IJ+n+GiFVcGipJP18ow=="],
 
     "@necode-ai/desktop": ["@necode-ai/desktop@workspace:packages/desktop"],
+
+    "@necode-ai/plugin": ["@necode-ai/plugin@workspace:packages/plugin-necode"],
 
     "@necode-ai/plugin-artifacts": ["@necode-ai/plugin-artifacts@workspace:packages/plugin-artifacts"],
 

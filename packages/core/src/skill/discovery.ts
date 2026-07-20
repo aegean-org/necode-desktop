@@ -6,6 +6,7 @@ import { FetchHttpClient, HttpClient, HttpClientRequest, HttpClientResponse } fr
 import { FSUtil } from "../fs-util"
 import { Global } from "../global"
 import { AbsolutePath } from "../schema"
+import { Hash } from "../util/hash"
 
 const skillConcurrency = 4
 const fileConcurrency = 8
@@ -104,7 +105,7 @@ export const layer = Layer.effect(
         )
         if (!data) return []
 
-        const sourceRoot = path.resolve(global.cache, "skills", Bun.hash(base).toString(16))
+        const sourceRoot = path.resolve(global.cache, "skills", Hash.fast(base))
         return yield* Effect.forEach(
           data.skills.flatMap((skill) => {
             if (!isSafeSegment(skill.name)) {

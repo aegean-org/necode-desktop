@@ -136,4 +136,18 @@ describe("Discovery.pull", () => {
       expect(downloadCount).toBe(firstCount)
     }),
   )
+
+  it.live("refreshes cached files for an explicit managed update", () =>
+    Effect.gen(function* () {
+      yield* Effect.promise(() => rm(cacheDir, { recursive: true, force: true }))
+      downloadCount = 0
+      const discovery = yield* Discovery.Service
+
+      yield* discovery.pull(CLOUDFLARE_SKILLS_URL)
+      const firstCount = downloadCount
+      yield* discovery.pull(CLOUDFLARE_SKILLS_URL, { refresh: true })
+
+      expect(downloadCount).toBeGreaterThan(firstCount)
+    }),
+  )
 })

@@ -8,6 +8,10 @@ import type {
   AppAgentsResponses,
   AppLogErrors,
   AppLogResponses,
+  AppSkillInstallErrors,
+  AppSkillInstallResponses,
+  AppSkillRemoveErrors,
+  AppSkillRemoveResponses,
   AppSkillsErrors,
   AppSkillsResponses,
   Auth as Auth3,
@@ -604,6 +608,79 @@ export class App extends HeyApiClient {
     )
     return (options?.client ?? this.client).get<AppSkillsResponses, AppSkillsErrors, ThrowOnError>({
       url: "/skill",
+      ...options,
+      ...params,
+    })
+  }
+
+  /**
+   * Install skills
+   *
+   * Install standalone Skills into a managed project or global directory and verify discovery.
+   */
+  public skillInstall<ThrowOnError extends boolean = false>(
+    parameters?: {
+      directory?: string
+      workspace?: string
+      source?: string
+      scope?: "global" | "local"
+      replace?: boolean
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+            { in: "body", key: "source" },
+            { in: "body", key: "scope" },
+            { in: "body", key: "replace" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).post<AppSkillInstallResponses, AppSkillInstallErrors, ThrowOnError>({
+      url: "/skill",
+      ...options,
+      ...params,
+      headers: {
+        "Content-Type": "application/json",
+        ...options?.headers,
+        ...params.headers,
+      },
+    })
+  }
+
+  /**
+   * Uninstall skill
+   *
+   * Remove one Skill installed through the managed Skill installer.
+   */
+  public skillRemove<ThrowOnError extends boolean = false>(
+    parameters: {
+      name: string
+      directory?: string
+      workspace?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "path", key: "name" },
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).delete<AppSkillRemoveResponses, AppSkillRemoveErrors, ThrowOnError>({
+      url: "/skill/{name}",
       ...options,
       ...params,
     })

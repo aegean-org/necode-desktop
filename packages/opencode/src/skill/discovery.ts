@@ -20,7 +20,7 @@ class Index extends Schema.Class<Index>("Index")({
 }) {}
 
 export interface Interface {
-  readonly pull: (url: string) => Effect.Effect<string[]>
+  readonly pull: (url: string, options?: { refresh?: boolean }) => Effect.Effect<string[]>
 }
 
 export class Service extends Context.Service<Service, Interface>()("@opencode/SkillDiscovery") {}
@@ -33,8 +33,8 @@ export const layer: Layer.Layer<Service, never, FSUtil.Service | Path.Path | Htt
     const http = HttpClient.filterStatusOk(withTransientReadRetry(yield* HttpClient.HttpClient))
     const cache = path.join(Global.Path.cache, "skills")
 
-    const download = Effect.fn("Discovery.download")(function* (url: string, dest: string) {
-      if (yield* fs.exists(dest).pipe(Effect.orDie)) return true
+    const download = Effect.fn("Discovery.download")(function* (url: string, dest: string, refresh?: boolean) {
+      if (!refresh && (yield* fs.exists(dest).pipe(Effect.orDie))) return true
 
       return yield* HttpClientRequest.get(url).pipe(
         http.execute,
@@ -45,7 +45,7 @@ export const layer: Layer.Layer<Service, never, FSUtil.Service | Path.Path | Htt
       )
     })
 
-    const pull = Effect.fn("Discovery.pull")(function* (url: string) {
+    const pull = Effect.fn("Discovery.pull")(function* (url: string, options?: { refresh?: boolean }) {
       const base = url.endsWith("/") ? url : `${url}/`
       const index = new URL("index.json", base).href
       const host = base.slice(0, -1)
@@ -76,10 +76,11 @@ export const layer: Layer.Layer<Service, never, FSUtil.Service | Path.Path | Htt
         (skill) =>
           Effect.gen(function* () {
             const root = path.join(cache, skill.name)
+            if (options?.refresh) yield* fs.remove(root, { recursive: true }).pipe(Effect.catch(() => Effect.void))
 
             yield* Effect.forEach(
               skill.files,
-              (file) => download(new URL(file, `${host}/${skill.name}/`).href, path.join(root, file)),
+              (file) => download(new URL(file, `${host}/${skill.name}/`).href, path.join(root, file), options?.refresh),
               {
                 concurrency: fileConcurrency,
               },

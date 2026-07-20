@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json.schemastore.org/package.json",
+  "name": "@necode-ai/plugin",
+  "version": "1.17.7",
+  "type": "module",
+  "license": "MIT",
+  "scripts": {
+    "typecheck": "tsgo --noEmit",
+    "build": "bun script/build.ts"
+  },
+  "exports": {
+    ".": "./src/index.ts",
+    "./tool": "./src/tool.ts",
+    "./tui": "./src/tui.ts"
+  },
+  "files": [
+    "dist"
+  ],
+  "dependencies": {
+    "@opencode-ai/plugin": "workspace:*"
+  },
+  "devDependencies": {
+    "@tsconfig/node22": "catalog:",
+    "@typescript/native-preview": "catalog:",
+    "typescript": "catalog:"
+  }
+}

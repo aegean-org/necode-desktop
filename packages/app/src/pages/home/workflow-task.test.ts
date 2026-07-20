@@ -465,6 +465,8 @@ describe("buildWorkflowTasks", () => {
     expect(systemEntriesSource).not.toContain('tab: "permissions"')
     expect(systemEntriesSource).not.toContain('tab: "servers"')
     expect(homeSource).toContain("DialogSettings defaultTab={tab}")
+    expect(homeSource).toContain("directory={directory}")
+    expect(homeSource).toContain("input.selection.selectedProject()?.worktree")
     expect(enSource).toContain('"home.system.title"')
     expect(zhSource).toContain('"home.system.title"')
     expect(homeSource).not.toContain("Sources")

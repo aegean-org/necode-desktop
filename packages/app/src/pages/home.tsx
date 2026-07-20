@@ -513,8 +513,9 @@ function createHomeProjectActions(input: {
     },
     openSettings: (tab?: HomeSettingsTab) => {
       input.context.setState("activeSettingsTab", tab)
+      const directory = input.selection.selectedProject()?.worktree ?? input.selection.newSessionProject()?.worktree
       void import("@/components/settings-v2").then((x) => {
-        input.context.dialog.show(() => <x.DialogSettings defaultTab={tab} />)
+        input.context.dialog.show(() => <x.DialogSettings defaultTab={tab} directory={directory} />)
       })
     },
   }

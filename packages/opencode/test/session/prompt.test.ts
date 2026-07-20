@@ -1710,6 +1710,48 @@ unix(
   30_000,
 )
 
+it.instance(
+  "skill command keeps the invocation visible and skill content synthetic",
+  () =>
+    Effect.gen(function* () {
+      const { dir, llm } = yield* useServerConfig(providerCfg)
+      const skillContent = "MODEL_ONLY_SKILL_GUIDANCE"
+      yield* writeText(
+        path.join(dir, ".opencode", "skills", "using-agent-skills", "SKILL.md"),
+        `---
+name: using-agent-skills
+description: Load agent skill guidance.
+---
+
+${skillContent}
+`,
+      )
+
+      const { prompt, sessions, chat } = yield* boot()
+      yield* llm.text("done")
+
+      yield* prompt.command({
+        sessionID: chat.id,
+        command: "using-agent-skills",
+        arguments: "review pending changes",
+      })
+
+      const messages = yield* sessions.messages({ sessionID: chat.id })
+      const userMessage = messages.findLast((message) => message.info.role === "user")
+      const textParts = userMessage?.parts.filter((part): part is SessionV1.TextPart => part.type === "text") ?? []
+
+      expect(textParts.filter((part) => !part.synthetic).map((part) => part.text)).toEqual([
+        "/using-agent-skills review pending changes",
+      ])
+      expect(textParts.filter((part) => part.synthetic).map((part) => part.text)).toContain(skillContent)
+
+      const inputs = yield* llm.inputs
+      expect(JSON.stringify(inputs.at(-1)?.messages)).toContain(skillContent)
+    }),
+  { git: true },
+  30_000,
+)
+
 unixNoLLMServer(
   "cancel interrupts shell and resolves cleanly",
   () =>

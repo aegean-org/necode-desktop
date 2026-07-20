@@ -1,6 +1,13 @@
 import { describe, expect, test } from "bun:test"
 import { createOpencodeClient } from "@opencode-ai/sdk/v2/client"
-import { filterSettingsSkills, loadSettingsSkills } from "./skills-model"
+import {
+  changedSettingsSkills,
+  filterSettingsSkills,
+  installSettingsSkill,
+  loadSettingsSkills,
+  removeSettingsSkill,
+  SettingsSkillConflict,
+} from "./skills-model"
 
 describe("settings skills model", () => {
   test("loads skills from the active session runtime registry", async () => {
@@ -54,5 +61,85 @@ describe("settings skills model", () => {
 
     expect(filterSettingsSkills(skills, "release").map((item) => item.name)).toEqual(["deploy"])
     expect(filterSettingsSkills(skills, "reference").map((item) => item.name)).toEqual(["docs"])
+  })
+
+  test("identifies newly installed skills and managed overrides", () => {
+    const plugin = {
+      name: "shared-skill",
+      description: "Plugin skill.",
+      location: "/plugins/shared-skill/SKILL.md",
+      content: "Plugin",
+      source: "plugin" as const,
+      scope: "plugin" as const,
+      canUninstall: false,
+    }
+    const managed = {
+      ...plugin,
+      description: "Managed skill.",
+      location: "/project/.opencode/skills/shared-skill/SKILL.md",
+      content: "Managed",
+      source: "managed" as const,
+      scope: "local" as const,
+      canUninstall: true,
+      installSource: "git:https://github.com/example/skills.git#:",
+    }
+    const added = {
+      ...managed,
+      name: "new-skill",
+      location: "/project/.opencode/skills/new-skill/SKILL.md",
+    }
+
+    expect(changedSettingsSkills([plugin], [managed, added]).map((item) => item.name)).toEqual([
+      "new-skill",
+      "shared-skill",
+    ])
+    expect(changedSettingsSkills([managed, added], [managed, added])).toEqual([])
+  })
+
+  test("installs and removes skills through the generated runtime API", async () => {
+    const requests: Request[] = []
+    const transport = (async (input: RequestInfo | URL, init?: RequestInit) => {
+      const request = input instanceof Request ? input : new Request(input, init)
+      requests.push(request)
+      return Response.json([])
+    }) as typeof fetch
+    const client = createOpencodeClient({ baseUrl: "http://localhost", fetch: transport })
+
+    await installSettingsSkill("D:/project/demo", client, {
+      source: "D:/skills/review",
+      scope: "local",
+      replace: false,
+    })
+    await removeSettingsSkill("D:/project/demo", client, "review")
+
+    expect(requests.map((request) => [request.method, new URL(request.url).pathname])).toEqual([
+      ["POST", "/skill"],
+      ["DELETE", "/skill/review"],
+    ])
+    expect(await requests[0].json()).toEqual({ source: "D:/skills/review", scope: "local", replace: false })
+  })
+
+  test("exposes cross-source conflicts for explicit replacement confirmation", async () => {
+    const transport = (async () =>
+      Response.json(
+        {
+          _tag: "SkillManagedConflictError",
+          message: "conflict",
+          name: "review",
+          currentSource: "one",
+          incomingSource: "two",
+        },
+        { status: 409 },
+      )) as unknown as typeof fetch
+    const client = createOpencodeClient({ baseUrl: "http://localhost", fetch: transport })
+
+    const error = await installSettingsSkill("D:/project/demo", client, {
+      source: "two",
+      scope: "local",
+      replace: false,
+    }).catch((cause) => cause)
+
+    expect(error).toBeInstanceOf(SettingsSkillConflict)
+    expect(error).toMatchObject({ skill: "review", currentSource: "one", incomingSource: "two" })
   })
 })

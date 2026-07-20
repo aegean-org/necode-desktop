@@ -52,6 +52,11 @@ installed yet; it does not mean new skills cannot be installed. Do not reject
 an installation request solely because the requested name is absent from the
 available-skills list.
 
+Prefer the product management surfaces when they are available:
+
+- Install standalone Skill directories or Skill feeds from **Settings > Skills > Install Skill**. This path supports GitHub/URL and local-directory sources, project or global scope, same-source updates, explicit confirmation before replacing a different source, runtime verification, and uninstall.
+- Install plugin-backed Skill packs from **Settings > Plugins**. Their individual Skills are listed in the Skill panel but cannot be uninstalled separately.
+
 When the user asks to install a named third-party skill, skill pack, or plugin:
 
 1. Locate the official upstream source and read its OpenCode-specific
@@ -354,7 +359,7 @@ function, not a plain object literal, and the function returns an object
 (return `{}` if there is nothing to register).
 
 ```ts
-import type { Plugin } from "@opencode-ai/plugin"
+import type { Plugin } from "@necode-ai/plugin"
 
 export default (async ({ client, project, directory, $ }) => {
   return {

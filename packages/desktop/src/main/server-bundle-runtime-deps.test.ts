@@ -71,4 +71,15 @@ describe("desktop server bundle runtime dependencies", () => {
 
     expect(await child.exited, error).toBe(0)
   })
+
+  test("keeps Skill source hashing compatible with the Electron Node sidecar", async () => {
+    const sources = await Promise.all(
+      ["../../../opencode/src/skill/managed.ts", "../../../core/src/skill/discovery.ts"].map((file) =>
+        Bun.file(new URL(file, import.meta.url)).text(),
+      ),
+    )
+
+    expect(sources.every((source) => source.includes("Hash.fast"))).toBe(true)
+    expect(sources.every((source) => !source.includes("Bun.hash"))).toBe(true)
+  })
 })

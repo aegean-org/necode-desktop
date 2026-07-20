@@ -17,7 +17,7 @@ type ScanState = { matches: Set<string>; dirs: Set<string> }
 
 export namespace SkillSources {
   /** Files and directories discovered as active skill sources. */
-  export type State = { matches: string[]; dirs: string[] }
+  export type State = { matches: string[]; dirs: string[]; pluginRoots: string[] }
   /** Services and plugin entries required to discover all active skills. */
   export type Input = {
     config: Config.Interface
@@ -37,7 +37,11 @@ export namespace SkillSources {
     yield* external(state, input)
     yield* configured(state, input)
     yield* pluginSkills(state, input.plugins)
-    return { matches: Array.from(state.matches), dirs: Array.from(state.dirs) }
+    return {
+      matches: Array.from(state.matches),
+      dirs: Array.from(state.dirs),
+      pluginRoots: input.plugins.filter((plugin) => plugin.status === "active").flatMap((plugin) => plugin.skills),
+    }
   })
 }
 

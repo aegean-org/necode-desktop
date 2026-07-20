@@ -18,6 +18,7 @@ import { Discovery } from "./discovery"
 import { isRecord } from "@/util/record"
 import { Plugin } from "@/plugin"
 import { SkillSources } from "./sources"
+import { SkillManaged } from "./managed"
 
 // Built-in skill that ships with NeCode. The model's intuition for what a
 // runtime config should look like is often wrong, and the runtime hard-fails on
@@ -36,8 +37,13 @@ const SKILL_CATALOG_GUIDANCE = [
 export const Info = Schema.Struct({
   name: Schema.String,
   description: Schema.optional(Schema.String),
+  slash: Schema.optional(Schema.Boolean),
   location: Schema.String,
   content: Schema.String,
+  source: Schema.optional(Schema.Literals(["builtin", "managed", "plugin", "external", "configured", "url"])),
+  scope: Schema.optional(Schema.Literals(["builtin", "plugin", "global", "local"])),
+  canUninstall: Schema.optional(Schema.Boolean),
+  installSource: Schema.optional(Schema.String),
 })
 export type Info = Schema.Schema.Type<typeof Info>
 
@@ -49,11 +55,12 @@ const Issue = Schema.StructWithRest(
   [Schema.Record(Schema.String, Schema.Unknown)],
 )
 
-function isSkillFrontmatter(data: unknown): data is { name: string; description?: string } {
+function isSkillFrontmatter(data: unknown): data is { name: string; description?: string; slash?: boolean } {
   return (
     isRecord(data) &&
     typeof data.name === "string" &&
-    (data.description === undefined || typeof data.description === "string")
+    (data.description === undefined || typeof data.description === "string") &&
+    (data.slash === undefined || typeof data.slash === "boolean")
   )
 }
 
@@ -92,7 +99,14 @@ export interface Interface {
   readonly available: (agent?: Agent.Info) => Effect.Effect<Info[]>
 }
 
-const add = Effect.fnUntraced(function* (state: State, match: string, events: EventV2Bridge.Service["Service"]) {
+type Origin = Required<Pick<Info, "source" | "scope" | "canUninstall">> & Pick<Info, "installSource">
+
+const add = Effect.fnUntraced(function* (
+  state: State,
+  match: string,
+  events: EventV2Bridge.Service["Service"],
+  origin: (name: string, location: string) => Origin,
+) {
   const md = yield* Effect.tryPromise({
     try: () => ConfigMarkdown.parse(match),
     catch: (err) => err,
@@ -112,20 +126,28 @@ const add = Effect.fnUntraced(function* (state: State, match: string, events: Ev
 
   if (!isSkillFrontmatter(md.data)) return
 
-  if (state.skills[md.data.name]) {
+  const next = origin(md.data.name, match)
+  const existing = state.skills[md.data.name]
+  if (existing) {
     yield* Effect.logWarning("duplicate skill name", {
       name: md.data.name,
-      existing: state.skills[md.data.name].location,
+      existing: existing.location,
       duplicate: match,
     })
   }
+
+  // A managed Skill shadows a same-named plugin Skill without deleting it, so
+  // uninstalling the managed copy reveals the plugin-provided Skill again.
+  if (existing?.source === "managed" && next.source !== "managed") return
 
   state.dirs.add(path.dirname(match))
   state.skills[md.data.name] = {
     name: md.data.name,
     description: md.data.description,
+    slash: md.data.slash,
     location: match,
     content: md.content,
+    ...next,
   }
 })
 
@@ -133,9 +155,10 @@ const loadSkills = Effect.fnUntraced(function* (
   state: State,
   discovered: SkillSources.State,
   events: EventV2Bridge.Service["Service"],
+  origin: (name: string, location: string) => Origin,
 ) {
-  yield* Effect.forEach(discovered.matches, (match) => add(state, match, events), {
-    concurrency: "unbounded",
+  yield* Effect.forEach(discovered.matches, (match) => add(state, match, events, origin), {
+    concurrency: 1,
     discard: true,
   })
 
@@ -171,7 +194,7 @@ export const layer = Layer.effect(
       }),
     )
     const state = yield* InstanceState.make(
-      Effect.fn("Skill.state")(function* () {
+      Effect.fn("Skill.state")(function* (ctx) {
         const s: State = { skills: {}, dirs: new Set(), matches: new Set() }
         // Register the built-in skill BEFORE disk discovery so a user-disk
         // skill with the same name can override it.
@@ -180,8 +203,47 @@ export const layer = Layer.effect(
           description: CUSTOMIZE_NECODE_SKILL_DESCRIPTION,
           location: "<built-in>",
           content: CUSTOMIZE_NECODE_SKILL_BODY,
+          source: "builtin",
+          scope: "builtin",
+          canUninstall: false,
         }
-        yield* loadSkills(s, yield* InstanceState.get(discovered), events)
+        const sources = yield* InstanceState.get(discovered)
+        const managed = yield* SkillManaged.entries({ fs: fsys, globalConfigDir: global.config }, ctx).pipe(
+          Effect.catch((error) =>
+            Effect.logError("failed to read managed Skill metadata", { error }).pipe(Effect.as([])),
+          ),
+        )
+        const origin = (name: string, location: string): Origin => {
+          const installed = managed.find((item) => item.name === name && FSUtil.contains(item.path, location))
+          if (installed) {
+            return {
+              source: "managed",
+              scope: installed.scope,
+              canUninstall: true,
+              installSource: installed.source,
+            }
+          }
+          if (sources.pluginRoots.some((root) => FSUtil.contains(root, location))) {
+            return { source: "plugin", scope: "plugin", canUninstall: false }
+          }
+          if (FSUtil.contains(path.join(global.cache, "skills"), location)) {
+            return { source: "url", scope: "global", canUninstall: false }
+          }
+          const normalized = location.replaceAll("\\", "/")
+          if (normalized.includes("/.claude/skills/") || normalized.includes("/.agents/skills/")) {
+            return {
+              source: "external",
+              scope: FSUtil.contains(global.home, location) ? "global" : "local",
+              canUninstall: false,
+            }
+          }
+          return {
+            source: "configured",
+            scope: FSUtil.contains(ctx.worktree, location) ? "local" : "global",
+            canUninstall: false,
+          }
+        }
+        yield* loadSkills(s, sources, events, origin)
         return s
       }),
     )

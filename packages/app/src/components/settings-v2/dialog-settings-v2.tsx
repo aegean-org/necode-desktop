@@ -28,7 +28,7 @@ export type SettingsV2Tab =
   | "skills"
   | "permissions"
 
-export const DialogSettings: Component<{ defaultTab?: SettingsV2Tab }> = (props) => {
+export const DialogSettings: Component<{ defaultTab?: SettingsV2Tab; directory?: string }> = (props) => {
   const language = useLanguage()
   const platform = usePlatform()
 
@@ -128,7 +128,7 @@ export const DialogSettings: Component<{ defaultTab?: SettingsV2Tab }> = (props)
           <SettingsRagV2 />
         </TabsV2.Content>
         <TabsV2.Content value="skills" class="settings-v2-panel">
-          <SettingsSkillsV2 />
+          <SettingsSkillsV2 directory={props.directory} />
         </TabsV2.Content>
         <TabsV2.Content value="permissions" class="settings-v2-panel">
           <SettingsPermissionsV2 />

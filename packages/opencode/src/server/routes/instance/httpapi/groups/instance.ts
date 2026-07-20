@@ -4,6 +4,7 @@ import { Format } from "@/format"
 import { LSP } from "@/lsp/lsp"
 import { Vcs } from "@/project/vcs"
 import { Skill } from "@/skill"
+import { SkillManaged } from "@/skill/managed"
 import { Schema } from "effect"
 import { HttpApi, HttpApiEndpoint, HttpApiGroup, HttpApiSchema, OpenApi } from "effect/unstable/httpapi"
 import { Authorization } from "../middleware/authorization"
@@ -51,6 +52,7 @@ export const InstancePaths = {
   command: "/command",
   agent: "/agent",
   skill: "/skill",
+  skillEntry: "/skill/:name",
   lsp: "/lsp",
   formatter: "/formatter",
 } as const
@@ -164,6 +166,36 @@ export const InstanceApi = HttpApi.make("instance")
             identifier: "app.skills",
             summary: "List skills",
             description: "Get a list of all available skills in the OpenCode system.",
+          }),
+        ),
+        HttpApiEndpoint.post("skillInstall", InstancePaths.skill, {
+          query: WorkspaceRoutingQuery,
+          payload: SkillManaged.InstallInput,
+          success: described(Schema.Array(Skill.Info), "List of skills"),
+          error: [
+            SkillManaged.InvalidError,
+            SkillManaged.ConflictError,
+            SkillManaged.PluginRequiredError,
+            SkillManaged.InstallError,
+            SkillManaged.PersistenceError,
+          ],
+        }).annotateMerge(
+          OpenApi.annotations({
+            identifier: "app.skillInstall",
+            summary: "Install skills",
+            description: "Install standalone Skills into a managed project or global directory and verify discovery.",
+          }),
+        ),
+        HttpApiEndpoint.delete("skillRemove", InstancePaths.skillEntry, {
+          params: { name: Schema.String },
+          query: WorkspaceRoutingQuery,
+          success: described(Schema.Array(Skill.Info), "List of skills"),
+          error: [SkillManaged.NotFoundError, SkillManaged.PersistenceError],
+        }).annotateMerge(
+          OpenApi.annotations({
+            identifier: "app.skillRemove",
+            summary: "Uninstall skill",
+            description: "Remove one Skill installed through the managed Skill installer.",
           }),
         ),
         HttpApiEndpoint.get("lsp", InstancePaths.lsp, {

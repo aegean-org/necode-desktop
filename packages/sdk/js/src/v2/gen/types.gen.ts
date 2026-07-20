@@ -2392,6 +2392,51 @@ export type Agent = {
   steps?: number
 }
 
+export type SkillManagedInvalidError = {
+  _tag: "SkillManagedInvalidError"
+  message: string
+  field?: string
+}
+
+export type SkillManagedPluginRequiredError = {
+  _tag: "SkillManagedPluginRequiredError"
+  message: string
+  pluginSpec: string
+}
+
+export type SkillManagedInstallError = {
+  _tag: "SkillManagedInstallError"
+  message: string
+  stage: string
+}
+
+export type SkillManagedConflictError = {
+  _tag: "SkillManagedConflictError"
+  message: string
+  name: string
+  currentSource: string
+  incomingSource: string
+}
+
+export type SkillManagedPersistenceError = {
+  _tag: "SkillManagedPersistenceError"
+  message: string
+  path?: string
+  cause?:
+    | {
+        message: string
+        name?: string
+        stack?: string
+      }
+    | unknown
+}
+
+export type SkillManagedNotFoundError = {
+  _tag: "SkillManagedNotFoundError"
+  message: string
+  name: string
+}
+
 export type LspStatus = {
   id: string
   name: string
@@ -6588,12 +6633,115 @@ export type AppSkillsResponses = {
   200: Array<{
     name: string
     description?: string
+    slash?: boolean
     location: string
     content: string
+    source?: "builtin" | "managed" | "plugin" | "external" | "configured" | "url"
+    scope?: "builtin" | "plugin" | "global" | "local"
+    canUninstall?: boolean
+    installSource?: string
   }>
 }
 
 export type AppSkillsResponse = AppSkillsResponses[keyof AppSkillsResponses]
+
+export type AppSkillInstallData = {
+  body?: {
+    source: string
+    scope: "global" | "local"
+    replace?: boolean
+  }
+  path?: never
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/skill"
+}
+
+export type AppSkillInstallErrors = {
+  /**
+   * SkillManagedInvalidError | SkillManagedPluginRequiredError | SkillManagedInstallError | InvalidRequestError
+   */
+  400: SkillManagedInvalidError | SkillManagedPluginRequiredError | SkillManagedInstallError | InvalidRequestError
+  /**
+   * SkillManagedConflictError
+   */
+  409: SkillManagedConflictError
+  /**
+   * SkillManagedPersistenceError
+   */
+  500: SkillManagedPersistenceError
+}
+
+export type AppSkillInstallError = AppSkillInstallErrors[keyof AppSkillInstallErrors]
+
+export type AppSkillInstallResponses = {
+  /**
+   * List of skills
+   */
+  200: Array<{
+    name: string
+    description?: string
+    slash?: boolean
+    location: string
+    content: string
+    source?: "builtin" | "managed" | "plugin" | "external" | "configured" | "url"
+    scope?: "builtin" | "plugin" | "global" | "local"
+    canUninstall?: boolean
+    installSource?: string
+  }>
+}
+
+export type AppSkillInstallResponse = AppSkillInstallResponses[keyof AppSkillInstallResponses]
+
+export type AppSkillRemoveData = {
+  body?: never
+  path: {
+    name: string
+  }
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/skill/{name}"
+}
+
+export type AppSkillRemoveErrors = {
+  /**
+   * Bad request
+   */
+  400: BadRequestError
+  /**
+   * SkillManagedNotFoundError
+   */
+  404: SkillManagedNotFoundError
+  /**
+   * SkillManagedPersistenceError
+   */
+  500: SkillManagedPersistenceError
+}
+
+export type AppSkillRemoveError = AppSkillRemoveErrors[keyof AppSkillRemoveErrors]
+
+export type AppSkillRemoveResponses = {
+  /**
+   * List of skills
+   */
+  200: Array<{
+    name: string
+    description?: string
+    slash?: boolean
+    location: string
+    content: string
+    source?: "builtin" | "managed" | "plugin" | "external" | "configured" | "url"
+    scope?: "builtin" | "plugin" | "global" | "local"
+    canUninstall?: boolean
+    installSource?: string
+  }>
+}
+
+export type AppSkillRemoveResponse = AppSkillRemoveResponses[keyof AppSkillRemoveResponses]
 
 export type LspStatusData = {
   body?: never

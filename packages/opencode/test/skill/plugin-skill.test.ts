@@ -74,7 +74,11 @@ function setup(enabled: boolean) {
 it.instance("discovers skills from active plugins", () =>
   Effect.gen(function* () {
     yield* setup(true)
-    expect((yield* (yield* Skill.Service).all()).map((item) => item.name)).toContain("plugin-demo")
+    expect((yield* (yield* Skill.Service).all()).find((item) => item.name === "plugin-demo")).toMatchObject({
+      source: "plugin",
+      scope: "plugin",
+      canUninstall: false,
+    })
   }),
 )
 

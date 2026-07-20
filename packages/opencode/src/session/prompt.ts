@@ -1554,7 +1554,7 @@ export const layer = Layer.effect(
       const usesArgumentsPlaceholder = templateCommand.includes("$ARGUMENTS")
       let template = withArgs.replaceAll("$ARGUMENTS", input.arguments)
 
-      if (placeholders.length === 0 && !usesArgumentsPlaceholder && input.arguments.trim()) {
+      if (cmd.source !== "skill" && placeholders.length === 0 && !usesArgumentsPlaceholder && input.arguments.trim()) {
         template = template + "\n\n" + input.arguments
       }
 
@@ -1612,6 +1612,17 @@ export const layer = Layer.effect(
               prompt: templateParts.find((y) => y.type === "text")?.text ?? "",
             },
           ]
+        : cmd.source === "skill"
+          ? [
+              {
+                type: "text" as const,
+                text: `/${input.command}${input.arguments.trim() ? ` ${input.arguments}` : ""}`,
+              },
+              ...uniqueTemplateParts.map((part) =>
+                part.type === "text" ? { ...part, synthetic: true as const } : part,
+              ),
+              ...(input.parts ?? []),
+            ]
         : [...uniqueTemplateParts, ...(input.parts ?? [])]
 
       const userAgent = isSubtask ? (input.agent ?? (yield* agents.defaultInfo()).name) : agent.name
